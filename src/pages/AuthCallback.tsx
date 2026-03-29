@@ -2,6 +2,7 @@ import type { AuthSession } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { fetchProfile } from '../context/AuthContext';
+import { getPathForRoute } from '../i18n/routes';
 import supabase from '../lib/supabase';
 
 type AuthApi = {
@@ -55,13 +56,18 @@ export function AuthCallbackPage() {
           return;
         }
 
+        const nextPath =
+          profile.role === 'nettoyeur'
+            ? '/dashboard/nettoyeur'
+            : getPathForRoute(language, 'clientDashboard');
+
         if (profile.role === 'nettoyeur') {
-          window.history.replaceState({}, '', '/dashboard/nettoyeur');
+          window.history.replaceState({}, '', nextPath);
           window.dispatchEvent(new PopStateEvent('popstate'));
           return;
         }
 
-        window.history.replaceState({}, '', '/dashboard/client');
+        window.history.replaceState({}, '', nextPath);
         window.dispatchEvent(new PopStateEvent('popstate'));
       };
 
@@ -85,10 +91,15 @@ export function AuthCallbackPage() {
           return;
         }
 
+        const nextPath =
+          profile.role === 'nettoyeur'
+            ? '/dashboard/nettoyeur'
+            : getPathForRoute(language, 'clientDashboard');
+
         window.history.replaceState(
           {},
           '',
-          profile.role === 'nettoyeur' ? '/dashboard/nettoyeur' : '/dashboard/client'
+          nextPath
         );
         window.dispatchEvent(new PopStateEvent('popstate'));
       });
@@ -108,7 +119,7 @@ export function AuthCallbackPage() {
       active = false;
       cleanup?.();
     };
-  }, [navigateTo, redirectMessage]);
+  }, [language, navigateTo, redirectMessage]);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center bg-[#F7F7F7] px-4 py-16">

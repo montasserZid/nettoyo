@@ -7,7 +7,8 @@ import { HowItWorksPage } from './pages/HowItWorksPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { LoginPage, SignupPage } from './pages/AuthPages';
 import { AuthCallbackPage } from './pages/AuthCallback';
-import { CleanerDashboardPage, ClientDashboardPage } from './pages/DashboardPages';
+import { CleanerDashboardPage } from './pages/DashboardPages';
+import { ClientAddSpacePage, ClientDashboardPage } from './pages/ClientDashboardPage';
 import { AuthProvider } from './context/AuthContext';
 import { useLanguage } from './i18n/LanguageContext';
 
@@ -30,6 +31,10 @@ function AppContent() {
       ) : route === 'clientDashboard' ? (
         <ProtectedRoute>
           <ClientDashboardPage />
+        </ProtectedRoute>
+      ) : route === 'clientAddSpace' ? (
+        <ProtectedRoute>
+          <ClientAddSpacePage />
         </ProtectedRoute>
       ) : route === 'cleanerDashboard' ? (
         <ProtectedRoute>

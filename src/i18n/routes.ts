@@ -8,10 +8,11 @@ export type AppRoute =
   | 'signup'
   | 'authCallback'
   | 'clientDashboard'
+  | 'clientAddSpace'
   | 'cleanerDashboard';
 
 const localizedRouteSegments: Record<
-  Exclude<AppRoute, 'home' | 'authCallback' | 'clientDashboard' | 'cleanerDashboard'>,
+  Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard'>,
   Record<Language, string>
 > = {
   howItWorks: {
@@ -33,12 +34,21 @@ const localizedRouteSegments: Record<
     fr: 'inscription',
     en: 'signup',
     es: 'registro'
+  },
+  clientDashboard: {
+    fr: 'dashboard/client',
+    en: 'dashboard/client',
+    es: 'dashboard/client'
+  },
+  clientAddSpace: {
+    fr: 'dashboard/client/ajouter-espace',
+    en: 'dashboard/client/add-space',
+    es: 'dashboard/client/agregar-espacio'
   }
 };
 
-const staticRoutePaths: Record<Extract<AppRoute, 'authCallback' | 'clientDashboard' | 'cleanerDashboard'>, string> = {
+const staticRoutePaths: Record<Extract<AppRoute, 'authCallback' | 'cleanerDashboard'>, string> = {
   authCallback: '/auth/callback',
-  clientDashboard: '/dashboard/client',
   cleanerDashboard: '/dashboard/nettoyeur'
 };
 
@@ -60,7 +70,7 @@ export function getLocalizedSectionPath(language: Language, sectionId: string) {
 
 export function resolveRoute(pathname: string): { language: Language; route: AppRoute } {
   const staticMatch = (Object.entries(staticRoutePaths) as Array<
-    [Extract<AppRoute, 'authCallback' | 'clientDashboard' | 'cleanerDashboard'>, string]
+    [Extract<AppRoute, 'authCallback' | 'cleanerDashboard'>, string]
   >).find(([, value]) => value === pathname);
 
   if (staticMatch) {
@@ -69,8 +79,9 @@ export function resolveRoute(pathname: string): { language: Language; route: App
     return { language, route: staticMatch[0] };
   }
 
-  const [, rawLanguage, rawSlug] = pathname.split('/');
+  const [, rawLanguage, ...rawSegments] = pathname.split('/');
   const language: Language = rawLanguage === 'en' || rawLanguage === 'es' ? rawLanguage : 'fr';
+  const rawSlug = rawSegments.filter(Boolean).join('/');
 
   if (!rawSlug) {
     return { language, route: 'home' };
@@ -78,7 +89,7 @@ export function resolveRoute(pathname: string): { language: Language; route: App
 
   const matchingRoute = (
     Object.keys(localizedRouteSegments) as Array<
-      Exclude<AppRoute, 'home' | 'authCallback' | 'clientDashboard' | 'cleanerDashboard'>
+      Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard'>
     >
   ).find(
     (route) => localizedRouteSegments[route][language] === rawSlug

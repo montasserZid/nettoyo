@@ -42,3 +42,56 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+CREATE TABLE public.spaces (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  client_id UUID REFERENCES public.profiles(id)
+    ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL
+    CHECK (type IN ('apartment', 'house', 'office', 'other')),
+  format_system TEXT NOT NULL DEFAULT 'quebec'
+    CHECK (format_system IN ('quebec', 'international')),
+  quebec_format TEXT,
+  address TEXT,
+  city TEXT,
+  postal_code TEXT,
+  floor TEXT,
+  access_code TEXT,
+  photo_url TEXT,
+  notes TEXT,
+  is_favorite BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
+  rooms JSONB DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.spaces ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Clients can manage own spaces"
+  ON public.spaces FOR ALL
+  USING (auth.uid() = client_id);
+
+CREATE INDEX spaces_client_id_idx
+  ON public.spaces(client_id);
+
+CREATE TABLE public.bookings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  client_id UUID REFERENCES public.profiles(id)
+    ON DELETE CASCADE NOT NULL,
+  space_id UUID REFERENCES public.spaces(id)
+    ON DELETE CASCADE NOT NULL,
+  status TEXT DEFAULT 'pending'
+    CHECK (status IN
+      ('pending','confirmed','completed','cancelled')),
+  service_type TEXT,
+  scheduled_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Clients can view own bookings"
+  ON public.bookings FOR SELECT
+  USING (auth.uid() = client_id);

@@ -115,3 +115,20 @@
 - Private routes protected ✅
 - Navbar updated with user state ✅
 - Status: ✅ done
+
+## Step 18 - Client dashboard built
+- Main dashboard: /dashboard/client ✅
+- Stats bar (spaces, cleanings, rating) ✅
+- Space cards grid with favorite toggle ✅
+- Cleaning history section ✅
+- Add space page: 4-step animated flow ✅
+- Step 1: space type selection (4 cards) ✅
+- Step 2: Quebec format + international toggle ✅
+- Step 3: animated room counter cards ✅
+- Step 4: address, photo upload, notes, favorite ✅
+- Supabase spaces table created ✅
+- Supabase bookings table created ✅
+- Photo upload to Supabase Storage ✅
+- All content in FR / EN / ES ✅
+- Protected routes - redirects if not logged in ✅
+- Status: ✅ done
