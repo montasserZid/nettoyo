@@ -94,3 +94,10 @@
 - Fully responsive desktop + mobile ✅
 - UI only — no real auth logic yet ✅
 - Status: ✅ done
+
+## Step 16 — Sign-up page Vercel deployment fixed
+- Root cause: Vercel had no SPA rewrite, so direct localized auth routes like /fr/inscription were treated as missing static files instead of being served by dist/index.html
+- Files changed: vercel.json · PROGRESS.md
+- /fr/inscription · /en/signup · /es/registro all load ✅
+- No other pages affected ✅
+- Status: ✅ done
