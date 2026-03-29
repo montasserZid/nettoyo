@@ -1,10 +1,14 @@
 import { LanguageProvider } from './i18n/LanguageContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { LoginPage, SignupPage } from './pages/AuthPages';
+import { AuthCallbackPage } from './pages/AuthCallback';
+import { CleanerDashboardPage, ClientDashboardPage } from './pages/DashboardPages';
+import { AuthProvider } from './context/AuthContext';
 import { useLanguage } from './i18n/LanguageContext';
 
 function AppContent() {
@@ -21,6 +25,16 @@ function AppContent() {
         <LoginPage />
       ) : route === 'signup' ? (
         <SignupPage />
+      ) : route === 'authCallback' ? (
+        <AuthCallbackPage />
+      ) : route === 'clientDashboard' ? (
+        <ProtectedRoute>
+          <ClientDashboardPage />
+        </ProtectedRoute>
+      ) : route === 'cleanerDashboard' ? (
+        <ProtectedRoute>
+          <CleanerDashboardPage />
+        </ProtectedRoute>
       ) : (
         <HomePage />
       )}
@@ -31,9 +45,11 @@ function AppContent() {
 
 function App() {
   return (
-    <LanguageProvider>
-      <AppContent />
-    </LanguageProvider>
+    <AuthProvider>
+      <LanguageProvider>
+        <AppContent />
+      </LanguageProvider>
+    </AuthProvider>
   );
 }
 

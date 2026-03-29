@@ -1,32 +1,53 @@
 import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Language } from '../i18n/translations';
 import { getLocalizedSectionPath, getPathForRoute } from '../i18n/routes';
 import { NettoyoLogo } from './NettoyoLogo';
 
+const accountLabels = {
+  fr: { profile: 'Mon profil', logout: 'Se déconnecter' },
+  en: { profile: 'My profile', logout: 'Log out' },
+  es: { profile: 'Mi perfil', logout: 'Cerrar sesión' }
+} as const;
+
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const { language, setLanguage, route, navigateTo, t } = useLanguage();
+  const { user, profile, signOut, isCleaner } = useAuth();
 
-  const flags: Record<Language, string> = {
-    fr: '🇫🇷',
-    en: '🇬🇧',
-    es: '🇪🇸'
-  };
-
+  const flags: Record<Language, string> = { fr: '🇫🇷', en: '🇬🇧', es: '🇪🇸' };
   const howItWorksPath = getPathForRoute(language, 'howItWorks');
   const servicesPath = getPathForRoute(language, 'services');
   const loginPath = getPathForRoute(language, 'login');
   const cleanerPath = getLocalizedSectionPath(language, 'become-cleaner');
-  const howItWorksClass =
-    route === 'howItWorks'
-      ? 'text-[#4FC3F7] font-semibold'
-      : 'text-[#1A1A2E] font-medium hover:text-[#4FC3F7] transition-colors';
-  const servicesClass =
-    route === 'services'
-      ? 'text-[#4FC3F7] font-semibold'
-      : 'text-[#1A1A2E] font-medium hover:text-[#4FC3F7] transition-colors';
+  const dashboardRoute = isCleaner() ? 'cleanerDashboard' : 'clientDashboard';
+  const dashboardPath = getPathForRoute(language, dashboardRoute);
+  const labels = accountLabels[language];
+
+  const initials = useMemo(() => {
+    const first = profile?.first_name?.[0] ?? user?.email?.[0] ?? 'N';
+    const second = profile?.last_name?.[0] ?? user?.email?.[1] ?? '';
+    return `${first}${second}`.toUpperCase();
+  }, [profile?.first_name, profile?.last_name, user?.email]);
+
+  const goTo = (nextRoute: typeof dashboardRoute | 'howItWorks' | 'services' | 'login') => {
+    setMobileMenuOpen(false);
+    setAccountMenuOpen(false);
+    navigateTo(nextRoute);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setAccountMenuOpen(false);
+    setMobileMenuOpen(false);
+    window.location.assign('/');
+  };
+
+  const howItWorksClass = route === 'howItWorks' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E] font-medium hover:text-[#4FC3F7] transition-colors';
+  const servicesClass = route === 'services' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E] font-medium hover:text-[#4FC3F7] transition-colors';
 
   return (
     <nav className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white">
@@ -37,145 +58,68 @@ export function Navbar() {
           </a>
 
           <div className="hidden items-center space-x-8 md:flex">
-            <a
-              href={howItWorksPath}
-              onClick={(event) => {
-                event.preventDefault();
-                navigateTo('howItWorks');
-              }}
-              className={howItWorksClass}
-            >
-              {t.nav.howItWorks}
-            </a>
-            <a
-              href={servicesPath}
-              onClick={(event) => {
-                event.preventDefault();
-                navigateTo('services');
-              }}
-              className={servicesClass}
-            >
-              {t.nav.services}
-            </a>
-            <a href={cleanerPath} className="font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">
-              {t.nav.becomeCleaner}
-            </a>
+            <a href={howItWorksPath} onClick={(event) => { event.preventDefault(); goTo('howItWorks'); }} className={howItWorksClass}>{t.nav.howItWorks}</a>
+            <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={servicesClass}>{t.nav.services}</a>
+            <a href={cleanerPath} className="font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.becomeCleaner}</a>
           </div>
 
           <div className="hidden items-center space-x-4 md:flex">
             <div className="mr-2 flex items-center space-x-2">
               {(Object.keys(flags) as Language[]).map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => setLanguage(lang)}
-                  className={`text-2xl transition-all ${
-                    language === lang ? 'scale-110 border-b-2 border-[#A8E6CF]' : 'opacity-60 hover:opacity-100'
-                  }`}
-                  aria-label={lang}
-                >
-                  {flags[lang]}
-                </button>
+                <button key={lang} onClick={() => setLanguage(lang)} className={`text-2xl transition-all ${language === lang ? 'scale-110 border-b-2 border-[#A8E6CF]' : 'opacity-60 hover:opacity-100'}`} aria-label={lang}>{flags[lang]}</button>
               ))}
             </div>
 
-            <a
-              href={loginPath}
-              onClick={(event) => {
-                event.preventDefault();
-                navigateTo('login');
-              }}
-              className="px-4 py-2 font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]"
-            >
-              {t.nav.login}
-            </a>
+            {user ? (
+              <div className="relative">
+                <button onClick={() => setAccountMenuOpen((value) => !value)} className="flex items-center gap-3 rounded-full border border-[#E5E7EB] bg-white px-3 py-2 shadow-[0_8px_20px_rgba(17,24,39,0.05)]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4FC3F7] text-sm font-bold text-white">{initials}</span>
+                  <span className="max-w-[140px] truncate text-sm font-semibold text-[#1A1A2E]">{profile?.first_name || user.email}</span>
+                </button>
+                {accountMenuOpen ? (
+                  <div className="absolute right-0 mt-3 w-48 rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(17,24,39,0.08)]">
+                    <button onClick={() => goTo(dashboardRoute)} className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-[#1A1A2E] transition-colors hover:bg-[#F7F7F7]">{labels.profile}</button>
+                    <button onClick={() => { void handleSignOut(); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-[#1A1A2E] transition-colors hover:bg-[#F7F7F7]">{labels.logout}</button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <a href={loginPath} onClick={(event) => { event.preventDefault(); goTo('login'); }} className="px-4 py-2 font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.login}</a>
+            )}
 
-            <a
-              href={loginPath}
-              onClick={(event) => {
-                event.preventDefault();
-                navigateTo('login');
-              }}
-              className="rounded-full bg-[#4FC3F7] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#3FAAD4]"
-            >
-              {t.nav.bookNow}
-            </a>
+            <a href={user ? dashboardPath : loginPath} onClick={(event) => { event.preventDefault(); goTo(user ? dashboardRoute : 'login'); }} className="rounded-full bg-[#4FC3F7] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#3FAAD4]">{t.nav.bookNow}</a>
           </div>
 
-          <button className="text-[#1A1A2E] md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <button className="text-[#1A1A2E] md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>{mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}</button>
         </div>
       </div>
 
-      {mobileMenuOpen && (
+      {mobileMenuOpen ? (
         <div className="border-t border-[#E5E7EB] bg-white md:hidden">
           <div className="space-y-4 px-4 py-4">
-            <a
-              href={howItWorksPath}
-              onClick={(event) => {
-                event.preventDefault();
-                setMobileMenuOpen(false);
-                navigateTo('howItWorks');
-              }}
-              className={`block ${route === 'howItWorks' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}
-            >
-              {t.nav.howItWorks}
-            </a>
-            <a
-              href={servicesPath}
-              onClick={(event) => {
-                event.preventDefault();
-                setMobileMenuOpen(false);
-                navigateTo('services');
-              }}
-              className={`block ${route === 'services' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}
-            >
-              {t.nav.services}
-            </a>
-            <a href={cleanerPath} className="block font-medium text-[#1A1A2E]">
-              {t.nav.becomeCleaner}
-            </a>
+            <a href={howItWorksPath} onClick={(event) => { event.preventDefault(); goTo('howItWorks'); }} className={`block ${route === 'howItWorks' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.howItWorks}</a>
+            <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={`block ${route === 'services' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.services}</a>
+            <a href={cleanerPath} className="block font-medium text-[#1A1A2E]">{t.nav.becomeCleaner}</a>
 
             <div className="flex items-center space-x-3 border-t border-[#E5E7EB] pt-2">
               {(Object.keys(flags) as Language[]).map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => setLanguage(lang)}
-                  className={`text-2xl transition-all ${
-                    language === lang ? 'scale-110 border-b-2 border-[#A8E6CF]' : 'opacity-60'
-                  }`}
-                >
-                  {flags[lang]}
-                </button>
+                <button key={lang} onClick={() => setLanguage(lang)} className={`text-2xl transition-all ${language === lang ? 'scale-110 border-b-2 border-[#A8E6CF]' : 'opacity-60'}`}>{flags[lang]}</button>
               ))}
             </div>
 
-            <a
-              href={loginPath}
-              onClick={(event) => {
-                event.preventDefault();
-                setMobileMenuOpen(false);
-                navigateTo('login');
-              }}
-              className="block w-full rounded-lg border border-[#E5E7EB] px-4 py-2 text-center font-medium text-[#1A1A2E]"
-            >
-              {t.nav.login}
-            </a>
+            {user ? (
+              <>
+                <button onClick={() => goTo(dashboardRoute)} className="block w-full rounded-lg border border-[#E5E7EB] px-4 py-2 text-center font-medium text-[#1A1A2E]">{labels.profile}</button>
+                <button onClick={() => { void handleSignOut(); }} className="block w-full rounded-lg border border-[#E5E7EB] px-4 py-2 text-center font-medium text-[#1A1A2E]">{labels.logout}</button>
+              </>
+            ) : (
+              <a href={loginPath} onClick={(event) => { event.preventDefault(); goTo('login'); }} className="block w-full rounded-lg border border-[#E5E7EB] px-4 py-2 text-center font-medium text-[#1A1A2E]">{t.nav.login}</a>
+            )}
 
-            <a
-              href={loginPath}
-              onClick={(event) => {
-                event.preventDefault();
-                setMobileMenuOpen(false);
-                navigateTo('login');
-              }}
-              className="block w-full rounded-full bg-[#4FC3F7] px-6 py-3 text-center font-semibold text-white"
-            >
-              {t.nav.bookNow}
-            </a>
+            <a href={user ? dashboardPath : loginPath} onClick={(event) => { event.preventDefault(); goTo(user ? dashboardRoute : 'login'); }} className="block w-full rounded-full bg-[#4FC3F7] px-6 py-3 text-center font-semibold text-white">{t.nav.bookNow}</a>
           </div>
         </div>
-      )}
+      ) : null}
     </nav>
   );
 }

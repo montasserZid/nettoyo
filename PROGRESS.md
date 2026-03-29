@@ -1,8 +1,8 @@
-# Nettoyó — Build Progress Log
+# Nettoyo - Build Progress Log
 
 ## Phase 1: Landing Page (No Database)
 
-### 2024-03-28 — Initial Setup
+### 2024-03-28 - Initial Setup
 - [x] Create PROGRESS.md build log
 - [x] Set up i18n system with French as default language
 - [x] Create translation files for FR, EN, ES
@@ -39,15 +39,15 @@
 - Fully responsive (mobile & desktop)
 - Smooth transitions and hover states
 
-## Step 11 — Logo sizing fixed
+## Step 11 - Logo sizing fixed
 - Investigated root cause of small/unclear logo rendering
 - Applied optimal size for header logo
 - Applied optimal size for footer logo
 - Fixed any clipping or overflow issues on sparkle stars
 - Both logos link to homepage
-- Status: ✅ done
+- Status: done
 
-## Step 12 — "Comment ça marche" page built
+## Step 12 - "Comment ca marche" page built
 - Route wired: /fr/comment-ca-marche · /en/how-it-works · /es/como-funciona
 - Active nav link highlighted on this page
 - Section 1: hero banner with CTA ✅
@@ -63,7 +63,7 @@
 - Same design system as landing page ✅
 - Status: ✅ done
 
-## Step 14 — Services page built
+## Step 14 - Services page built
 - Route wired: /fr/services · /en/services · /es/servicios
 - Active nav link highlighted ✅
 - Section 1: hero with search bar ✅
@@ -80,11 +80,11 @@
 - Same design system as all other pages ✅
 - Status: ✅ done
 
-## Step 15 — Authentication pages built (UI only)
+## Step 15 - Authentication pages built (UI only)
 - Login page: /fr/connexion · /en/login · /es/iniciar-sesion ✅
 - Sign-up page: /fr/inscription · /en/signup · /es/registro ✅
 - Navbar "Connexion" button links to login page ✅
-- All CTA "Réserver" buttons redirect to login if not logged in ✅
+- All CTA "Reserver" buttons redirect to login if not logged in ✅
 - Social login buttons: Google · Facebook · Apple ✅
 - Role selection cards: client · cleaner with selection state ✅
 - Form reveals on role card click with smooth animation ✅
@@ -92,12 +92,26 @@
 - Login ↔ Sign-up navigation buttons prominent on both pages ✅
 - All content in FR / EN / ES ✅
 - Fully responsive desktop + mobile ✅
-- UI only — no real auth logic yet ✅
+- UI only - no real auth logic yet ✅
 - Status: ✅ done
 
-## Step 16 — Sign-up page Vercel deployment fixed
+## Step 16 - Sign-up page Vercel deployment fixed
 - Root cause: Vercel had no SPA rewrite, so direct localized auth routes like /fr/inscription were treated as missing static files instead of being served by dist/index.html
 - Files changed: vercel.json · PROGRESS.md
 - /fr/inscription · /en/signup · /es/registro all load ✅
 - No other pages affected ✅
+- Status: ✅ done
+
+## Step 17 - Supabase auth fully connected
+- Supabase client created in src/lib/supabase.ts ✅
+- .env file created with correct variable names ✅
+- schema.sql written with profiles table + RLS + trigger ✅
+- AuthContext created with session management ✅
+- App wrapped with AuthProvider ✅
+- Login form connected to Supabase (email + Google) ✅
+- Signup form connected to Supabase with role saved ✅
+- OAuth callback page created ✅
+- ProtectedRoute component created ✅
+- Private routes protected ✅
+- Navbar updated with user state ✅
 - Status: ✅ done
