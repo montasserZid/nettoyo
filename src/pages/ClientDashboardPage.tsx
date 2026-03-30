@@ -107,17 +107,6 @@ const localeByLanguage = {
   es: 'es-ES'
 } as const;
 
-const roomIcons: Record<RoomKey, ReactNode> = {
-  bedroom: <BedDouble size={30} />,
-  living_room: <Sofa size={30} />,
-  kitchen: <ChefHat size={30} />,
-  bathroom: <Bath size={30} />,
-  office: <Monitor size={30} />,
-  basement: <Warehouse size={30} />,
-  walk_in_closet: <Shirt size={30} />,
-  laundry_room: <WashingMachine size={30} />
-};
-
 const typeIcons: Record<SpaceType, ReactNode> = {
   apartment: <Building2 size={28} />,
   house: <Home size={28} />,
@@ -232,7 +221,8 @@ const contentByLanguage = {
         stepOne: "Choisissez un type d'espace et ajoutez un nom.",
         stepTwo: 'Sélectionnez une taille ou ajustez les compteurs.',
         upload: "Impossible d'envoyer la photo pour le moment.",
-        generic: "Impossible d'enregistrer cet espace pour le moment."
+        generic: "Impossible d'enregistrer cet espace pour le moment.",
+        profileMissing: 'Impossible de sauvegarder sans profil client actif.'
       },
       stepTitles: [
         "Type d'espace",
@@ -351,7 +341,8 @@ const contentByLanguage = {
         stepOne: 'Choose a space type and add a name.',
         stepTwo: 'Select a size or adjust the counters.',
         upload: 'Unable to upload the photo right now.',
-        generic: 'Unable to save this space right now.'
+        generic: 'Unable to save this space right now.',
+        profileMissing: 'Unable to save without an active client profile.'
       },
       stepTitles: ['Space type', 'Format and size', 'Room details', 'Space information'],
       typeStep: {
@@ -460,7 +451,8 @@ const contentByLanguage = {
         stepOne: 'Elige un tipo de espacio y añade un nombre.',
         stepTwo: 'Selecciona un tamaño o ajusta los contadores.',
         upload: 'No se pudo subir la foto en este momento.',
-        generic: 'No se pudo guardar este espacio en este momento.'
+        generic: 'No se pudo guardar este espacio en este momento.',
+        profileMissing: 'No se puede guardar sin un perfil de cliente activo.'
       },
       stepTitles: ['Tipo de espacio', 'Formato y tamaño', 'Detalle de habitaciones', 'Información del espacio'],
       typeStep: {
@@ -1211,7 +1203,13 @@ export function ClientAddSpacePage() {
   };
 
   const handleSubmit = async () => {
-    if (!profile?.id || !form.type) {
+    if (!profile?.id) {
+      setErrorMessage(content.addSpace.errors.profileMissing);
+      return;
+    }
+
+    if (!form.type) {
+      setErrorMessage(content.addSpace.errors.stepOne);
       return;
     }
 
@@ -1279,8 +1277,6 @@ export function ClientAddSpacePage() {
   };
 
   const indicatorText = content.addSpace.indicator.replace('{current}', String(step));
-  const dashboardPath = getPathForRoute(language, 'clientDashboard');
-
   return (
     <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7]">
       <div className="mx-auto max-w-4xl">

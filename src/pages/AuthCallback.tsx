@@ -45,7 +45,11 @@ export function AuthCallbackPage() {
           return;
         }
 
-        const profile = await fetchProfile(session.user.id);
+        const profile = await fetchProfile({
+          id: session.user.id,
+          email: session.user.email,
+          user_metadata: session.user.user_metadata as Record<string, unknown> | null
+        });
 
         if (!active) {
           return;
@@ -80,7 +84,11 @@ export function AuthCallbackPage() {
           return;
         }
 
-        const profile = await fetchProfile(session.user.id);
+        const profile = await fetchProfile({
+          id: session.user.id,
+          email: session.user.email,
+          user_metadata: session.user.user_metadata as Record<string, unknown> | null
+        });
 
         if (!active) {
           return;

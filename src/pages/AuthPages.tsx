@@ -24,7 +24,18 @@ type AuthApi = {
   signInWithPassword: (credentials: {
     email: string;
     password: string;
-  }) => Promise<{ data: { user: { id: string } | null }; error: { message: string } | null }>;
+  }) => Promise<{
+    data: {
+      user:
+        | {
+            id: string;
+            email?: string | null;
+            user_metadata?: Record<string, unknown> | null;
+          }
+        | null;
+    };
+    error: { message: string } | null;
+  }>;
   signInWithOAuth: (input: {
     provider: 'google';
     options: { redirectTo: string };
@@ -286,7 +297,11 @@ export function LoginPage() {
     if (error) { setErrorMessage(error.message); setLoadingMode(null); return; }
     if (!data.user) { setErrorMessage('Unable to load user account.'); setLoadingMode(null); return; }
     try {
-      const profile = await fetchProfile(data.user.id);
+      const profile = await fetchProfile({
+        id: data.user.id,
+        email: data.user.email ?? null,
+        user_metadata: data.user.user_metadata ?? null
+      });
       navigateTo(profile?.role === 'nettoyeur' ? 'cleanerDashboard' : 'clientDashboard');
     } catch (profileError) {
       setErrorMessage(profileError instanceof Error ? profileError.message : 'Unable to load profile.');

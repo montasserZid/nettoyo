@@ -21,6 +21,12 @@ export type Profile = {
   updated_at: string;
 };
 
+type ProfileSource = {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+};
+
 type AuthContextValue = {
   user: AuthUser | null;
   session: AuthSession | null;
@@ -42,18 +48,37 @@ type AuthApi = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const auth = supabase.auth as unknown as AuthApi;
 
-export async function fetchProfile(userId: string) {
+export async function fetchProfile(input: string | ProfileSource) {
+  const source: ProfileSource = typeof input === 'string' ? { id: input } : input;
+  const now = new Date().toISOString();
+  const fallbackRole = source.user_metadata?.role === 'nettoyeur' ? 'nettoyeur' : 'client';
+
+  const fallbackProfile: Profile = {
+    id: source.id,
+    email: source.email ?? '',
+    role: fallbackRole,
+    first_name: typeof source.user_metadata?.first_name === 'string' ? source.user_metadata.first_name : null,
+    last_name: typeof source.user_metadata?.last_name === 'string' ? source.user_metadata.last_name : null,
+    city: typeof source.user_metadata?.city === 'string' ? source.user_metadata.city : null,
+    avatar_url: null,
+    created_at: now,
+    updated_at: now
+  };
+
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', userId)
+    .eq('id', source.id)
     .maybeSingle();
 
   if (error) {
-    throw error;
+    if (error.code === 'PGRST205') {
+      return fallbackProfile;
+    }
+    throw new Error(error.message ?? 'Unable to load profile.');
   }
 
-  return (data as Profile | null) ?? null;
+  return (data as Profile | null) ?? fallbackProfile;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -82,7 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const nextProfile = await fetchProfile(nextSession.user.id);
+        const nextProfile = await fetchProfile({
+          id: nextSession.user.id,
+          email: nextSession.user.email,
+          user_metadata: nextSession.user.user_metadata as Record<string, unknown> | null
+        });
         if (isMounted) {
           setProfile(nextProfile);
         }
