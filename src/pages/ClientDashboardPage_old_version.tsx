@@ -1,6 +1,30 @@
 import type { ChangeEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bath, BedDouble, Briefcase, Building2, Camera, ChefHat, ChevronLeft, ChevronRight, Grid2x2 as Grid2X2, Home, Loader2, Lock, MapPin, Monitor, Pencil, Plus, Shirt, Sofa, Star, Trash2, Warehouse, WashingMachine, X } from 'lucide-react';
+import {
+  Bath,
+  BedDouble,
+  Briefcase,
+  Building2,
+  Camera,
+  ChefHat,
+  ChevronLeft,
+  ChevronRight,
+  Grid2X2,
+  Home,
+  Loader2,
+  Lock,
+  MapPin,
+  Monitor,
+  Pencil,
+  Plus,
+  Shirt,
+  Sofa,
+  Star,
+  Trash2,
+  Warehouse,
+  WashingMachine,
+  X
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
@@ -1068,7 +1092,6 @@ export function ClientAddSpacePage() {
   const [hydrating, setHydrating] = useState(Boolean(editingId));
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   useEffect(() => {
     if (!profile?.id || !editingId) {
@@ -1282,81 +1305,63 @@ export function ClientAddSpacePage() {
   const dashboardPath = getPathForRoute(language, 'clientDashboard');
 
   return (
-    <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7]">
-      <div className="mx-auto max-w-4xl">
+    <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl">
         {pageStyles()}
-
-        {/* Compact Header */}
-        <div className="sticky top-20 z-40 bg-white/95 backdrop-blur-sm border-b border-[#E5E7EB] px-4 py-3 sm:px-6 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => step > 1 ? goToStep(step - 1, 'backward') : navigateTo('clientDashboard')}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280] transition-colors hover:bg-[#F7F7F7]"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[#4FC3F7]">{indicatorText}</p>
-                  <h1 className="truncate text-lg font-bold text-[#1A1A2E] sm:text-xl">{content.addSpace.stepTitles[step - 1]}</h1>
-                </div>
-              </div>
+        <div className="rounded-[30px] bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.07)] sm:p-8">
+          <div className="flex flex-col gap-4 border-b border-[#E5E7EB] pb-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#4FC3F7]">{indicatorText}</p>
+              <h1 className="mt-2 text-3xl font-bold text-[#1A1A2E]">{content.addSpace.stepTitles[step - 1]}</h1>
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {[1, 2, 3, 4].map((value) => (
                 <span
                   key={value}
-                  className={`h-2 rounded-full transition-all ${value === step ? 'w-8 bg-[#4FC3F7]' : value < step ? 'w-5 bg-[#A8E6CF]' : 'w-5 bg-[#E5E7EB]'}`}
+                  className={`h-2.5 rounded-full transition-all ${value === step ? 'w-12 bg-[#4FC3F7]' : value < step ? 'w-7 bg-[#A8E6CF]' : 'w-7 bg-[#E5E7EB]'}`}
                 />
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Main Content Area */}
-        <div className="px-4 py-4 sm:px-6 pb-24">
           {hydrating ? (
-            <div className="flex min-h-[50vh] items-center justify-center">
+            <div className="flex min-h-[420px] items-center justify-center">
               <Loader2 className="animate-spin text-[#4FC3F7]" size={30} />
             </div>
           ) : (
             <div
               key={step}
-              className="pb-4"
+              className="min-h-[480px] pt-8"
               style={{
                 animation: stepDirection === 'forward' ? 'step-slide-forward 300ms ease both' : 'step-slide-backward 300ms ease both'
               }}
             >
               {step === 1 ? (
-                <div className="space-y-5">
-                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
-                    <h2 className="text-xl font-bold text-[#1A1A2E] sm:text-2xl">{content.addSpace.typeStep.title}</h2>
-                    <div className="mt-4 grid gap-3 grid-cols-2 sm:gap-4">
-                      {(Object.keys(content.addSpace.typeStep.cards) as SpaceType[]).map((spaceType) => {
-                        const card = content.addSpace.typeStep.cards[spaceType];
-                        const selected = form.type === spaceType;
-                        const tone = spaceType === 'house' ? 'bg-[rgba(168,230,207,0.18)] text-[#60B99A]' : spaceType === 'office' ? 'bg-[rgba(245,158,11,0.18)] text-[#D97706]' : spaceType === 'other' ? 'bg-[rgba(127,119,221,0.16)] text-[#7F77DD]' : 'bg-[rgba(79,195,247,0.18)] text-[#4FC3F7]';
+                <div>
+                  <h2 className="text-center text-3xl font-bold text-[#1A1A2E]">{content.addSpace.typeStep.title}</h2>
+                  <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                    {(Object.keys(content.addSpace.typeStep.cards) as SpaceType[]).map((spaceType) => {
+                      const card = content.addSpace.typeStep.cards[spaceType];
+                      const selected = form.type === spaceType;
+                      const tone = spaceType === 'house' ? 'bg-[rgba(168,230,207,0.18)] text-[#60B99A]' : spaceType === 'office' ? 'bg-[rgba(245,158,11,0.18)] text-[#D97706]' : spaceType === 'other' ? 'bg-[rgba(127,119,221,0.16)] text-[#7F77DD]' : 'bg-[rgba(79,195,247,0.18)] text-[#4FC3F7]';
 
-                        return (
-                          <button
-                            key={spaceType}
-                            type="button"
-                            onClick={() => setForm((currentForm) => ({ ...currentForm, type: spaceType }))}
-                            className={`rounded-xl border p-4 text-left transition-all duration-200 ${selected ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.05)] shadow-[0_0_0_3px_rgba(79,195,247,0.12)]' : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'}`}
-                          >
-                            <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${tone}`}>{typeIcons[spaceType]}</div>
-                            <h3 className="mt-3 text-base font-bold text-[#1A1A2E]">{card.title}</h3>
-                            <p className="mt-1 text-xs leading-5 text-[#6B7280]">{card.description}</p>
-                          </button>
-                        );
-                      })}
-                    </div>
+                      return (
+                        <button
+                          key={spaceType}
+                          type="button"
+                          onClick={() => setForm((currentForm) => ({ ...currentForm, type: spaceType }))}
+                          className={`rounded-[24px] border bg-white p-6 text-left shadow-[0_12px_28px_rgba(17,24,39,0.05)] transition-all duration-200 hover:-translate-y-0.5 ${selected ? 'scale-[1.02] border-[#4FC3F7] bg-[rgba(79,195,247,0.05)] shadow-[0_0_0_4px_rgba(79,195,247,0.14)]' : 'border-[#E5E7EB]'}`}
+                        >
+                          <div className={`inline-flex h-16 w-16 items-center justify-center rounded-2xl ${tone}`}>{typeIcons[spaceType]}</div>
+                          <h3 className="mt-5 text-xl font-bold text-[#1A1A2E]">{card.title}</h3>
+                          <p className="mt-2 text-sm leading-6 text-[#6B7280]">{card.description}</p>
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
-                    <Field label={content.addSpace.typeStep.namePlaceholder}>
+                  <div className="mt-8">
+                    <Field label="">
                       <TextInput
                         value={form.name}
                         onChange={(event) => setForm((currentForm) => ({ ...currentForm, name: event.target.value }))}
@@ -1368,122 +1373,104 @@ export function ClientAddSpacePage() {
               ) : null}
 
               {step === 2 ? (
-                <div className="space-y-5">
-                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
-                    <div className="flex rounded-full bg-[#F3F4F6] p-1">
-                      {(['quebec', 'international'] as FormatSystem[]).map((system) => {
-                        const active = form.formatSystem === system;
-                        return (
-                          <button
-                            key={system}
-                            type="button"
-                            onClick={() => setForm((currentForm) => ({ ...currentForm, formatSystem: system }))}
-                            className={`flex-1 rounded-full px-3 py-2.5 text-sm font-semibold transition-all ${active ? 'bg-[#4FC3F7] text-white shadow-md' : 'text-[#6B7280]'}`}
-                          >
-                            {system === 'quebec' ? content.addSpace.sizeStep.quebec : content.addSpace.sizeStep.international}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {form.formatSystem === 'quebec' ? (
-                      <div className="mt-5">
-                        <h2 className="text-lg font-bold text-[#1A1A2E]">{content.addSpace.sizeStep.title}</h2>
-                        <p className="mt-2 text-sm text-[#6B7280]">{content.addSpace.sizeStep.subtitle}</p>
-                        <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                          {content.addSpace.sizeStep.formats.map((item) => {
-                            const active = form.quebecFormat === item.value;
-                            return (
-                              <button
-                                key={item.value}
-                                type="button"
-                                onClick={() => handleFormatSelect(item.value)}
-                                className={`rounded-xl border px-3 py-4 text-center transition-all ${active ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.05)] shadow-[0_0_0_3px_rgba(79,195,247,0.12)]' : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'}`}
-                              >
-                                <p className="text-2xl font-bold text-[#1A1A2E]">{item.value}</p>
-                                <p className="mt-1.5 text-xs text-[#6B7280]">{item.label}</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                        <NumberStepper label={content.addSpace.sizeStep.bedrooms} value={form.rooms.bedroom} onChange={(value) => setBedroomsBathrooms(value, form.rooms.bathroom)} />
-                        <NumberStepper label={content.addSpace.sizeStep.bathrooms} value={form.rooms.bathroom} onChange={(value) => setBedroomsBathrooms(form.rooms.bedroom, value)} />
-                      </div>
-                    )}
+                <div>
+                  <div className="mx-auto flex max-w-md rounded-full bg-[#F3F4F6] p-1">
+                    {(['quebec', 'international'] as FormatSystem[]).map((system) => {
+                      const active = form.formatSystem === system;
+                      return (
+                        <button
+                          key={system}
+                          type="button"
+                          onClick={() => setForm((currentForm) => ({ ...currentForm, formatSystem: system }))}
+                          className={`flex-1 rounded-full px-4 py-3 text-sm font-semibold transition-all ${active ? 'bg-[#4FC3F7] text-white shadow-[0_10px_22px_rgba(79,195,247,0.24)]' : 'text-[#6B7280]'}`}
+                        >
+                          {system === 'quebec' ? content.addSpace.sizeStep.quebec : content.addSpace.sizeStep.international}
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {form.formatSystem === 'quebec' ? (
+                    <div className="mt-8">
+                      <h2 className="text-2xl font-bold text-[#1A1A2E]">{content.addSpace.sizeStep.title}</h2>
+                      <p className="mt-3 text-[#6B7280]">{content.addSpace.sizeStep.subtitle}</p>
+                      <div className="mt-6 flex gap-4 overflow-x-auto pb-2">
+                        {content.addSpace.sizeStep.formats.map((item) => {
+                          const active = form.quebecFormat === item.value;
+                          return (
+                            <button
+                              key={item.value}
+                              type="button"
+                              onClick={() => handleFormatSelect(item.value)}
+                              className={`min-w-[130px] rounded-2xl border px-5 py-5 text-center shadow-[0_10px_24px_rgba(17,24,39,0.05)] transition-all hover:-translate-y-0.5 ${active ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.05)] shadow-[0_0_0_4px_rgba(79,195,247,0.12)]' : 'border-[#E5E7EB] bg-white'}`}
+                            >
+                              <p className="text-3xl font-bold text-[#1A1A2E]">{item.value}</p>
+                              <p className="mt-2 text-sm text-[#6B7280]">{item.label}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                      <NumberStepper label={content.addSpace.sizeStep.bedrooms} value={form.rooms.bedroom} onChange={(value) => setBedroomsBathrooms(value, form.rooms.bathroom)} />
+                      <NumberStepper label={content.addSpace.sizeStep.bathrooms} value={form.rooms.bathroom} onChange={(value) => setBedroomsBathrooms(form.rooms.bedroom, value)} />
+                    </div>
+                  )}
                 </div>
               ) : null}
 
               {step === 3 ? (
-                <div className="space-y-5">
-                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
-                    <h2 className="text-lg font-bold text-[#1A1A2E]">{content.addSpace.roomsStep.title}</h2>
-                    <p className="mt-2 text-sm text-[#6B7280]">{content.addSpace.roomsStep.subtitle}</p>
-                    <div className="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-4">
-                      {roomOrder.map((roomKey, index) => {
-                        const count = form.rooms[roomKey];
-                        const motion = roomMotion[roomKey];
-                        const highlighted = count > 0;
-                        const motionName = motion.direction === 'up' ? 'room-count-up' : 'room-count-down';
+                <div>
+                  <h2 className="text-2xl font-bold text-[#1A1A2E]">{content.addSpace.roomsStep.title}</h2>
+                  <p className="mt-3 text-[#6B7280]">{content.addSpace.roomsStep.subtitle}</p>
+                  <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {roomOrder.map((roomKey, index) => {
+                      const count = form.rooms[roomKey];
+                      const motion = roomMotion[roomKey];
+                      const highlighted = count > 0;
+                      const motionName = motion.direction === 'up' ? 'room-count-up' : 'room-count-down';
 
-                        return (
-                          <div key={roomKey} className={`rounded-xl border p-3 transition-all ${highlighted ? 'border-[#BFE9FB] bg-[rgba(79,195,247,0.06)]' : 'border-[#E5E7EB] bg-white'}`}>
-                            <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${index % 2 === 0 ? 'bg-[rgba(79,195,247,0.16)] text-[#4FC3F7]' : 'bg-[rgba(168,230,207,0.22)] text-[#60B99A]'}`}>
-                              {(() => {
-                                const iconSize = 20;
-                                if (roomKey === 'bedroom') return <BedDouble size={iconSize} />;
-                                if (roomKey === 'living_room') return <Sofa size={iconSize} />;
-                                if (roomKey === 'kitchen') return <ChefHat size={iconSize} />;
-                                if (roomKey === 'bathroom') return <Bath size={iconSize} />;
-                                if (roomKey === 'office') return <Monitor size={iconSize} />;
-                                if (roomKey === 'basement') return <Warehouse size={iconSize} />;
-                                if (roomKey === 'walk_in_closet') return <Shirt size={iconSize} />;
-                                return <WashingMachine size={iconSize} />;
-                              })()}
-                            </div>
-                            <p className={`mt-2 text-xs font-semibold ${highlighted ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>{content.addSpace.roomsStep.labels[roomKey]}</p>
-                            <div className="mt-2 flex h-10 items-center justify-center overflow-hidden">
-                              <span
-                                key={`${roomKey}-${motion.version}-${count}`}
-                                className="text-3xl font-bold text-[#4FC3F7]"
-                                style={{ animation: `${motionName} 250ms ease, ${highlighted ? 'room-count-pulse 200ms ease' : 'none'}` }}
-                              >
-                                {count}
-                              </span>
-                            </div>
-                            <div className="mt-2 flex items-center justify-center gap-2">
-                              <CounterButton icon={<span className="text-base">−</span>} disabled={count === 0} tone="gray" onClick={() => handleRoomChange(roomKey, -1)} />
-                              <CounterButton icon={<Plus size={14} />} onClick={() => handleRoomChange(roomKey, 1)} />
-                            </div>
+                      return (
+                        <div key={roomKey} className={`rounded-[24px] border p-5 shadow-[0_12px_26px_rgba(17,24,39,0.05)] transition-all ${highlighted ? 'border-[#BFE9FB] bg-[rgba(79,195,247,0.06)]' : 'border-[#E5E7EB] bg-white'}`}>
+                          <div className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl ${index % 2 === 0 ? 'bg-[rgba(79,195,247,0.16)] text-[#4FC3F7]' : 'bg-[rgba(168,230,207,0.22)] text-[#60B99A]'}`}>{roomIcons[roomKey]}</div>
+                          <p className={`mt-4 font-semibold ${highlighted ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>{content.addSpace.roomsStep.labels[roomKey]}</p>
+                          <div className="mt-5 flex h-16 items-center justify-center overflow-hidden">
+                            <span
+                              key={`${roomKey}-${motion.version}-${count}`}
+                              className="text-5xl font-bold text-[#4FC3F7]"
+                              style={{ animation: `${motionName} 250ms ease, ${highlighted ? 'room-count-pulse 200ms ease' : 'none'}` }}
+                            >
+                              {count}
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-[#E5E7EB]">
-                      <p className="text-sm font-semibold text-[#6B7280] text-center">{content.addSpace.roomsStep.total.replace('{count}', String(totalRooms))}</p>
-                    </div>
+                          <div className="mt-5 flex items-center justify-center gap-3">
+                            <CounterButton icon={<span className="text-lg">−</span>} disabled={count === 0} tone="gray" onClick={() => handleRoomChange(roomKey, -1)} />
+                            <CounterButton icon={<Plus size={16} />} onClick={() => handleRoomChange(roomKey, 1)} />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                  <p className="mt-6 text-sm font-semibold text-[#6B7280]">{content.addSpace.roomsStep.total.replace('{count}', String(totalRooms))}</p>
                 </div>
               ) : null}
 
               {step === 4 ? (
-                <div className="space-y-4">
-                  {/* Photo Upload */}
-                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5E7EB]">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#1A1A2E]">{content.addSpace.detailsStep.title}</h2>
+                  <div className="mt-6">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="relative flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#D7E9F5] bg-[#FBFDFF] px-4 py-6 text-center transition-colors hover:border-[#4FC3F7]"
+                      className="relative flex w-full flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-[#D7E9F5] bg-[#FBFDFF] px-6 py-10 text-center transition-colors hover:border-[#4FC3F7]"
                     >
                       {photoPreview ? (
-                        <img src={photoPreview} alt={form.name || 'Space preview'} className="h-40 w-full rounded-lg object-cover sm:h-48" />
+                        <img src={photoPreview} alt={form.name || 'Space preview'} className="h-64 w-full rounded-[20px] object-cover" />
                       ) : (
                         <>
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(79,195,247,0.14)] text-[#4FC3F7]"><Camera size={22} /></div>
-                          <p className="mt-3 text-sm font-semibold text-[#1A1A2E]">{content.addSpace.photo}</p>
+                          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(79,195,247,0.14)] text-[#4FC3F7]"><Camera size={28} /></div>
+                          <p className="mt-4 font-semibold text-[#1A1A2E]">{content.addSpace.photo}</p>
                         </>
                       )}
                     </button>
@@ -1491,82 +1478,47 @@ export function ClientAddSpacePage() {
                       <button
                         type="button"
                         onClick={removePhoto}
-                        className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] px-3 py-1.5 text-xs font-medium text-[#6B7280] transition-colors hover:bg-[#F7F7F7]"
+                        className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#6B7280] transition-colors hover:bg-[#F7F7F7]"
                       >
-                        <X size={14} />
+                        <X size={16} />
                         {content.addSpace.detailsStep.removePhoto}
                       </button>
                     ) : null}
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
                   </div>
 
-                  {/* Location Section */}
-                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5E7EB]">
-                    <h3 className="text-sm font-bold text-[#1A1A2E] mb-3 flex items-center gap-2">
-                      <MapPin size={16} className="text-[#4FC3F7]" />
-                      Location
-                    </h3>
-                    <div className="space-y-3">
-                      <Field label={content.addSpace.detailsStep.address}><TextInput value={form.address} onChange={(event) => setForm((currentForm) => ({ ...currentForm, address: event.target.value }))} /></Field>
-                      <div className="grid gap-3 grid-cols-2">
-                        <Field label={content.addSpace.detailsStep.city}><TextInput value={form.city} onChange={(event) => setForm((currentForm) => ({ ...currentForm, city: event.target.value }))} /></Field>
-                        <Field label={content.addSpace.detailsStep.postalCode}><TextInput value={form.postalCode} onChange={(event) => setForm((currentForm) => ({ ...currentForm, postalCode: event.target.value }))} /></Field>
-                      </div>
+                  <div className="mt-8 grid gap-4">
+                    <Field label={content.addSpace.detailsStep.address}><TextInput value={form.address} onChange={(event) => setForm((currentForm) => ({ ...currentForm, address: event.target.value }))} /></Field>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label={content.addSpace.detailsStep.city}><TextInput value={form.city} onChange={(event) => setForm((currentForm) => ({ ...currentForm, city: event.target.value }))} /></Field>
+                      <Field label={content.addSpace.detailsStep.postalCode}><TextInput value={form.postalCode} onChange={(event) => setForm((currentForm) => ({ ...currentForm, postalCode: event.target.value }))} /></Field>
                     </div>
-                  </div>
-
-                  {/* Access Section */}
-                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5E7EB]">
-                    <h3 className="text-sm font-bold text-[#1A1A2E] mb-3 flex items-center gap-2">
-                      <Lock size={16} className="text-[#4FC3F7]" />
-                      Access
-                    </h3>
-                    <div className="grid gap-3 grid-cols-[100px,1fr] sm:grid-cols-[120px,1fr]">
+                    <div className="grid gap-4 sm:grid-cols-[160px,1fr]">
                       <Field label={content.addSpace.detailsStep.floor}><TextInput value={form.floor} onChange={(event) => setForm((currentForm) => ({ ...currentForm, floor: event.target.value }))} /></Field>
-                      <Field label={content.addSpace.detailsStep.accessCode}><TextInput value={form.accessCode} onChange={(event) => setForm((currentForm) => ({ ...currentForm, accessCode: event.target.value }))} placeholder={content.addSpace.detailsStep.accessCodePlaceholder} /></Field>
+                      <Field label={content.addSpace.detailsStep.accessCode}><TextInput value={form.accessCode} onChange={(event) => setForm((currentForm) => ({ ...currentForm, accessCode: event.target.value }))} placeholder={content.addSpace.detailsStep.accessCodePlaceholder} icon={<Lock size={16} />} /></Field>
                     </div>
-                  </div>
-
-                  {/* Additional Details - Collapsible on mobile */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-[#E5E7EB]">
-                    <button
-                      type="button"
-                      onClick={() => setDetailsExpanded(!detailsExpanded)}
-                      className="flex w-full items-center justify-between p-4 text-left"
-                    >
-                      <h3 className="text-sm font-bold text-[#1A1A2E]">Additional notes (optional)</h3>
-                      <ChevronRight size={18} className={`text-[#6B7280] transition-transform ${detailsExpanded ? 'rotate-90' : ''}`} />
-                    </button>
-                    <div className={`grid transition-all duration-300 ${detailsExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-                      <div className="overflow-hidden">
-                        <div className="px-4 pb-4">
-                          <Field label="">
-                            <textarea
-                              value={form.notes}
-                              onChange={(event) => setForm((currentForm) => ({ ...currentForm, notes: event.target.value }))}
-                              rows={3}
-                              placeholder={content.addSpace.detailsStep.notesPlaceholder}
-                              className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 text-sm text-[#1A1A2E] outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#4FC3F7] focus:shadow-[0_0_0_3px_rgba(79,195,247,0.12)]"
-                            />
-                          </Field>
+                    <Field label={content.addSpace.detailsStep.notes}>
+                      <textarea
+                        value={form.notes}
+                        onChange={(event) => setForm((currentForm) => ({ ...currentForm, notes: event.target.value }))}
+                        rows={4}
+                        placeholder={content.addSpace.detailsStep.notesPlaceholder}
+                        className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3.5 text-[#1A1A2E] outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#4FC3F7] focus:shadow-[0_0_0_4px_rgba(79,195,247,0.12)]"
+                      />
+                    </Field>
+                    <div className="rounded-[24px] border border-[#E5E7EB] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(17,24,39,0.04)]">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(168,230,207,0.24)] text-[#60B99A]"><Star size={18} /></div>
+                          <div>
+                            <p className="font-semibold text-[#1A1A2E]">{content.addSpace.favorite}</p>
+                            <p className="mt-1 text-sm text-[#6B7280]">{content.addSpace.favoriteHint}</p>
+                          </div>
                         </div>
+                        <button type="button" onClick={() => setForm((currentForm) => ({ ...currentForm, isFavorite: !currentForm.isFavorite }))} className={`relative h-8 w-14 rounded-full transition-colors ${form.isFavorite ? 'bg-[#4FC3F7]' : 'bg-[#E5E7EB]'}`}>
+                          <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-[0_6px_14px_rgba(17,24,39,0.12)] transition-transform ${form.isFavorite ? 'translate-x-7' : 'translate-x-1'}`} />
+                        </button>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Favorite Toggle */}
-                  <div className="bg-white rounded-2xl px-4 py-3.5 shadow-sm border border-[#E5E7EB]">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgba(168,230,207,0.24)] text-[#60B99A]"><Star size={16} /></div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[#1A1A2E]">{content.addSpace.favorite}</p>
-                          <p className="text-xs text-[#6B7280] truncate">{content.addSpace.favoriteHint}</p>
-                        </div>
-                      </div>
-                      <button type="button" onClick={() => setForm((currentForm) => ({ ...currentForm, isFavorite: !currentForm.isFavorite }))} className={`shrink-0 relative h-7 w-12 rounded-full transition-colors ${form.isFavorite ? 'bg-[#4FC3F7]' : 'bg-[#E5E7EB]'}`}>
-                        <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-md transition-transform ${form.isFavorite ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1575,29 +1527,36 @@ export function ClientAddSpacePage() {
           )}
 
           {errorMessage ? (
-            <div className="mt-4 rounded-xl bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-[#B91C1C]">{errorMessage}</div>
+            <div className="mt-6 rounded-2xl bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-[#B91C1C]">{errorMessage}</div>
           ) : null}
-        </div>
 
-        {/* Sticky Bottom Action Bar */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#E5E7EB] bg-white/95 backdrop-blur-sm px-4 py-3 shadow-[0_-4px_12px_rgba(17,24,39,0.08)] sm:px-6">
-          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
-            {step < 4 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3.5 font-bold text-white shadow-lg transition-all active:scale-95 sm:flex-none sm:min-w-[180px]"
+          <div className="mt-8 flex flex-col gap-3 border-t border-[#E5E7EB] pt-6 sm:flex-row sm:items-center sm:justify-between">
+            {step > 1 ? (
+              <button type="button" onClick={() => goToStep(step - 1, 'backward')} className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] px-5 py-3 font-semibold text-[#1A1A2E] transition-colors hover:bg-[#F7F7F7]">
+                <ChevronLeft size={18} />
+                {content.addSpace.back}
+              </button>
+            ) : (
+              <a
+                href={dashboardPath}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigateTo('clientDashboard');
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] px-5 py-3 font-semibold text-[#1A1A2E] transition-colors hover:bg-[#F7F7F7]"
               >
+                <ChevronLeft size={18} />
+                {content.addSpace.back}
+              </a>
+            )}
+
+            {step < 4 ? (
+              <button type="button" onClick={handleNext} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3 font-semibold text-white shadow-[0_14px_28px_rgba(79,195,247,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#3FAAD4]">
                 {content.addSpace.next}
                 <ChevronRight size={18} />
               </button>
             ) : (
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => void handleSubmit()}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3.5 font-bold text-white shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 sm:flex-none sm:min-w-[180px]"
-              >
+              <button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3 font-semibold text-white shadow-[0_14px_28px_rgba(79,195,247,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#3FAAD4] disabled:cursor-not-allowed disabled:opacity-70">
                 {submitting ? <Loader2 size={18} className="animate-spin" /> : null}
                 {submitting ? content.addSpace.saving : content.addSpace.save}
               </button>
