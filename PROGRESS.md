@@ -132,3 +132,15 @@
 - All content in FR / EN / ES ✅
 - Protected routes - redirects if not logged in ✅
 - Status: ✅ done
+
+## Step 19 - Vercel blank page fixed
+- Context: works locally, blank page on Vercel only
+- Env variables were already set in Vercel dashboard
+- Diagnosis 1 (env guard): applied
+- Diagnosis 2 (vercel.json): applied
+- Diagnosis 3 (vite base): applied
+- Diagnosis 4 (AuthContext loading): not needed
+- Diagnosis 5 (ErrorBoundary): applied
+- Files modified: src/lib/supabase.ts · vercel.json · vite.config.ts · src/components/ErrorBoundary.tsx · src/main.tsx · PROGRESS.md
+- Lines changed: Supabase env guard added · Vercel rewrite replaced · Vite base/build config added · ErrorBoundary created and mounted
+- Status: ✅ done
