@@ -1,3 +1,10 @@
+/*
+ * IMPORTANT - Before the spaces feature works:
+ * 1. Go to Supabase Dashboard -> SQL Editor
+ * 2. Run: src/lib/create-spaces-table.sql
+ * 3. Run: src/lib/create-bookings-table.sql
+ * These tables must exist before saving spaces.
+ */
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL

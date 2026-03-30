@@ -144,3 +144,13 @@
 - Files modified: src/lib/supabase.ts · vercel.json · vite.config.ts · src/components/ErrorBoundary.tsx · src/main.tsx · PROGRESS.md
 - Lines changed: Supabase env guard added · Vercel rewrite replaced · Vite base/build config added · ErrorBoundary created and mounted
 - Status: ✅ done
+## Step 20 - Add space flow fixes
+- Problem 1: spaces table SQL generated
+  and error handling improved ✅
+- Problem 2: photo converted to WebP
+  before Supabase upload ✅
+- Problem 3: form state persisted in
+  sessionStorage across tab switches ✅
+- Problem 4: auto scroll to top on
+  each step change ✅
+- Status: ✅ done

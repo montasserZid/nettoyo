@@ -4,6 +4,7 @@ import { Bath, BedDouble, Briefcase, Building2, Camera, ChefHat, ChevronLeft, Ch
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
+import { convertToWebP } from '../lib/imageUtils';
 import supabase from '../lib/supabase';
 
 type SpaceType = 'apartment' | 'house' | 'office' | 'other';
@@ -107,6 +108,9 @@ const localeByLanguage = {
   es: 'es-ES'
 } as const;
 
+const ADD_SPACE_DRAFT_STORAGE_KEY = 'nettoyo_add_space_draft';
+const ADD_SPACE_DRAFT_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
 const typeIcons: Record<SpaceType, ReactNode> = {
   apartment: <Building2 size={28} />,
   house: <Home size={28} />,
@@ -158,6 +162,13 @@ function formatDate(language: 'fr' | 'en' | 'es', value?: string | null) {
     month: 'short',
     year: 'numeric'
   }).format(new Date(value));
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 function normalizeRooms(rooms?: Partial<Record<RoomKey, number>> | null): Rooms {
@@ -217,6 +228,9 @@ const contentByLanguage = {
       favorite: 'Marquer comme espace principal',
       favoriteHint: 'Votre espace principal apparaîtra en premier',
       success: 'Espace enregistré avec succès !',
+      photoSelected: 'Photo sélectionnée: {size}',
+      photoOptimized: 'Photo optimisée: {size} (WebP) ✓',
+      draftRestored: 'Brouillon restauré - continuez où vous vous étiez arrêté',
       errors: {
         stepOne: "Choisissez un type d'espace et ajoutez un nom.",
         stepTwo: 'Sélectionnez une taille ou ajustez les compteurs.',
@@ -337,6 +351,9 @@ const contentByLanguage = {
       favorite: 'Mark as main space',
       favoriteHint: 'Your main space will appear first',
       success: 'Space saved successfully!',
+      photoSelected: 'Selected photo: {size}',
+      photoOptimized: 'Optimized photo: {size} (WebP) ✓',
+      draftRestored: 'Draft restored - continue where you left off',
       errors: {
         stepOne: 'Choose a space type and add a name.',
         stepTwo: 'Select a size or adjust the counters.',
@@ -447,6 +464,9 @@ const contentByLanguage = {
       favorite: 'Marcar como espacio principal',
       favoriteHint: 'Tu espacio principal aparecerá primero',
       success: '¡Espacio guardado con éxito!',
+      photoSelected: 'Foto seleccionada: {size}',
+      photoOptimized: 'Foto optimizada: {size} (WebP) ✓',
+      draftRestored: 'Borrador restaurado - continúa donde lo dejaste',
       errors: {
         stepOne: 'Elige un tipo de espacio y añade un nombre.',
         stepTwo: 'Selecciona un tamaño o ajusta los contadores.',
@@ -1061,6 +1081,73 @@ export function ClientAddSpacePage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [photoOriginalSize, setPhotoOriginalSize] = useState<number | null>(null);
+  const [photoOptimizedSize, setPhotoOptimizedSize] = useState<number | null>(null);
+  const [showDraftToast, setShowDraftToast] = useState(false);
+  const [fadeDraftToast, setFadeDraftToast] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    if (editingId) {
+      return;
+    }
+
+    try {
+      const savedDraft = window.sessionStorage.getItem(ADD_SPACE_DRAFT_STORAGE_KEY);
+      if (!savedDraft) {
+        return;
+      }
+
+      const draft = JSON.parse(savedDraft) as {
+        currentStep?: number;
+        selectedType?: SpaceType | null;
+        selectedFormat?: string;
+        formatSystem?: FormatSystem;
+        roomCounts?: Partial<Record<RoomKey, number>>;
+        spaceName?: string;
+        formData?: Partial<Omit<AddSpaceForm, 'type' | 'formatSystem' | 'quebecFormat' | 'rooms' | 'name'>>;
+        savedAt?: number;
+      };
+
+      if (!draft.savedAt || Date.now() - draft.savedAt >= ADD_SPACE_DRAFT_MAX_AGE_MS) {
+        window.sessionStorage.removeItem(ADD_SPACE_DRAFT_STORAGE_KEY);
+        return;
+      }
+
+      setStep(typeof draft.currentStep === 'number' ? Math.min(4, Math.max(1, draft.currentStep)) : 1);
+      setForm((currentForm) => ({
+        ...currentForm,
+        type: draft.selectedType ?? currentForm.type,
+        quebecFormat: draft.selectedFormat ?? currentForm.quebecFormat,
+        formatSystem: draft.formatSystem ?? currentForm.formatSystem,
+        rooms: draft.roomCounts ? normalizeRooms(draft.roomCounts) : currentForm.rooms,
+        name: draft.spaceName ?? currentForm.name,
+        address: draft.formData?.address ?? currentForm.address,
+        city: draft.formData?.city ?? currentForm.city,
+        postalCode: draft.formData?.postalCode ?? currentForm.postalCode,
+        floor: draft.formData?.floor ?? currentForm.floor,
+        accessCode: draft.formData?.accessCode ?? currentForm.accessCode,
+        notes: draft.formData?.notes ?? currentForm.notes,
+        isFavorite: typeof draft.formData?.isFavorite === 'boolean' ? draft.formData.isFavorite : currentForm.isFavorite
+      }));
+
+      setShowDraftToast(true);
+      setFadeDraftToast(false);
+      const fadeTimer = window.setTimeout(() => setFadeDraftToast(true), 2500);
+      const hideTimer = window.setTimeout(() => setShowDraftToast(false), 3000);
+
+      return () => {
+        window.clearTimeout(fadeTimer);
+        window.clearTimeout(hideTimer);
+      };
+    } catch (error) {
+      console.error('Failed to restore draft:', error);
+      window.sessionStorage.removeItem(ADD_SPACE_DRAFT_STORAGE_KEY);
+    }
+  }, [editingId]);
 
   useEffect(() => {
     if (!profile?.id || !editingId) {
@@ -1113,6 +1200,33 @@ export function ClientAddSpacePage() {
     };
   }, [editingId, profile?.id]);
 
+  useEffect(() => {
+    if (editingId) {
+      return;
+    }
+
+    const draft = {
+      currentStep: step,
+      selectedType: form.type,
+      selectedFormat: form.quebecFormat,
+      formatSystem: form.formatSystem,
+      roomCounts: form.rooms,
+      spaceName: form.name,
+      formData: {
+        address: form.address,
+        city: form.city,
+        postalCode: form.postalCode,
+        floor: form.floor,
+        accessCode: form.accessCode,
+        notes: form.notes,
+        isFavorite: form.isFavorite
+      },
+      savedAt: Date.now()
+    };
+
+    window.sessionStorage.setItem(ADD_SPACE_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  }, [editingId, form, step]);
+
   const totalRooms = useMemo(
     () => Object.values(form.rooms).reduce((sum, value) => sum + value, 0),
     [form.rooms]
@@ -1161,6 +1275,7 @@ export function ClientAddSpacePage() {
   const goToStep = (nextStep: number, direction: 'forward' | 'backward') => {
     setStepDirection(direction);
     setStep(nextStep);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleNext = () => {
@@ -1183,23 +1298,44 @@ export function ClientAddSpacePage() {
     goToStep(step + 1, 'forward');
   };
 
-  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
-    setPhotoFile(file);
+    let fileToUse = file;
+    setPhotoOriginalSize(file.size);
+    setPhotoOptimizedSize(null);
+
+    if (file.type !== 'image/webp') {
+      try {
+        fileToUse = await convertToWebP(file);
+      } catch (error) {
+        console.error('WebP conversion failed, using original:', error);
+        fileToUse = file;
+      }
+    }
+
+    setPhotoOptimizedSize(fileToUse.size);
+    setPhotoFile(fileToUse);
     setExistingPhotoUrl(null);
-    setPhotoPreview(URL.createObjectURL(file));
+    setPhotoPreview(URL.createObjectURL(fileToUse));
   };
 
   const removePhoto = () => {
     setPhotoFile(null);
     setExistingPhotoUrl(null);
     setPhotoPreview(null);
+    setPhotoOriginalSize(null);
+    setPhotoOptimizedSize(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleExitToDashboard = () => {
+    window.sessionStorage.removeItem(ADD_SPACE_DRAFT_STORAGE_KEY);
+    navigateTo('clientDashboard');
   };
 
   const handleSubmit = async () => {
@@ -1220,10 +1356,15 @@ export function ClientAddSpacePage() {
       let photoUrl = existingPhotoUrl;
 
       if (photoFile) {
-        const filePath = `${profile.id}/${Date.now()}-${photoFile.name.replace(/\s+/g, '-')}`;
+        const isWebP = photoFile.type === 'image/webp';
+        const fileExtension = isWebP ? 'webp' : (photoFile.name.split('.').pop() ?? 'jpg');
+        const filePath = `${profile.id}/${Date.now()}.${fileExtension}`;
         const uploadResponse = await supabase.storage
           .from('space-photos')
-          .upload(filePath, photoFile, { upsert: true });
+          .upload(filePath, photoFile, {
+            upsert: false,
+            contentType: isWebP ? 'image/webp' : photoFile.type
+          });
 
         if (uploadResponse.error) {
           throw new Error(content.addSpace.errors.upload);
@@ -1259,15 +1400,44 @@ export function ClientAddSpacePage() {
         updated_at: new Date().toISOString()
       };
 
-      const response = editingId
-        ? await supabase.from('spaces').update(payload).eq('id', editingId)
-        : await supabase.from('spaces').insert(payload);
+      if (editingId) {
+        const { error } = await supabase.from('spaces').update(payload).eq('id', editingId);
+        if (error) {
+          if (error.code === '42P01') {
+            setErrorMessage(
+              'La table spaces n\'existe pas encore. ' +
+              'Veuillez exécuter le SQL dans Supabase. / ' +
+              'The spaces table does not exist yet. ' +
+              'Please run the SQL in Supabase.'
+            );
+          } else {
+            setErrorMessage(error.message);
+          }
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from('spaces')
+          .insert([payload])
+          .select();
 
-      if (response.error) {
-        throw response.error;
+        if (error) {
+          if (error.code === '42P01') {
+            setErrorMessage(
+              'La table spaces n\'existe pas encore. ' +
+              'Veuillez exécuter le SQL dans Supabase. / ' +
+              'The spaces table does not exist yet. ' +
+              'Please run the SQL in Supabase.'
+            );
+          } else {
+            setErrorMessage(error.message);
+          }
+          return;
+        }
       }
 
       window.sessionStorage.setItem('client-dashboard-toast', content.addSpace.success);
+      window.sessionStorage.removeItem(ADD_SPACE_DRAFT_STORAGE_KEY);
       navigateTo('clientDashboard');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : content.addSpace.errors.generic);
@@ -1281,6 +1451,13 @@ export function ClientAddSpacePage() {
     <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7]">
       <div className="mx-auto max-w-4xl">
         {pageStyles()}
+        {showDraftToast ? (
+          <div
+            className={`mx-4 mt-4 rounded-full bg-[rgba(168,230,207,0.35)] px-4 py-2 text-center text-xs font-medium text-[#047857] transition-opacity duration-500 sm:mx-6 ${fadeDraftToast ? 'opacity-0' : 'opacity-100'}`}
+          >
+            {content.addSpace.draftRestored}
+          </div>
+        ) : null}
 
         {/* Compact Header */}
         <div className="sticky top-20 z-40 bg-white/95 backdrop-blur-sm border-b border-[#E5E7EB] px-4 py-3 sm:px-6 shadow-sm">
@@ -1289,7 +1466,7 @@ export function ClientAddSpacePage() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => step > 1 ? goToStep(step - 1, 'backward') : navigateTo('clientDashboard')}
+                  onClick={() => step > 1 ? goToStep(step - 1, 'backward') : handleExitToDashboard()}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280] transition-colors hover:bg-[#F7F7F7]"
                 >
                   <ChevronLeft size={18} />
@@ -1494,6 +1671,16 @@ export function ClientAddSpacePage() {
                       </button>
                     ) : null}
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                    {photoOriginalSize ? (
+                      <p className="mt-3 text-xs text-[#6B7280]">
+                        {content.addSpace.photoSelected.replace('{size}', formatFileSize(photoOriginalSize))}
+                      </p>
+                    ) : null}
+                    {photoOptimizedSize ? (
+                      <p className="mt-1 text-xs text-[#6B7280]">
+                        {content.addSpace.photoOptimized.replace('{size}', formatFileSize(photoOptimizedSize))}
+                      </p>
+                    ) : null}
                   </div>
 
                   {/* Location Section */}
