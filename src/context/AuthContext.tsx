@@ -143,9 +143,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription }
-    } = auth.onAuthStateChange((_event: string, nextSession: AuthSession | null) => {
-      setLoading(true);
-      void syncAuthState(nextSession);
+    } = auth.onAuthStateChange((event: string, nextSession: AuthSession | null) => {
+      if (!isMounted) {
+        return;
+      }
+
+      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        return;
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'SIGNED_IN') {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        void syncAuthState(nextSession);
+        return;
+      }
+
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
     });
 
     return () => {

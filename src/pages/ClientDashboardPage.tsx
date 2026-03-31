@@ -1,9 +1,10 @@
-import type { ChangeEvent, ReactNode } from 'react';
+import type { ChangeEvent, ReactNode, RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bath, BedDouble, Briefcase, Building2, Camera, ChefHat, ChevronLeft, ChevronRight, Grid2x2 as Grid2X2, Home, Loader2, Lock, MapPin, Monitor, Pencil, Plus, Shirt, Sofa, Star, Trash2, Warehouse, WashingMachine, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
+import { ToastError } from '../components/ToastError';
 import { convertToWebP } from '../lib/imageUtils';
 import supabase from '../lib/supabase';
 
@@ -171,9 +172,13 @@ function pageStyles() {
 }
 
 function getInitials(firstName?: string | null, lastName?: string | null, email?: string | null) {
-  const first = firstName?.[0] ?? email?.[0] ?? 'N';
-  const second = lastName?.[0] ?? email?.[1] ?? '';
-  return `${first}${second}`.toUpperCase();
+  if (firstName && lastName) {
+    return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  }
+  if (firstName) {
+    return firstName[0].toUpperCase();
+  }
+  return email?.[0]?.toUpperCase() || '?';
 }
 
 function formatDate(language: 'fr' | 'en' | 'es', value?: string | null) {
@@ -271,8 +276,13 @@ const contentByLanguage = {
       photoOptimized: 'Photo optimisée: {size} (WebP) ✓',
       draftRestored: 'Brouillon restauré - continuez où vous vous étiez arrêté',
       errors: {
-        stepOne: "Choisissez un type d'espace et ajoutez un nom.",
-        stepTwo: 'Sélectionnez une taille ou ajustez les compteurs.',
+        stepOneType: "Veuillez choisir un type d'espace",
+        stepOneName: "Veuillez donner un nom à cet espace",
+        stepTwoFormat: 'Veuillez choisir le format de votre logement',
+        stepThreeRooms: 'Veuillez sélectionner au moins une pièce',
+        toastRequiredFields: 'Veuillez remplir les champs obligatoires',
+        addressRequired: "L'adresse est obligatoire",
+        cityRequired: 'La ville est obligatoire',
         upload: "Impossible d'envoyer la photo pour le moment.",
         generic: "Impossible d'enregistrer cet espace pour le moment.",
         profileMissing: 'Impossible de sauvegarder sans profil client actif.'
@@ -399,8 +409,13 @@ const contentByLanguage = {
       photoOptimized: 'Optimized photo: {size} (WebP) ✓',
       draftRestored: 'Draft restored - continue where you left off',
       errors: {
-        stepOne: 'Choose a space type and add a name.',
-        stepTwo: 'Select a size or adjust the counters.',
+        stepOneType: 'Please choose a space type',
+        stepOneName: 'Please give this space a name',
+        stepTwoFormat: 'Please choose your home format',
+        stepThreeRooms: 'Please select at least one room',
+        toastRequiredFields: 'Please fill in the required fields',
+        addressRequired: 'Address is required',
+        cityRequired: 'City is required',
         upload: 'Unable to upload the photo right now.',
         generic: 'Unable to save this space right now.',
         profileMissing: 'Unable to save without an active client profile.'
@@ -517,8 +532,13 @@ const contentByLanguage = {
       photoOptimized: 'Foto optimizada: {size} (WebP) ✓',
       draftRestored: 'Borrador restaurado - continúa donde lo dejaste',
       errors: {
-        stepOne: 'Elige un tipo de espacio y añade un nombre.',
-        stepTwo: 'Selecciona un tamaño o ajusta los contadores.',
+        stepOneType: 'Por favor elige un tipo de espacio',
+        stepOneName: 'Por favor dale un nombre a este espacio',
+        stepTwoFormat: 'Por favor elige el formato de tu vivienda',
+        stepThreeRooms: 'Por favor selecciona al menos una habitación',
+        toastRequiredFields: 'Por favor completa los campos obligatorios',
+        addressRequired: 'La dirección es obligatoria',
+        cityRequired: 'La ciudad es obligatoria',
         upload: 'No se pudo subir la foto en este momento.',
         generic: 'No se pudo guardar este espacio en este momento.',
         profileMissing: 'No se puede guardar sin un perfil de cliente activo.'
@@ -660,13 +680,17 @@ function TextInput({
   onChange,
   placeholder,
   icon,
-  type = 'text'
+  type = 'text',
+  inputRef,
+  className
 }: {
   value: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   icon?: ReactNode;
   type?: string;
+  inputRef?: RefObject<HTMLInputElement | null>;
+  className?: string;
 }) {
   return (
     <div className="relative">
@@ -676,11 +700,12 @@ function TextInput({
         </span>
       ) : null}
       <input
+        ref={inputRef}
         type={type}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className={`w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3.5 text-[#1A1A2E] outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#4FC3F7] focus:shadow-[0_0_0_4px_rgba(79,195,247,0.12)] ${icon ? 'pl-11' : ''}`}
+        className={`w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3.5 text-[#1A1A2E] outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#4FC3F7] focus:shadow-[0_0_0_4px_rgba(79,195,247,0.12)] ${icon ? 'pl-11' : ''} ${className ?? ''}`}
       />
     </div>
   );
@@ -896,7 +921,13 @@ export function ClientDashboardPage() {
     window.setTimeout(() => setToast(null), 2400);
   };
 
-  const displayName = profile?.first_name || profile?.email || 'Nettoyo';
+  const fullName = profile?.first_name && profile?.last_name
+    ? `${profile.first_name} ${profile.last_name}`
+    : profile?.first_name
+      ? profile.first_name
+      : user?.email?.split('@')[0] || 'Nettoyo';
+  const firstName = profile?.first_name || user?.email?.split('@')[0] || 'there';
+  const accountEmail = user?.email || profile?.email || '';
   console.log('Rendering spaces:', spaces);
 
   return (
@@ -915,22 +946,22 @@ export function ClientDashboardPage() {
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
-                  alt={displayName}
+                  alt={fullName}
                   className="h-20 w-20 rounded-full object-cover shadow-[0_10px_30px_rgba(79,195,247,0.18)]"
                 />
               ) : (
                 <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#4FC3F7] text-2xl font-bold text-white shadow-[0_10px_30px_rgba(79,195,247,0.24)]">
-                  {getInitials(profile?.first_name, profile?.last_name, profile?.email)}
+                  {getInitials(profile?.first_name, profile?.last_name, user?.email || profile?.email)}
                 </div>
               )}
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#4FC3F7]">
-                  {content.header.greeting}, {profile?.first_name || displayName}
+                  {content.header.greeting}, {firstName}
                 </p>
                 <h1 className="mt-2 text-3xl font-bold text-[#1A1A2E]">
-                  {[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || displayName}
+                  {fullName}
                 </h1>
-                <p className="mt-2 text-[#6B7280]">{profile?.email}</p>
+                <p className="mt-2 text-sm text-[#6B7280]">{accountEmail}</p>
                 <span className="mt-4 inline-flex rounded-full bg-[rgba(168,230,207,0.35)] px-3 py-1 text-sm font-semibold text-[#1A1A2E]">
                   {content.header.badge}
                 </span>
@@ -1202,6 +1233,9 @@ export function ClientAddSpacePage() {
   const content = contentByLanguage[language];
   const editingId = useMemo(() => new URLSearchParams(window.location.search).get('edit'), []);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const spaceNameRef = useRef<HTMLInputElement | null>(null);
+  const addressRef = useRef<HTMLInputElement | null>(null);
+  const cityRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState(1);
   const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
   const [form, setForm] = useState<AddSpaceForm>({
@@ -1240,6 +1274,7 @@ export function ClientAddSpacePage() {
   const [photoOptimizedSize, setPhotoOptimizedSize] = useState<number | null>(null);
   const [showDraftToast, setShowDraftToast] = useState(false);
   const [fadeDraftToast, setFadeDraftToast] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ address: boolean; city: boolean }>({ address: false, city: false });
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1407,6 +1442,15 @@ export function ClientAddSpacePage() {
     }));
   };
 
+  const handleTypeSelect = (spaceType: SpaceType) => {
+    setForm((currentForm) => ({ ...currentForm, type: spaceType }));
+    setErrorMessage(null);
+    window.setTimeout(() => {
+      spaceNameRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      spaceNameRef.current?.focus();
+    }, 150);
+  };
+
   const handleRoomChange = (roomKey: RoomKey, delta: number) => {
     setForm((currentForm) => {
       const nextValue = Math.max(0, currentForm.rooms[roomKey] + delta);
@@ -1436,8 +1480,15 @@ export function ClientAddSpacePage() {
   const handleNext = () => {
     setErrorMessage(null);
 
-    if (step === 1 && (!form.type || !form.name.trim())) {
-      setErrorMessage(content.addSpace.errors.stepOne);
+    if (step === 1 && !form.type) {
+      setErrorMessage(content.addSpace.errors.stepOneType);
+      return;
+    }
+
+    if (step === 1 && !form.name.trim()) {
+      setErrorMessage(content.addSpace.errors.stepOneName);
+      spaceNameRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      spaceNameRef.current?.focus();
       return;
     }
 
@@ -1446,11 +1497,41 @@ export function ClientAddSpacePage() {
       ((form.formatSystem === 'quebec' && !form.quebecFormat) ||
         (form.formatSystem === 'international' && form.rooms.bedroom === 0 && form.rooms.bathroom === 0))
     ) {
-      setErrorMessage(content.addSpace.errors.stepTwo);
+      setErrorMessage(content.addSpace.errors.stepTwoFormat);
+      return;
+    }
+
+    if (step === 3 && totalRooms <= 0) {
+      setErrorMessage(content.addSpace.errors.stepThreeRooms);
       return;
     }
 
     goToStep(step + 1, 'forward');
+  };
+
+  const validateStep4 = () => {
+    const nextErrors = {
+      address: !form.address.trim(),
+      city: !form.city.trim()
+    };
+
+    setFieldErrors(nextErrors);
+
+    if (nextErrors.address) {
+      setErrorMessage(content.addSpace.errors.toastRequiredFields);
+      addressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      addressRef.current?.focus();
+      return false;
+    }
+
+    if (nextErrors.city) {
+      setErrorMessage(content.addSpace.errors.toastRequiredFields);
+      cityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      cityRef.current?.focus();
+      return false;
+    }
+
+    return true;
   };
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1538,7 +1619,11 @@ export function ClientAddSpacePage() {
     }
 
     if (!form.type) {
-      setErrorMessage(content.addSpace.errors.stepOne);
+      setErrorMessage(content.addSpace.errors.stepOneType);
+      return;
+    }
+
+    if (!validateStep4()) {
       return;
     }
 
@@ -1725,7 +1810,7 @@ export function ClientAddSpacePage() {
                           <button
                             key={spaceType}
                             type="button"
-                            onClick={() => setForm((currentForm) => ({ ...currentForm, type: spaceType }))}
+                            onClick={() => handleTypeSelect(spaceType)}
                             className={`rounded-xl border p-4 text-left transition-all duration-200 ${selected ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.05)] shadow-[0_0_0_3px_rgba(79,195,247,0.12)]' : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'}`}
                           >
                             <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${tone}`}>{typeIcons[spaceType]}</div>
@@ -1740,6 +1825,7 @@ export function ClientAddSpacePage() {
                   <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#E5E7EB]">
                     <Field label={content.addSpace.typeStep.namePlaceholder}>
                       <TextInput
+                        inputRef={spaceNameRef}
                         value={form.name}
                         onChange={(event) => setForm((currentForm) => ({ ...currentForm, name: event.target.value }))}
                         placeholder={content.addSpace.typeStep.namePlaceholder}
@@ -1899,9 +1985,45 @@ export function ClientAddSpacePage() {
                       Location
                     </h3>
                     <div className="space-y-3">
-                      <Field label={content.addSpace.detailsStep.address}><TextInput value={form.address} onChange={(event) => setForm((currentForm) => ({ ...currentForm, address: event.target.value }))} /></Field>
+                      <Field label={content.addSpace.detailsStep.address}>
+                        <TextInput
+                          inputRef={addressRef}
+                          value={form.address}
+                          onChange={(event) => {
+                            const nextAddress = event.target.value;
+                            setForm((currentForm) => ({ ...currentForm, address: nextAddress }));
+                            if (nextAddress.trim() && fieldErrors.address) {
+                              setFieldErrors((currentErrors) => ({ ...currentErrors, address: false }));
+                            }
+                          }}
+                          className={fieldErrors.address ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB]'}
+                        />
+                        {fieldErrors.address ? (
+                          <span style={{ color: '#A32D2D', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                            {content.addSpace.errors.addressRequired}
+                          </span>
+                        ) : null}
+                      </Field>
                       <div className="grid gap-3 grid-cols-2">
-                        <Field label={content.addSpace.detailsStep.city}><TextInput value={form.city} onChange={(event) => setForm((currentForm) => ({ ...currentForm, city: event.target.value }))} /></Field>
+                        <Field label={content.addSpace.detailsStep.city}>
+                          <TextInput
+                            inputRef={cityRef}
+                            value={form.city}
+                            onChange={(event) => {
+                              const nextCity = event.target.value;
+                              setForm((currentForm) => ({ ...currentForm, city: nextCity }));
+                              if (nextCity.trim() && fieldErrors.city) {
+                                setFieldErrors((currentErrors) => ({ ...currentErrors, city: false }));
+                              }
+                            }}
+                            className={fieldErrors.city ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB]'}
+                          />
+                          {fieldErrors.city ? (
+                            <span style={{ color: '#A32D2D', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                              {content.addSpace.errors.cityRequired}
+                            </span>
+                          ) : null}
+                        </Field>
                         <Field label={content.addSpace.detailsStep.postalCode}><TextInput value={form.postalCode} onChange={(event) => setForm((currentForm) => ({ ...currentForm, postalCode: event.target.value }))} /></Field>
                       </div>
                     </div>
@@ -1966,9 +2088,7 @@ export function ClientAddSpacePage() {
             </div>
           )}
 
-          {errorMessage ? (
-            <div className="mt-4 rounded-xl bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-[#B91C1C]">{errorMessage}</div>
-          ) : null}
+          {errorMessage ? <ToastError message={errorMessage} onDismiss={() => setErrorMessage(null)} /> : null}
         </div>
 
         {/* Sticky Bottom Action Bar */}

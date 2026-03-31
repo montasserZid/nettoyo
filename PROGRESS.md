@@ -186,3 +186,11 @@
 - No-photo cards show gradient placeholder ✅
 - Broken image fallback works ✅
 - Status: ✅ done
+
+## Step 25 — UX fixes across add space flow
+- Tab switch reload fixed ✅
+- Dashboard name display fixed ✅
+- Auto scroll after type selection ✅
+- ToastError component created ✅
+- Step 4 mandatory field validation ✅
+- Status: ✅ done

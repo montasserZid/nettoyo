@@ -12,7 +12,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     }
   }, [loading, navigateTo, user]);
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[#F7F7F7]">
         <div className="flex flex-col items-center gap-4">
