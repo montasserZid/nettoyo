@@ -29,8 +29,23 @@ CREATE TABLE public.spaces (
 
 ALTER TABLE public.spaces ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Clients can manage own spaces"
-  ON public.spaces FOR ALL
+DROP POLICY IF EXISTS "Clients can manage own spaces"
+  ON public.spaces;
+
+CREATE POLICY "Clients can select own spaces"
+  ON public.spaces FOR SELECT
+  USING (auth.uid() = client_id);
+
+CREATE POLICY "Clients can insert own spaces"
+  ON public.spaces FOR INSERT
+  WITH CHECK (auth.uid() = client_id);
+
+CREATE POLICY "Clients can update own spaces"
+  ON public.spaces FOR UPDATE
+  USING (auth.uid() = client_id);
+
+CREATE POLICY "Clients can delete own spaces"
+  ON public.spaces FOR DELETE
   USING (auth.uid() = client_id);
 
 CREATE INDEX spaces_client_id_idx

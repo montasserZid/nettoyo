@@ -110,6 +110,30 @@ const localeByLanguage = {
 
 const ADD_SPACE_DRAFT_STORAGE_KEY = 'nettoyo_add_space_draft';
 const ADD_SPACE_DRAFT_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const SUPABASE_BASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+
+const resolveSpacePhotoUrl = (photoUrl: string | null) => {
+  const normalizedPhotoUrl = photoUrl?.trim();
+  if (!normalizedPhotoUrl) {
+    return null;
+  }
+  if (/^https?:\/\//i.test(normalizedPhotoUrl)) {
+    return normalizedPhotoUrl;
+  }
+  if (!SUPABASE_BASE_URL) {
+    return normalizedPhotoUrl;
+  }
+  if (normalizedPhotoUrl.startsWith('/storage/') || normalizedPhotoUrl.startsWith('storage/')) {
+    return `${SUPABASE_BASE_URL}/${normalizedPhotoUrl.replace(/^\/+/, '')}`;
+  }
+
+  const normalizedPath = normalizedPhotoUrl.replace(/^\/+/, '');
+  if (normalizedPath.startsWith('space-photos/')) {
+    return `${SUPABASE_BASE_URL}/storage/v1/object/public/${normalizedPath}`;
+  }
+
+  return `${SUPABASE_BASE_URL}/storage/v1/object/public/space-photos/${normalizedPath}`;
+};
 
 const typeIcons: Record<SpaceType, ReactNode> = {
   apartment: <Building2 size={28} />,
@@ -164,6 +188,16 @@ function formatDate(language: 'fr' | 'en' | 'es', value?: string | null) {
   }).format(new Date(value));
 }
 
+function getEditSpacePath(language: 'fr' | 'en' | 'es', spaceId: string) {
+  if (language === 'fr') {
+    return `/fr/dashboard/client/modifier-espace/${spaceId}`;
+  }
+  if (language === 'es') {
+    return `/es/dashboard/client/editar-espacio/${spaceId}`;
+  }
+  return `/en/dashboard/client/edit-space/${spaceId}`;
+}
+
 function formatFileSize(bytes: number) {
   if (bytes >= 1024 * 1024) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -207,6 +241,11 @@ const contentByLanguage = {
       lastCleaning: 'Dernier nettoyage',
       noSpaces: "Vous n'avez pas encore d'espace enregistré",
       deleteConfirm: 'Supprimer cet espace ?',
+      deleteMessage: 'Cette action est irréversible. Toutes les données de cet espace seront supprimées.',
+      cancelDelete: 'Annuler',
+      confirmDelete: 'Supprimer',
+      edit: 'Modifier',
+      delete: 'Supprimer',
       deletedToast: 'Espace supprimé avec succès !'
     },
     history: {
@@ -330,6 +369,11 @@ const contentByLanguage = {
       lastCleaning: 'Last cleaning',
       noSpaces: "You haven't registered any space yet",
       deleteConfirm: 'Delete this space?',
+      deleteMessage: 'This action cannot be undone. All data for this space will be deleted.',
+      cancelDelete: 'Cancel',
+      confirmDelete: 'Delete',
+      edit: 'Edit',
+      delete: 'Delete',
       deletedToast: 'Space deleted successfully!'
     },
     history: {
@@ -443,6 +487,11 @@ const contentByLanguage = {
       lastCleaning: 'Última limpieza',
       noSpaces: 'Aún no tienes ningún espacio registrado',
       deleteConfirm: '¿Eliminar este espacio?',
+      deleteMessage: 'Esta acción no se puede deshacer. Todos los datos de este espacio serán eliminados.',
+      cancelDelete: 'Cancelar',
+      confirmDelete: 'Eliminar',
+      edit: 'Editar',
+      delete: 'Eliminar',
       deletedToast: '¡Espacio eliminado con éxito!'
     },
     history: {
@@ -664,45 +713,81 @@ function NumberStepper({
 
 export function ClientDashboardPage() {
   const { language, navigateTo } = useLanguage();
-  const { profile } = useAuth();
+  const { profile, user, loading: authLoading } = useAuth();
   const content = contentByLanguage[language];
   const addSpacePath = getPathForRoute(language, 'clientAddSpace');
   const [spaces, setSpaces] = useState<SpaceRecord[]>([]);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<SpaceRecord | null>(null);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
+
+  const fetchSpaces = async () => {
+    if (!user?.id) {
+      console.warn('fetchSpaces: no user.id available');
+      return;
+    }
+
+    console.log('=== SPACES FETCH DEBUG ===');
+    console.log('user object:', user);
+    console.log('user.id used in query:', user?.id);
+    console.log('expected client_id:', '0e2e1b14-feff-4912-a142-93e93de162c4');
+    console.log('IDs match:', user?.id === '0e2e1b14-feff-4912-a142-93e93de162c4');
+    console.log('Starting spaces fetch...');
+    console.log('Fetching spaces for user:', user.id);
+
+    const { data, error } = await supabase
+      .from('spaces')
+      .select('*')
+      .eq('client_id', user.id)
+      .eq('is_active', true)
+      .order('is_favorite', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    console.log('Query complete');
+    console.log('data:', data);
+    console.log('data length:', data?.length);
+    console.log('error:', error);
+
+    if (error) {
+      console.error('fetchSpaces error:', error);
+      return;
+    }
+
+    console.log('Spaces fetched successfully:', data?.length);
+    setSpaces(data || []);
+  };
 
   useEffect(() => {
-    if (!profile?.id) {
+    if (authLoading) {
+      return;
+    }
+    if (!user?.id) {
       return;
     }
 
     let active = true;
 
     const loadDashboard = async () => {
-      setLoading(true);
+      setDashboardLoading(true);
       setErrorMessage(null);
 
-      const [spacesResponse, bookingsResponse, completedResponse] = await Promise.all([
-        supabase
-          .from('spaces')
-          .select('*')
-          .eq('client_id', profile.id)
-          .eq('is_active', true)
-          .order('is_favorite', { ascending: false })
-          .order('created_at', { ascending: false }),
+      await fetchSpaces();
+
+      const [bookingsResponse, completedResponse] = await Promise.all([
         supabase
           .from('bookings')
           .select('id, client_id, space_id, status, service_type, scheduled_at, created_at, spaces(name)')
-          .eq('client_id', profile.id)
+          .eq('client_id', user.id)
           .order('scheduled_at', { ascending: false })
           .limit(5),
         supabase
           .from('bookings')
           .select('*', { count: 'exact', head: true })
-          .eq('client_id', profile.id)
+          .eq('client_id', user.id)
           .eq('status', 'completed')
       ]);
 
@@ -710,16 +795,21 @@ export function ClientDashboardPage() {
         return;
       }
 
-      if (spacesResponse.error || bookingsResponse.error || completedResponse.error) {
+      if (bookingsResponse.error || completedResponse.error) {
+        if (bookingsResponse.error) {
+          console.error('Bookings fetch error:', bookingsResponse.error);
+        }
+        if (completedResponse.error) {
+          console.error('Completed count fetch error:', completedResponse.error);
+        }
         setErrorMessage('Unable to load the dashboard right now.');
-        setLoading(false);
+        setDashboardLoading(false);
         return;
       }
 
-      setSpaces((spacesResponse.data as SpaceRecord[] | null) ?? []);
       setBookings((bookingsResponse.data as BookingRecord[] | null) ?? []);
       setCompletedCount(completedResponse.count ?? 0);
-      setLoading(false);
+      setDashboardLoading(false);
     };
 
     void loadDashboard();
@@ -734,7 +824,7 @@ export function ClientDashboardPage() {
     return () => {
       active = false;
     };
-  }, [profile?.id]);
+  }, [authLoading, user?.id]);
 
   const lastCleaningBySpace = useMemo(() => {
     const map = new Map<string, string>();
@@ -782,24 +872,32 @@ export function ClientDashboardPage() {
     );
   };
 
-  const handleDelete = async (space: SpaceRecord) => {
-    if (!window.confirm(content.spaces.deleteConfirm)) {
+  const handleDelete = async (spaceId: string) => {
+    if (!user?.id) {
+      console.warn('No user ID available for delete');
       return;
     }
 
-    const { error } = await supabase.from('spaces').delete().eq('id', space.id);
+    const { error } = await supabase
+      .from('spaces')
+      .delete()
+      .eq('id', spaceId)
+      .eq('client_id', user.id);
 
     if (error) {
+      console.error('Delete error:', error);
       setErrorMessage(error.message);
       return;
     }
 
-    setSpaces((currentSpaces) => currentSpaces.filter((currentSpace) => currentSpace.id !== space.id));
+    setSpaces((currentSpaces) => currentSpaces.filter((currentSpace) => currentSpace.id !== spaceId));
+    setDeleteCandidate(null);
     setToast(content.spaces.deletedToast);
     window.setTimeout(() => setToast(null), 2400);
   };
 
   const displayName = profile?.first_name || profile?.email || 'Nettoyo';
+  console.log('Rendering spaces:', spaces);
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7] px-4 py-8 sm:px-6 lg:px-8">
@@ -879,7 +977,7 @@ export function ClientDashboardPage() {
             </a>
           </div>
 
-          {loading ? (
+          {dashboardLoading ? (
             <div className="rounded-[28px] bg-white p-10 text-center shadow-[0_14px_32px_rgba(17,24,39,0.06)]">
               <Loader2 className="mx-auto animate-spin text-[#4FC3F7]" size={28} />
             </div>
@@ -903,8 +1001,12 @@ export function ClientDashboardPage() {
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {spaces.map((space) => {
+                console.log('Rendering space:', space.id, space.name);
+                console.log('space.photo_url:', space.photo_url);
                 const lastCleaning = lastCleaningBySpace.get(space.id);
-                const editHref = `${addSpacePath}?edit=${space.id}`;
+                const editHref = getEditSpacePath(language, space.id);
+                const resolvedPhotoUrl = resolveSpacePhotoUrl(space.photo_url);
+                const showPhoto = Boolean(resolvedPhotoUrl) && !imageLoadErrors[space.id];
 
                 return (
                   <article
@@ -912,11 +1014,27 @@ export function ClientDashboardPage() {
                     className="overflow-hidden rounded-[24px] bg-white shadow-[0_16px_34px_rgba(17,24,39,0.07)]"
                   >
                     <div className="relative h-52 overflow-hidden">
-                      {space.photo_url ? (
-                        <img src={space.photo_url} alt={space.name} className="h-full w-full object-cover" />
+                      {showPhoto ? (
+                        <img
+                          src={resolvedPhotoUrl ?? ''}
+                          alt={space.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            objectPosition: 'center',
+                            display: 'block'
+                          }}
+                          onError={() => {
+                            setImageLoadErrors((currentErrors) => ({ ...currentErrors, [space.id]: true }));
+                          }}
+                        />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#4FC3F7] to-[#A8E6CF] text-white">
-                          <Building2 size={52} />
+                          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
+                          </svg>
                         </div>
                       )}
                       <button
@@ -963,16 +1081,18 @@ export function ClientDashboardPage() {
                             window.history.pushState({}, '', editHref);
                             window.dispatchEvent(new PopStateEvent('popstate'));
                           }}
-                          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280] transition-all hover:-translate-y-0.5 hover:text-[#1A1A2E]"
+                          className="inline-flex h-8 items-center justify-center gap-1 rounded-full border border-[#E5E7EB] px-3 text-xs font-medium text-[#6B7280] transition-all hover:-translate-y-0.5 hover:border-[#4FC3F7] hover:text-[#4FC3F7]"
                         >
-                          <Pencil size={16} />
+                          <Pencil size={14} />
+                          <span>{content.spaces.edit}</span>
                         </a>
                         <button
                           type="button"
-                          onClick={() => void handleDelete(space)}
-                          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280] transition-all hover:-translate-y-0.5 hover:text-[#DC2626]"
+                          onClick={() => setDeleteCandidate(space)}
+                          className="inline-flex h-8 items-center justify-center gap-1 rounded-full border border-[#E5E7EB] px-3 text-xs font-medium text-[#6B7280] transition-all hover:-translate-y-0.5 hover:border-[#DC2626] hover:text-[#DC2626]"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
+                          <span>{content.spaces.delete}</span>
                         </button>
                       </div>
                     </div>
@@ -1037,11 +1157,45 @@ export function ClientDashboardPage() {
             </div>
           )}
         </section>
+        {deleteCandidate ? (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
+              <h3 className="text-xl font-bold text-[#1A1A2E]">{content.spaces.deleteConfirm}</h3>
+              <p className="mt-3 text-sm leading-6 text-[#6B7280]">{content.spaces.deleteMessage}</p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteCandidate(null)}
+                  className="rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#6B7280] transition-colors hover:bg-[#F7F7F7]"
+                >
+                  {content.spaces.cancelDelete}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(deleteCandidate.id)}
+                  className="rounded-full bg-[#DC2626] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B91C1C]"
+                >
+                  {content.spaces.confirmDelete}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
+/*
+ * IMPORTANT - For photo upload to work:
+ * 1. Go to Supabase Dashboard -> SQL Editor
+ * 2. Run: src/lib/create-storage-bucket.sql
+ * OR manually:
+ * Supabase Dashboard -> Storage -> New bucket
+ * Name: space-photos
+ * Public bucket: ON
+ * Then add RLS policies as in the SQL file
+ */
 export function ClientAddSpacePage() {
   const { language, navigateTo } = useLanguage();
   const { profile } = useAuth();
@@ -1081,6 +1235,7 @@ export function ClientAddSpacePage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [photoOriginalSize, setPhotoOriginalSize] = useState<number | null>(null);
   const [photoOptimizedSize, setPhotoOptimizedSize] = useState<number | null>(null);
   const [showDraftToast, setShowDraftToast] = useState(false);
@@ -1338,6 +1493,44 @@ export function ClientAddSpacePage() {
     navigateTo('clientDashboard');
   };
 
+  const uploadPhoto = async (file: File, userId: string): Promise<string | null> => {
+    try {
+      let fileToUpload = file;
+      if (file.type !== 'image/webp') {
+        try {
+          fileToUpload = await convertToWebP(file);
+        } catch {
+          fileToUpload = file;
+        }
+      }
+
+      const fileName = `${userId}/${Date.now()}.webp`;
+      const { error: uploadError } = await supabase
+        .storage
+        .from('space-photos')
+        .upload(fileName, fileToUpload, {
+          contentType: 'image/webp',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        return null;
+      }
+
+      const { data } = supabase
+        .storage
+        .from('space-photos')
+        .getPublicUrl(fileName);
+
+      console.log('Saving photo_url:', data.publicUrl);
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Photo upload failed:', error);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!profile?.id) {
       setErrorMessage(content.addSpace.errors.profileMissing);
@@ -1356,21 +1549,12 @@ export function ClientAddSpacePage() {
       let photoUrl = existingPhotoUrl;
 
       if (photoFile) {
-        const isWebP = photoFile.type === 'image/webp';
-        const fileExtension = isWebP ? 'webp' : (photoFile.name.split('.').pop() ?? 'jpg');
-        const filePath = `${profile.id}/${Date.now()}.${fileExtension}`;
-        const uploadResponse = await supabase.storage
-          .from('space-photos')
-          .upload(filePath, photoFile, {
-            upsert: false,
-            contentType: isWebP ? 'image/webp' : photoFile.type
-          });
-
-        if (uploadResponse.error) {
-          throw new Error(content.addSpace.errors.upload);
+        const uploadedPhotoUrl = await uploadPhoto(photoFile, profile.id);
+        if (uploadedPhotoUrl) {
+          photoUrl = uploadedPhotoUrl;
+        } else {
+          console.warn('Photo upload failed - saving space without photo');
         }
-
-        photoUrl = supabase.storage.from('space-photos').getPublicUrl(filePath).data.publicUrl;
       }
 
       if (form.isFavorite) {
@@ -1416,10 +1600,12 @@ export function ClientAddSpacePage() {
           return;
         }
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('spaces')
           .insert([payload])
           .select();
+
+        console.log('Spaces insert result:', data);
 
         if (error) {
           if (error.code === '42P01') {
@@ -1436,9 +1622,12 @@ export function ClientAddSpacePage() {
         }
       }
 
-      window.sessionStorage.setItem('client-dashboard-toast', content.addSpace.success);
       window.sessionStorage.removeItem(ADD_SPACE_DRAFT_STORAGE_KEY);
-      navigateTo('clientDashboard');
+      window.sessionStorage.setItem('client-dashboard-toast', content.addSpace.success);
+      setShowSuccess(true);
+      window.setTimeout(() => {
+        navigateTo('clientDashboard');
+      }, 1500);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : content.addSpace.errors.generic);
     } finally {
@@ -1451,6 +1640,26 @@ export function ClientAddSpacePage() {
     <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7]">
       <div className="mx-auto max-w-4xl">
         {pageStyles()}
+        {showSuccess ? (
+          <div
+            style={{
+              position: 'fixed',
+              top: '24px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#A8E6CF',
+              color: '#085041',
+              padding: '12px 24px',
+              borderRadius: '9999px',
+              fontWeight: '500',
+              fontSize: '14px',
+              zIndex: 9999,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}
+          >
+            {content.addSpace.success}
+          </div>
+        ) : null}
         {showDraftToast ? (
           <div
             className={`mx-4 mt-4 rounded-full bg-[rgba(168,230,207,0.35)] px-4 py-2 text-center text-xs font-medium text-[#047857] transition-opacity duration-500 sm:mx-6 ${fadeDraftToast ? 'opacity-0' : 'opacity-100'}`}
