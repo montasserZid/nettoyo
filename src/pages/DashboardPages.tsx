@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
+import { convertToWebP } from '../lib/imageUtils';
 
 type CleanerServiceId = 'domicile' | 'deep_cleaning' | 'office' | 'moving' | 'post_renovation' | 'airbnb';
 type WeekdayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -75,6 +76,12 @@ const contentByLanguage = {
     addPhoto: 'Ajouter une photo',
     changePhoto: 'Changer la photo',
     removePhoto: 'Retirer',
+    chooseFromGallery: 'Choisir depuis le telephone',
+    takePhoto: 'Prendre une photo',
+    photoSourceTitle: 'Ajouter une photo',
+    photoSourceHelp: 'Choisissez une photo existante ou ouvrez la camera.',
+    close: 'Fermer',
+    viewPhoto: 'Voir la photo',
     descriptionTitle: 'Description professionnelle',
     descriptionHelp: 'Parlez de votre experience, de vos specialites et de votre methode de travail.',
     descriptionPlaceholder:
@@ -112,6 +119,12 @@ const contentByLanguage = {
     addPhoto: 'Add photo',
     changePhoto: 'Change photo',
     removePhoto: 'Remove',
+    chooseFromGallery: 'Choose from device',
+    takePhoto: 'Take a photo',
+    photoSourceTitle: 'Add a photo',
+    photoSourceHelp: 'Choose an existing picture or open the camera.',
+    close: 'Close',
+    viewPhoto: 'View photo',
     descriptionTitle: 'Professional description',
     descriptionHelp: 'Highlight your experience, specialties, and working style.',
     descriptionPlaceholder:
@@ -149,6 +162,12 @@ const contentByLanguage = {
     addPhoto: 'Agregar foto',
     changePhoto: 'Cambiar foto',
     removePhoto: 'Quitar',
+    chooseFromGallery: 'Elegir desde el telefono',
+    takePhoto: 'Tomar una foto',
+    photoSourceTitle: 'Agregar una foto',
+    photoSourceHelp: 'Elige una foto existente o abre la camara.',
+    close: 'Cerrar',
+    viewPhoto: 'Ver foto',
     descriptionTitle: 'Descripcion profesional',
     descriptionHelp: 'Destaca tu experiencia, especialidades y forma de trabajar.',
     descriptionPlaceholder:
@@ -339,6 +358,7 @@ export function CleanerDashboardPage() {
   const weekdayLabels = weekdayLabelByLanguage[language];
   const serviceLabels = serviceLabelByLanguage[language];
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const [description, setDescription] = useState('');
   const [selectedServices, setSelectedServices] = useState<CleanerServiceId[]>([]);
@@ -351,6 +371,8 @@ export function CleanerDashboardPage() {
   const [exceptionDraftEnd, setExceptionDraftEnd] = useState('16:00');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveToast, setSaveToast] = useState(false);
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
   const storageKey = useMemo(() => getCleanerStorageKey(user?.id), [user?.id]);
   const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Nettoyo';
@@ -406,17 +428,30 @@ export function CleanerDashboardPage() {
     }));
   };
 
-  const handlePhotoUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    let fileToUse = file;
+    if (file.type !== 'image/webp') {
+      try {
+        fileToUse = await convertToWebP(file);
+      } catch {
+        fileToUse = file;
+      }
+    }
+
     const reader = new FileReader();
     reader.onload = () => setPhotoDataUrl(typeof reader.result === 'string' ? reader.result : null);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(fileToUse);
+    setPhotoSourceOpen(false);
   };
 
   const handlePhotoRemove = () => {
     setPhotoDataUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    setPhotoModalOpen(false);
   };
 
   const addException = () => {
@@ -490,23 +525,42 @@ export function CleanerDashboardPage() {
               <p className="mt-2 text-sm text-[#6B7280]">{content.photoHelp}</p>
 
               <div className="mt-5 flex justify-center">
-                {photoDataUrl ? (
-                  <img
-                    src={photoDataUrl}
-                    alt="Cleaner profile"
-                    className="h-32 w-32 rounded-full border-4 border-white object-cover shadow-[0_16px_32px_rgba(79,195,247,0.24)]"
-                  />
-                ) : (
-                  <div className="flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-[#4FC3F7] to-[#A8E6CF] text-white shadow-[0_16px_32px_rgba(79,195,247,0.24)]">
-                    <Camera size={34} />
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (photoDataUrl) {
+                      setPhotoModalOpen(true);
+                    }
+                  }}
+                  className="group"
+                >
+                  {photoDataUrl ? (
+                    <img
+                      src={photoDataUrl}
+                      alt="Cleaner profile"
+                      className="h-32 w-32 rounded-full border-4 border-white object-cover shadow-[0_16px_32px_rgba(79,195,247,0.24)] transition-transform group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-[#4FC3F7] to-[#A8E6CF] text-white shadow-[0_16px_32px_rgba(79,195,247,0.24)]">
+                      <Camera size={34} />
+                    </div>
+                  )}
+                </button>
               </div>
+              {photoDataUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setPhotoModalOpen(true)}
+                  className="mt-3 w-full rounded-full border border-[#E5E7EB] px-4 py-2 text-xs font-semibold text-[#6B7280] transition-colors hover:bg-[#F7F7F7]"
+                >
+                  {content.viewPhoto}
+                </button>
+              ) : null}
 
               <div className="mt-5 flex flex-col gap-2 sm:flex-row lg:flex-col">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setPhotoSourceOpen(true)}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-5 py-3 font-semibold text-white shadow-[0_12px_24px_rgba(79,195,247,0.25)] transition-all hover:bg-[#3FAAD4]"
                 >
                   <Camera size={16} />
@@ -524,7 +578,15 @@ export function CleanerDashboardPage() {
                 ) : null}
               </div>
 
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={(event) => void handlePhotoUpload(event)} className="hidden" />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(event) => void handlePhotoUpload(event)}
+                className="hidden"
+              />
             </section>
 
             <section className="rounded-[24px] bg-white p-6 shadow-[0_14px_32px_rgba(17,24,39,0.06)]">
@@ -796,6 +858,60 @@ export function CleanerDashboardPage() {
           </main>
         </div>
       </div>
+
+      {photoSourceOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_24px_50px_rgba(17,24,39,0.25)]">
+            <h3 className="text-lg font-bold text-[#1A1A2E]">{content.photoSourceTitle}</h3>
+            <p className="mt-1 text-sm text-[#6B7280]">{content.photoSourceHelp}</p>
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#E5E7EB] px-4 py-3 font-semibold text-[#1A1A2E] transition-colors hover:bg-[#F7F7F7]"
+              >
+                <Camera size={16} />
+                {content.chooseFromGallery}
+              </button>
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#4FC3F7] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#3FAAD4]"
+              >
+                <Camera size={16} />
+                {content.takePhoto}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPhotoSourceOpen(false)}
+              className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-[#E5E7EB] px-4 py-2.5 text-sm font-semibold text-[#6B7280] transition-colors hover:bg-[#F7F7F7]"
+            >
+              {content.close}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {photoModalOpen && photoDataUrl ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+          <div className="relative w-full max-w-2xl">
+            <button
+              type="button"
+              onClick={() => setPhotoModalOpen(false)}
+              className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70"
+              aria-label={content.close}
+            >
+              <X size={16} />
+            </button>
+            <img
+              src={photoDataUrl}
+              alt="Cleaner profile modal preview"
+              className="max-h-[82vh] w-full rounded-2xl object-contain shadow-[0_30px_70px_rgba(17,24,39,0.45)]"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
