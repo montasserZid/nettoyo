@@ -11,9 +11,24 @@ import { CleanerDashboardPage } from './pages/CleanerDashboard';
 import { ClientAddSpacePage, ClientDashboardPage } from './pages/ClientDashboardPage';
 import { AuthProvider } from './context/AuthContext';
 import { useLanguage } from './i18n/LanguageContext';
+import { useEffect } from 'react';
+import { buildPageTitle } from './lib/pageTitle';
 
 function AppContent() {
   const { route } = useLanguage();
+  const pageTitleByRoute: Partial<Record<typeof route, string>> = {
+    howItWorks: 'How It Works',
+    services: 'Services',
+    login: 'Login',
+    signup: 'Sign Up',
+    clientDashboard: 'Dashboard',
+    clientAddSpace: 'Add Space',
+    cleanerDashboard: 'Cleaner Dashboard'
+  };
+
+  useEffect(() => {
+    document.title = buildPageTitle(pageTitleByRoute[route]);
+  }, [route]);
 
   return (
     <div className="min-h-screen bg-white">
