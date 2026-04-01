@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS public.cleaner_profiles (
   description TEXT,
   services TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
   photo_url TEXT,
+  home_area JSONB,
+  service_areas JSONB NOT NULL DEFAULT '[]'::JSONB,
   weekly_availability JSONB NOT NULL DEFAULT '{}'::JSONB,
   availability_exceptions JSONB NOT NULL DEFAULT '[]'::JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

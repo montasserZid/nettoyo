@@ -1,0 +1,83 @@
+{
+  "zones": [
+    {
+      "name": "Montreal",
+      "cities": [
+        { "name": "Ville-Marie", "lat": 45.5088, "lng": -73.5618 },
+        { "name": "Plateau-Mont-Royal", "lat": 45.5242, "lng": -73.5817 },
+        { "name": "Rosemont–La Petite-Patrie", "lat": 45.5517, "lng": -73.5976 },
+        { "name": "Villeray–Saint-Michel–Parc-Extension", "lat": 45.5565, "lng": -73.6150 },
+        { "name": "Ahuntsic-Cartierville", "lat": 45.5450, "lng": -73.6650 },
+        { "name": "Saint-Laurent", "lat": 45.5084, "lng": -73.7042 },
+        { "name": "Côte-des-Neiges–Notre-Dame-de-Grâce", "lat": 45.4780, "lng": -73.6300 },
+        { "name": "Outremont", "lat": 45.5181, "lng": -73.6073 },
+        { "name": "Westmount", "lat": 45.4845, "lng": -73.5999 },
+        { "name": "Verdun", "lat": 45.4501, "lng": -73.5719 },
+        { "name": "LaSalle", "lat": 45.4320, "lng": -73.6290 },
+        { "name": "Lachine", "lat": 45.4350, "lng": -73.6800 },
+        { "name": "Anjou", "lat": 45.6070, "lng": -73.5370 },
+        { "name": "Montréal-Nord", "lat": 45.5930, "lng": -73.6330 },
+        { "name": "Saint-Léonard", "lat": 45.5840, "lng": -73.5830 },
+        { "name": "Pierrefonds-Roxboro", "lat": 45.4830, "lng": -73.8800 },
+        { "name": "Dollard-des-Ormeaux", "lat": 45.4870, "lng": -73.8200 }
+      ]
+    },
+    {
+      "name": "Rive-Sud",
+      "cities": [
+        { "name": "Longueuil", "lat": 45.5312, "lng": -73.5181 },
+        { "name": "Brossard", "lat": 45.4630, "lng": -73.4650 },
+        { "name": "Saint-Lambert", "lat": 45.5000, "lng": -73.5100 },
+        { "name": "Boucherville", "lat": 45.5910, "lng": -73.4360 },
+        { "name": "Saint-Bruno-de-Montarville", "lat": 45.5330, "lng": -73.3660 },
+        { "name": "Saint-Hubert", "lat": 45.4930, "lng": -73.4170 },
+        { "name": "Chambly", "lat": 45.4500, "lng": -73.2830 },
+        { "name": "La Prairie", "lat": 45.4160, "lng": -73.5000 },
+        { "name": "Candiac", "lat": 45.3830, "lng": -73.5160 },
+        { "name": "Delson", "lat": 45.3670, "lng": -73.5500 },
+        { "name": "Sainte-Catherine", "lat": 45.4000, "lng": -73.5830 },
+        { "name": "Carignan", "lat": 45.4500, "lng": -73.3000 }
+      ]
+    },
+    {
+      "name": "Rive-Nord",
+      "cities": [
+        { "name": "Laval", "lat": 45.6066, "lng": -73.7124 },
+        { "name": "Blainville", "lat": 45.6700, "lng": -73.8800 },
+        { "name": "Boisbriand", "lat": 45.6200, "lng": -73.8300 },
+        { "name": "Sainte-Thérèse", "lat": 45.6400, "lng": -73.8400 },
+        { "name": "Rosemère", "lat": 45.6400, "lng": -73.8100 },
+        { "name": "Terrebonne", "lat": 45.7000, "lng": -73.6300 },
+        { "name": "Mascouche", "lat": 45.7500, "lng": -73.6000 },
+        { "name": "Mirabel", "lat": 45.6500, "lng": -74.0000 },
+        { "name": "Deux-Montagnes", "lat": 45.5400, "lng": -73.9000 },
+        { "name": "Saint-Eustache", "lat": 45.5700, "lng": -73.9000 }
+      ]
+    },
+    {
+      "name": "Est",
+      "cities": [
+        { "name": "Pointe-aux-Trembles", "lat": 45.6500, "lng": -73.5000 },
+        { "name": "Rivière-des-Prairies", "lat": 45.6300, "lng": -73.6000 },
+        { "name": "Montréal-Est", "lat": 45.6300, "lng": -73.5200 },
+        { "name": "Mercier-Hochelaga-Maisonneuve", "lat": 45.5500, "lng": -73.5400 },
+        { "name": "Anjou", "lat": 45.6070, "lng": -73.5370 },
+        { "name": "Saint-Léonard", "lat": 45.5840, "lng": -73.5830 }
+      ]
+    },
+    {
+      "name": "Ouest",
+      "cities": [
+        { "name": "West Island", "lat": 45.4500, "lng": -73.8500 },
+        { "name": "Pointe-Claire", "lat": 45.4500, "lng": -73.8160 },
+        { "name": "Kirkland", "lat": 45.4500, "lng": -73.8500 },
+        { "name": "Beaconsfield", "lat": 45.4300, "lng": -73.8700 },
+        { "name": "Baie-D’Urfé", "lat": 45.4100, "lng": -73.9200 },
+        { "name": "Senneville", "lat": 45.4300, "lng": -73.9500 },
+        { "name": "Dorval", "lat": 45.4500, "lng": -73.7500 },
+        { "name": "Lachine", "lat": 45.4350, "lng": -73.6800 },
+        { "name": "Dollard-des-Ormeaux", "lat": 45.4870, "lng": -73.8200 }
+      ]
+    }
+  ]
+}

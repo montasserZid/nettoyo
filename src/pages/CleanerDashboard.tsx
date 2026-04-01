@@ -1,10 +1,14 @@
 import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Briefcase, Building2, CalendarDays, Camera, ChevronDown, ChevronUp, Check, Clock3, Home, Paintbrush, Plus, Sparkles, Trash2, Truck, CircleUser as UserCircle2, Wand2, X } from 'lucide-react';
+import { Briefcase, Building2, CalendarDays, Camera, ChevronDown, ChevronUp, Check, Clock3, Home, Layers3, LocateFixed, MapPin, Paintbrush, Plus, Search, Sparkles, Trash2, Truck, CircleUser as UserCircle2, Wand2, X } from 'lucide-react';
+import type { LatLngBoundsExpression } from 'leaflet';
+import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { convertToWebP } from '../lib/imageUtils';
 import supabase from '../lib/supabase';
+import zonesData from '../data/zones.json';
+import 'leaflet/dist/leaflet.css';
 
 type CleanerServiceId = 'domicile' | 'deep_cleaning' | 'office' | 'moving' | 'post_renovation' | 'airbnb';
 type WeekdayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -14,12 +18,15 @@ type ServiceOption = { id: CleanerServiceId; icon: typeof Home };
 type WeeklyAvailabilityDay = { enabled: boolean; start: string; end: string };
 type WeeklyAvailability = Record<WeekdayKey, WeeklyAvailabilityDay>;
 type AvailabilityException = { id: string; date: string; mode: ExceptionMode; start: string; end: string };
+type AreaSelection = { id: string; zone: string; name: string; lat: number; lng: number };
 type StoredCleanerProfile = {
   description?: string;
   services?: CleanerServiceId[];
   photoDataUrl?: string | null;
   weekly_availability?: WeeklyAvailability;
   availability_exceptions?: AvailabilityException[];
+  home_area?: AreaSelection | null;
+  service_areas?: AreaSelection[];
 };
 type CleanerProfileRow = {
   description: string | null;
@@ -27,7 +34,11 @@ type CleanerProfileRow = {
   photo_url: string | null;
   weekly_availability: unknown;
   availability_exceptions: unknown;
+  home_area?: unknown;
+  service_areas?: unknown;
 };
+type ZoneCity = { name: string; lat: number; lng: number };
+type ZoneItem = { name: string; cities: ZoneCity[] };
 
 const serviceOptions: ServiceOption[] = [
   { id: 'domicile', icon: Home },
@@ -49,6 +60,39 @@ const defaultWeeklyAvailability: WeeklyAvailability = {
   saturday: { enabled: true, start: '06:00', end: '16:00' },
   sunday: { enabled: true, start: '06:00', end: '16:00' }
 };
+
+const zones = zonesData.zones as ZoneItem[];
+
+function areaId(zone: string, city: string) {
+  return `${zone}::${city}`;
+}
+
+const areaPoints: AreaSelection[] = zones.flatMap((zone) =>
+  zone.cities.map((city) => ({
+    id: areaId(zone.name, city.name),
+    zone: zone.name,
+    name: city.name,
+    lat: city.lat,
+    lng: city.lng
+  }))
+);
+
+const firstZoneName = zones[0]?.name ?? '';
+const zoneAreas: AreaSelection[] = zones.map((zone) => {
+  const lat = zone.cities.reduce((sum, city) => sum + city.lat, 0) / Math.max(zone.cities.length, 1);
+  const lng = zone.cities.reduce((sum, city) => sum + city.lng, 0) / Math.max(zone.cities.length, 1);
+  return {
+    id: `zone::${zone.name}`,
+    zone: zone.name,
+    name: zone.name,
+    lat,
+    lng
+  };
+});
+
+function getZoneArea(zoneName: string) {
+  return zoneAreas.find((zone) => zone.zone === zoneName) ?? null;
+}
 
 const contentByLanguage = {
   fr: {
@@ -79,6 +123,47 @@ const contentByLanguage = {
       'Exemple: Plus de 5 ans d experience, specialise en menage residentiel et Airbnb. Ponctuelle, minutieuse et equipee pour les interventions en profondeur.',
     servicesTitle: 'Services proposes',
     servicesHelp: 'Selectionnez les prestations que vous acceptez actuellement.',
+    areaSectionTitle: 'Zones de couverture',
+    areaSectionHelp: 'Definissez votre zone de residence et les secteurs ou vous acceptez des missions.',
+    homeAreaTitle: 'Zone de domicile',
+    homeAreaHelp: 'Selectionnez une seule zone de base. Cette zone servira de reference principale.',
+    homeAreaEmpty: 'Aucune zone de domicile selectionnee',
+    homeAreaSelected: 'Domicile',
+    serviceAreasTitle: 'Zones de service',
+    serviceAreasHelp: 'Ajoutez toutes les zones dans lesquelles vous acceptez des interventions.',
+    serviceAreasEmpty: 'Aucune zone de service selectionnee',
+    serviceAreasCount: 'zone(s) de service',
+    zoneLabel: 'Zone',
+    mapLabel: 'Carte des zones',
+    homePinLegend: 'Domicile',
+    servicePinLegend: 'Service',
+    removeArea: 'Retirer',
+    configureAreas: 'Configurer mes zones',
+    wizardTitle: 'Configuration des zones',
+    stepHomeZoneTitle: 'Choisir la zone de domicile',
+    stepHomeZoneHelp: 'Selectionnez votre zone principale de residence.',
+    stepExactAreaTitle: 'Secteur exact (optionnel)',
+    stepExactAreaHelp: 'Affinez votre secteur ou passez cette etape.',
+    stepServiceTitle: 'Zones de service',
+    stepServiceHelp: 'Dans quelles zones acceptez-vous des missions ?',
+    stepReviewTitle: 'Resume des zones',
+    stepReviewHelp: 'Verifiez vos selections avant de confirmer.',
+    continue: 'Continuer',
+    back: 'Retour',
+    skip: 'Passer',
+    confirmAreas: 'Confirmer mes zones',
+    onlyHomeService: 'Seulement ma zone de domicile',
+    onlyHomeServiceHelp: 'Les missions seront limitees a votre domicile.',
+    advancedService: 'Choisir plusieurs zones',
+    advancedServiceHelp: 'Ajoutez plusieurs secteurs selon votre mobilite.',
+    searchAreaPlaceholder: 'Rechercher un secteur...',
+    selectedCount: 'selection(s)',
+    selectionModeLabel: 'Mode de selection',
+    selectHomeMode: 'Choisir domicile',
+    selectServiceMode: 'Choisir zones service',
+    mapHintHome: 'Cliquez sur la carte pour definir votre zone de domicile.',
+    mapHintService: 'Cliquez sur la carte pour ajouter ou retirer des zones de service.',
+    areasInZone: 'Zones disponibles',
     availabilityTitle: 'Disponibilite hebdomadaire',
     availabilityHelp: 'Activez les jours travailles et definissez vos horaires pour chaque jour.',
     unavailableDay: 'Indisponible',
@@ -125,6 +210,47 @@ const contentByLanguage = {
       'Example: 5+ years of experience, specialized in residential and Airbnb cleaning. Reliable, detail-oriented, and equipped for deep cleaning sessions.',
     servicesTitle: 'Services offered',
     servicesHelp: 'Select all services you currently offer.',
+    areaSectionTitle: 'Coverage areas',
+    areaSectionHelp: 'Set your home base and the areas where you accept bookings.',
+    homeAreaTitle: 'Home area',
+    homeAreaHelp: 'Select one home base area. It will be your primary reference zone.',
+    homeAreaEmpty: 'No home area selected',
+    homeAreaSelected: 'Home',
+    serviceAreasTitle: 'Service areas',
+    serviceAreasHelp: 'Add every area where you currently accept jobs.',
+    serviceAreasEmpty: 'No service areas selected',
+    serviceAreasCount: 'service area(s)',
+    zoneLabel: 'Zone',
+    mapLabel: 'Area map',
+    homePinLegend: 'Home',
+    servicePinLegend: 'Service',
+    removeArea: 'Remove',
+    configureAreas: 'Set my areas',
+    wizardTitle: 'Area setup',
+    stepHomeZoneTitle: 'Choose home zone',
+    stepHomeZoneHelp: 'Select your main residential zone.',
+    stepExactAreaTitle: 'Exact area (optional)',
+    stepExactAreaHelp: 'Pick a precise area or skip this step.',
+    stepServiceTitle: 'Service areas',
+    stepServiceHelp: 'Where do you accept jobs?',
+    stepReviewTitle: 'Areas summary',
+    stepReviewHelp: 'Review your selections before confirming.',
+    continue: 'Continue',
+    back: 'Back',
+    skip: 'Skip',
+    confirmAreas: 'Confirm my areas',
+    onlyHomeService: 'Only my home area',
+    onlyHomeServiceHelp: 'Jobs will be limited to your home area.',
+    advancedService: 'Choose multiple areas',
+    advancedServiceHelp: 'Add multiple sectors based on your mobility.',
+    searchAreaPlaceholder: 'Search area...',
+    selectedCount: 'selected',
+    selectionModeLabel: 'Selection mode',
+    selectHomeMode: 'Pick home area',
+    selectServiceMode: 'Pick service areas',
+    mapHintHome: 'Click on the map to set your home area.',
+    mapHintService: 'Click on the map to add or remove service areas.',
+    areasInZone: 'Available areas',
     availabilityTitle: 'Weekly availability',
     availabilityHelp: 'Enable working days and set start/end hours for each day.',
     unavailableDay: 'Unavailable',
@@ -171,6 +297,47 @@ const contentByLanguage = {
       'Ejemplo: Mas de 5 anos de experiencia, especializada en limpieza residencial y Airbnb. Puntual, detallista y preparada para limpiezas profundas.',
     servicesTitle: 'Servicios ofrecidos',
     servicesHelp: 'Selecciona todos los servicios que ofreces actualmente.',
+    areaSectionTitle: 'Zonas de cobertura',
+    areaSectionHelp: 'Define tu zona de residencia y las zonas donde aceptas servicios.',
+    homeAreaTitle: 'Zona de domicilio',
+    homeAreaHelp: 'Selecciona una sola zona base. Sera tu zona principal de referencia.',
+    homeAreaEmpty: 'No hay zona de domicilio seleccionada',
+    homeAreaSelected: 'Domicilio',
+    serviceAreasTitle: 'Zonas de servicio',
+    serviceAreasHelp: 'Agrega todas las zonas en las que aceptas trabajos.',
+    serviceAreasEmpty: 'No hay zonas de servicio seleccionadas',
+    serviceAreasCount: 'zona(s) de servicio',
+    zoneLabel: 'Zona',
+    mapLabel: 'Mapa de zonas',
+    homePinLegend: 'Domicilio',
+    servicePinLegend: 'Servicio',
+    removeArea: 'Quitar',
+    configureAreas: 'Configurar mis zonas',
+    wizardTitle: 'Configuracion de zonas',
+    stepHomeZoneTitle: 'Elegir zona de domicilio',
+    stepHomeZoneHelp: 'Selecciona tu zona principal de residencia.',
+    stepExactAreaTitle: 'Sector exacto (opcional)',
+    stepExactAreaHelp: 'Elige un sector preciso o salta este paso.',
+    stepServiceTitle: 'Zonas de servicio',
+    stepServiceHelp: '¿En que zonas aceptas servicios?',
+    stepReviewTitle: 'Resumen de zonas',
+    stepReviewHelp: 'Verifica tus selecciones antes de confirmar.',
+    continue: 'Continuar',
+    back: 'Atras',
+    skip: 'Saltar',
+    confirmAreas: 'Confirmar mis zonas',
+    onlyHomeService: 'Solo mi zona de domicilio',
+    onlyHomeServiceHelp: 'Las misiones se limitaran a tu zona de domicilio.',
+    advancedService: 'Elegir varias zonas',
+    advancedServiceHelp: 'Agrega varios sectores segun tu movilidad.',
+    searchAreaPlaceholder: 'Buscar sector...',
+    selectedCount: 'seleccion(es)',
+    selectionModeLabel: 'Modo de seleccion',
+    selectHomeMode: 'Elegir domicilio',
+    selectServiceMode: 'Elegir zonas de servicio',
+    mapHintHome: 'Haz clic en el mapa para definir tu zona de domicilio.',
+    mapHintService: 'Haz clic en el mapa para agregar o quitar zonas de servicio.',
+    areasInZone: 'Zonas disponibles',
     availabilityTitle: 'Disponibilidad semanal',
     availabilityHelp: 'Activa los dias laborales y define horarios de inicio y fin por dia.',
     unavailableDay: 'No disponible',
@@ -232,6 +399,18 @@ function isCleanerServiceId(value: string): value is CleanerServiceId {
   return serviceOptions.some((option) => option.id === value);
 }
 
+function isValidAreaSelection(value: unknown): value is AreaSelection {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as AreaSelection;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.zone === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.lat === 'number' &&
+    typeof candidate.lng === 'number'
+  );
+}
+
 function normalizeCleanerProfile(
   row: CleanerProfileRow | null,
   fallbackAvatarUrl: string | null,
@@ -242,19 +421,25 @@ function normalizeCleanerProfile(
   const sourcePhoto = row?.photo_url ?? fallbackLocalProfile?.photoDataUrl ?? fallbackAvatarUrl ?? null;
   const sourceWeeklyAvailability = row?.weekly_availability ?? fallbackLocalProfile?.weekly_availability;
   const sourceExceptions = row?.availability_exceptions ?? fallbackLocalProfile?.availability_exceptions;
+  const sourceHomeArea = row?.home_area ?? fallbackLocalProfile?.home_area;
+  const sourceServiceAreas = row?.service_areas ?? fallbackLocalProfile?.service_areas;
 
   const services = Array.isArray(sourceServices) ? sourceServices.filter(isCleanerServiceId) : [];
   const weeklyAvailability = isValidWeeklyAvailability(sourceWeeklyAvailability)
     ? sourceWeeklyAvailability
     : defaultWeeklyAvailability;
   const availabilityExceptions = Array.isArray(sourceExceptions) ? sourceExceptions.filter(isValidException) : [];
+  const homeArea = isValidAreaSelection(sourceHomeArea) ? sourceHomeArea : null;
+  const serviceAreas = Array.isArray(sourceServiceAreas) ? sourceServiceAreas.filter(isValidAreaSelection) : [];
 
   return {
     description: sourceDescription,
     services,
     photoDataUrl: sourcePhoto,
     weeklyAvailability,
-    availabilityExceptions
+    availabilityExceptions,
+    homeArea,
+    serviceAreas
   };
 }
 
@@ -380,6 +565,39 @@ function TimeStepControl({
   );
 }
 
+function MapViewportSync({
+  points,
+  activeZone,
+  homeArea,
+  serviceAreas,
+  selectionMode
+}: {
+  points: AreaSelection[];
+  activeZone: string;
+  homeArea: AreaSelection | null;
+  serviceAreas: AreaSelection[];
+  selectionMode: 'home' | 'service';
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const zonePoints = points.filter((point) => point.zone === activeZone);
+    const targetPoints =
+      selectionMode === 'home' && homeArea
+        ? [homeArea]
+        : selectionMode === 'service' && serviceAreas.length > 0
+          ? serviceAreas
+          : zonePoints.length > 0
+            ? zonePoints
+            : points;
+
+    const bounds: LatLngBoundsExpression = targetPoints.map((point) => [point.lat, point.lng]);
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+  }, [activeZone, homeArea, map, points, selectionMode, serviceAreas]);
+
+  return null;
+}
+
 export function CleanerDashboardPage() {
   const { user, profile } = useAuth();
   const { language } = useLanguage();
@@ -394,6 +612,15 @@ export function CleanerDashboardPage() {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailability>(defaultWeeklyAvailability);
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([]);
+  const [homeArea, setHomeArea] = useState<AreaSelection | null>(null);
+  const [serviceAreas, setServiceAreas] = useState<AreaSelection[]>([]);
+  const [isAreaWizardOpen, setIsAreaWizardOpen] = useState(false);
+  const [areaStep, setAreaStep] = useState<1 | 2 | 3 | 4>(1);
+  const [draftHomeZone, setDraftHomeZone] = useState<string>(firstZoneName);
+  const [draftHomeArea, setDraftHomeArea] = useState<AreaSelection | null>(null);
+  const [serviceMode, setServiceMode] = useState<'simple' | 'advanced'>('simple');
+  const [draftServiceAreas, setDraftServiceAreas] = useState<AreaSelection[]>([]);
+  const [areaSearch, setAreaSearch] = useState('');
   const [exceptionDraftDate, setExceptionDraftDate] = useState('');
   const [exceptionDraftMode, setExceptionDraftMode] = useState<ExceptionMode>('all_day');
   const [exceptionDraftStart, setExceptionDraftStart] = useState('06:00');
@@ -408,6 +635,13 @@ export function CleanerDashboardPage() {
   const storageKey = useMemo(() => getCleanerStorageKey(user?.id), [user?.id]);
   const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Nettoyo';
   const email = user?.email || profile?.email || '';
+  const serviceAreaIds = useMemo(() => new Set(serviceAreas.map((area) => area.id)), [serviceAreas]);
+  const draftServiceAreaIds = useMemo(() => new Set(draftServiceAreas.map((area) => area.id)), [draftServiceAreas]);
+  const currentZoneAreas = useMemo(() => areaPoints.filter((point) => point.zone === draftHomeZone), [draftHomeZone]);
+  const filteredCurrentZoneAreas = useMemo(
+    () => currentZoneAreas.filter((area) => area.name.toLowerCase().includes(areaSearch.trim().toLowerCase())),
+    [areaSearch, currentZoneAreas]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -419,6 +653,8 @@ export function CleanerDashboardPage() {
         setPhotoDataUrl(profile?.avatar_url ?? null);
         setWeeklyAvailability(defaultWeeklyAvailability);
         setAvailabilityExceptions([]);
+        setHomeArea(null);
+        setServiceAreas([]);
         setIsProfileLoading(false);
         return;
       }
@@ -437,7 +673,7 @@ export function CleanerDashboardPage() {
 
       const { data, error } = await supabase
         .from('cleaner_profiles')
-        .select('description, services, photo_url, weekly_availability, availability_exceptions')
+        .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -458,6 +694,13 @@ export function CleanerDashboardPage() {
       setPhotoDataUrl(normalized.photoDataUrl);
       setWeeklyAvailability(normalized.weeklyAvailability);
       setAvailabilityExceptions(normalized.availabilityExceptions);
+      setHomeArea(normalized.homeArea);
+      setServiceAreas(normalized.serviceAreas);
+      if (normalized.homeArea?.zone) {
+        setDraftHomeZone(normalized.homeArea.zone);
+      } else if (normalized.serviceAreas[0]?.zone) {
+        setDraftHomeZone(normalized.serviceAreas[0].zone);
+      }
       setIsProfileLoading(false);
     };
 
@@ -545,6 +788,91 @@ export function CleanerDashboardPage() {
     setAvailabilityExceptions((current) => current.filter((item) => item.id !== id));
   };
 
+  const toggleServiceArea = (area: AreaSelection) => {
+    setServiceAreas((current) =>
+      current.some((item) => item.id === area.id) ? current.filter((item) => item.id !== area.id) : [...current, area]
+    );
+  };
+
+  const toggleDraftServiceArea = (area: AreaSelection) => {
+    setDraftServiceAreas((current) =>
+      current.some((item) => item.id === area.id) ? current.filter((item) => item.id !== area.id) : [...current, area]
+    );
+  };
+
+  const openAreaWizard = () => {
+    const initialZone = homeArea?.zone ?? serviceAreas[0]?.zone ?? firstZoneName;
+    const initialHomeArea = homeArea ?? getZoneArea(initialZone);
+    const isSimpleMode = initialHomeArea ? serviceAreas.length <= 1 && serviceAreas.every((area) => area.id === initialHomeArea.id) : serviceAreas.length === 0;
+    setDraftHomeZone(initialZone);
+    setDraftHomeArea(initialHomeArea);
+    setServiceMode(isSimpleMode ? 'simple' : 'advanced');
+    setDraftServiceAreas(isSimpleMode ? (initialHomeArea ? [initialHomeArea] : []) : serviceAreas);
+    setAreaSearch('');
+    setAreaStep(1);
+    setIsAreaWizardOpen(true);
+  };
+
+  const closeAreaWizard = () => {
+    setIsAreaWizardOpen(false);
+    setAreaStep(1);
+    setAreaSearch('');
+  };
+
+  const handleContinueFromStep1 = () => {
+    if (!draftHomeZone) return;
+    setDraftHomeArea(getZoneArea(draftHomeZone));
+    setAreaStep(2);
+    setAreaSearch('');
+  };
+
+  const handleSkipExactArea = () => {
+    const zoneArea = getZoneArea(draftHomeZone);
+    setDraftHomeArea(zoneArea);
+    if (serviceMode === 'simple') {
+      setDraftServiceAreas(zoneArea ? [zoneArea] : []);
+    }
+    setAreaStep(3);
+  };
+
+  const handleContinueFromStep2 = () => {
+    if (!draftHomeArea) {
+      handleSkipExactArea();
+      return;
+    }
+    if (serviceMode === 'simple') {
+      setDraftServiceAreas([draftHomeArea]);
+    }
+    setAreaStep(3);
+  };
+
+  const handleContinueFromStep3 = () => {
+    if (!draftHomeArea) return;
+    if (serviceMode === 'simple') {
+      setDraftServiceAreas([draftHomeArea]);
+      setAreaStep(4);
+      return;
+    }
+    if (draftServiceAreas.length === 0) return;
+    setAreaStep(4);
+  };
+
+  const handleConfirmAreas = () => {
+    if (!draftHomeArea) return;
+    setHomeArea(draftHomeArea);
+    setServiceAreas(serviceMode === 'simple' ? [draftHomeArea] : draftServiceAreas);
+    closeAreaWizard();
+  };
+
+  const groupedAdvancedAreas = zones
+    .map((zone) => ({
+      zone: zone.name,
+      areas: areaPoints.filter(
+        (area) => area.zone === zone.name && area.name.toLowerCase().includes(areaSearch.trim().toLowerCase())
+      )
+    }))
+    .filter((group) => group.areas.length > 0);
+
   const handleSave = async () => {
     if (!user?.id) {
       setErrorMessage(content.saveError);
@@ -558,10 +886,12 @@ export function CleanerDashboardPage() {
       services: selectedServices,
       photoDataUrl,
       weekly_availability: weeklyAvailability,
-      availability_exceptions: availabilityExceptions
+      availability_exceptions: availabilityExceptions,
+      home_area: homeArea,
+      service_areas: serviceAreas
     };
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('cleaner_profiles')
       .upsert(
         {
@@ -570,10 +900,29 @@ export function CleanerDashboardPage() {
           services: payload.services,
           photo_url: payload.photoDataUrl,
           weekly_availability: payload.weekly_availability,
-          availability_exceptions: payload.availability_exceptions
+          availability_exceptions: payload.availability_exceptions,
+          home_area: payload.home_area,
+          service_areas: payload.service_areas
         },
         { onConflict: 'id' }
       );
+
+    if (error && (error.code === '42703' || error.message?.toLowerCase().includes('home_area') || error.message?.toLowerCase().includes('service_areas'))) {
+      const retry = await supabase
+        .from('cleaner_profiles')
+        .upsert(
+          {
+            id: user.id,
+            description: payload.description,
+            services: payload.services,
+            photo_url: payload.photoDataUrl,
+            weekly_availability: payload.weekly_availability,
+            availability_exceptions: payload.availability_exceptions
+          },
+          { onConflict: 'id' }
+        );
+      error = retry.error;
+    }
 
     if (error) {
       console.error('cleaner profile save error:', error);
@@ -775,6 +1124,89 @@ export function CleanerDashboardPage() {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_16px_rgba(17,24,39,0.04)]">
+              <div className="p-5 sm:p-6">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(79,195,247,0.12)]">
+                    <Layers3 size={18} className="text-[#4FC3F7]" />
+                  </div>
+                  <h2 className="text-lg font-bold text-[#1A1A2E] sm:text-xl">{content.areaSectionTitle}</h2>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-[#6B7280] sm:text-sm">{content.areaSectionHelp}</p>
+              </div>
+
+              <div className="border-t border-[#E5E7EB] bg-[#FAFBFC] p-5 sm:p-6">
+                <div className="space-y-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">{content.homeAreaTitle}</p>
+                      <div className="mt-2">
+                        {homeArea ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#BAE6FD] bg-[rgba(79,195,247,0.1)] px-3 py-1 text-xs font-semibold text-[#0C4A6E]">
+                            <LocateFixed size={12} />
+                            {homeArea.name} · {homeArea.zone}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#9CA3AF]">{content.homeAreaEmpty}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">{content.serviceAreasTitle}</p>
+                      <p className="mt-2 text-sm font-semibold text-[#1A1A2E]">{serviceAreas.length} {content.serviceAreasCount}</p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-xl border border-[#D1E7F7]">
+                    <MapContainer center={[45.55, -73.65]} zoom={9} scrollWheelZoom className="h-[240px] w-full sm:h-[280px]">
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <MapViewportSync
+                        points={areaPoints}
+                        activeZone={homeArea?.zone ?? serviceAreas[0]?.zone ?? firstZoneName}
+                        homeArea={homeArea}
+                        serviceAreas={serviceAreas}
+                        selectionMode="service"
+                      />
+                      {areaPoints.map((point) => {
+                        const isHome = homeArea?.id === point.id;
+                        const isService = serviceAreaIds.has(point.id);
+                        if (!isHome && !isService) return null;
+                        return (
+                          <CircleMarker
+                            key={`preview-${point.id}`}
+                            center={[point.lat, point.lng]}
+                            radius={isHome ? 9 : 7}
+                            pathOptions={{
+                              color: isHome ? '#0284C7' : '#0F766E',
+                              weight: 3,
+                              fillColor: isHome ? '#4FC3F7' : '#A8E6CF',
+                              fillOpacity: 0.95
+                            }}
+                          >
+                            <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+                              <div className="text-xs font-semibold">{point.name}</div>
+                            </Tooltip>
+                          </CircleMarker>
+                        );
+                      })}
+                    </MapContainer>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={openAreaWizard}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#1A1A2E] px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-[#111827] sm:w-auto"
+                  >
+                    <MapPin size={15} />
+                    {content.configureAreas}
+                  </button>
                 </div>
               </div>
             </section>
@@ -990,6 +1422,257 @@ export function CleanerDashboardPage() {
           </div>
         </section>
         </div>
+
+      {isAreaWizardOpen ? (
+        <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
+          <div className="h-[92vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-[0_24px_60px_rgba(17,24,39,0.35)] sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4 sm:px-6">
+              <div>
+                <h3 className="text-lg font-bold text-[#1A1A2E]">{content.wizardTitle}</h3>
+                <p className="text-xs text-[#6B7280]">Step {areaStep}/4</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAreaWizard}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F7F7F7]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid h-[calc(92vh-74px)] gap-0 sm:h-auto sm:max-h-[calc(90vh-74px)] sm:grid-cols-[1.3fr,1fr]">
+              <div className="order-2 overflow-y-auto border-t border-[#E5E7EB] p-5 sm:order-1 sm:border-r sm:border-t-0 sm:p-6">
+                {areaStep === 1 ? (
+                  <div className="space-y-4">
+                    <h4 className="text-base font-bold text-[#1A1A2E]">{content.stepHomeZoneTitle}</h4>
+                    <p className="text-sm text-[#6B7280]">{content.stepHomeZoneHelp}</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {zones.map((zone) => (
+                        <button
+                          key={`wizard-zone-${zone.name}`}
+                          type="button"
+                          onClick={() => {
+                            setDraftHomeZone(zone.name);
+                            setDraftHomeArea(getZoneArea(zone.name));
+                          }}
+                          className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                            draftHomeZone === zone.name
+                              ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.12)] shadow-[0_0_0_3px_rgba(79,195,247,0.12)]'
+                              : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-[#1A1A2E]">{zone.name}</p>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleContinueFromStep1}
+                        className="rounded-lg bg-[#1A1A2E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#111827]"
+                      >
+                        {content.continue}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {areaStep === 2 ? (
+                  <div className="space-y-4">
+                    <h4 className="text-base font-bold text-[#1A1A2E]">{content.stepExactAreaTitle}</h4>
+                    <p className="text-sm text-[#6B7280]">{content.stepExactAreaHelp}</p>
+                    <label className="relative block">
+                      <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                      <input
+                        type="text"
+                        value={areaSearch}
+                        onChange={(event) => setAreaSearch(event.target.value)}
+                        placeholder={content.searchAreaPlaceholder}
+                        className="w-full rounded-lg border border-[#E5E7EB] px-9 py-2.5 text-sm text-[#1A1A2E] outline-none focus:border-[#4FC3F7]"
+                      />
+                    </label>
+                    <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                      {(filteredCurrentZoneAreas.length > 0 ? filteredCurrentZoneAreas : currentZoneAreas).map((area) => (
+                        <button
+                          key={`wizard-exact-${area.id}`}
+                          type="button"
+                          onClick={() => setDraftHomeArea(area)}
+                          className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-all ${
+                            draftHomeArea?.id === area.id
+                              ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.1)]'
+                              : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'
+                          }`}
+                        >
+                          <span className="text-sm font-medium text-[#1A1A2E]">{area.name}</span>
+                          <span className="text-xs text-[#6B7280]">{area.zone}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <button type="button" onClick={() => setAreaStep(1)} className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{content.back}</button>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={handleSkipExactArea} className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{content.skip}</button>
+                        <button type="button" onClick={handleContinueFromStep2} className="rounded-lg bg-[#1A1A2E] px-5 py-2 text-sm font-semibold text-white">{content.continue}</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {areaStep === 3 ? (
+                  <div className="space-y-4">
+                    <h4 className="text-base font-bold text-[#1A1A2E]">{content.stepServiceTitle}</h4>
+                    <p className="text-sm text-[#6B7280]">{content.stepServiceHelp}</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setServiceMode('simple');
+                          if (draftHomeArea) setDraftServiceAreas([draftHomeArea]);
+                        }}
+                        className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                          serviceMode === 'simple'
+                            ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.1)]'
+                            : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-[#1A1A2E]">{content.onlyHomeService}</p>
+                        <p className="mt-1 text-xs text-[#6B7280]">{content.onlyHomeServiceHelp}</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setServiceMode('advanced')}
+                        className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                          serviceMode === 'advanced'
+                            ? 'border-[#16A34A] bg-[rgba(168,230,207,0.25)]'
+                            : 'border-[#E5E7EB] bg-white hover:border-[#A7F3D0]'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-[#1A1A2E]">{content.advancedService}</p>
+                        <p className="mt-1 text-xs text-[#6B7280]">{content.advancedServiceHelp}</p>
+                      </button>
+                    </div>
+
+                    {serviceMode === 'advanced' ? (
+                      <>
+                        <label className="relative block">
+                          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                          <input
+                            type="text"
+                            value={areaSearch}
+                            onChange={(event) => setAreaSearch(event.target.value)}
+                            placeholder={content.searchAreaPlaceholder}
+                            className="w-full rounded-lg border border-[#E5E7EB] px-9 py-2.5 text-sm text-[#1A1A2E] outline-none focus:border-[#4FC3F7]"
+                          />
+                        </label>
+                        <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                          {groupedAdvancedAreas.map((group) => (
+                            <div key={`group-${group.zone}`}>
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">{group.zone}</p>
+                              <div className="flex flex-wrap gap-2">
+                                {group.areas.map((area) => {
+                                  const selected = draftServiceAreaIds.has(area.id);
+                                  return (
+                                    <button
+                                      key={`advanced-${area.id}`}
+                                      type="button"
+                                      onClick={() => toggleDraftServiceArea(area)}
+                                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                                        selected
+                                          ? 'border-[#16A34A] bg-[rgba(168,230,207,0.28)] text-[#166534]'
+                                          : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#A7F3D0]'
+                                      }`}
+                                    >
+                                      {area.name}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-[#6B7280]">{draftServiceAreas.length} {content.selectedCount}</p>
+                      </>
+                    ) : null}
+
+                    <div className="flex items-center justify-between gap-2">
+                      <button type="button" onClick={() => setAreaStep(2)} className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{content.back}</button>
+                      <button type="button" onClick={handleContinueFromStep3} className="rounded-lg bg-[#1A1A2E] px-5 py-2 text-sm font-semibold text-white">{content.continue}</button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {areaStep === 4 ? (
+                  <div className="space-y-4">
+                    <h4 className="text-base font-bold text-[#1A1A2E]">{content.stepReviewTitle}</h4>
+                    <p className="text-sm text-[#6B7280]">{content.stepReviewHelp}</p>
+                    <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">{content.homeAreaTitle}</p>
+                      <p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{draftHomeArea ? `${draftHomeArea.name} · ${draftHomeArea.zone}` : content.homeAreaEmpty}</p>
+                    </div>
+                    <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">{content.serviceAreasTitle}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {draftServiceAreas.length > 0 ? (
+                          draftServiceAreas.map((area) => (
+                            <span key={`review-${area.id}`} className="rounded-full border border-[#A7F3D0] bg-[rgba(168,230,207,0.28)] px-3 py-1 text-xs font-semibold text-[#166534]">
+                              {area.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-[#9CA3AF]">{content.serviceAreasEmpty}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <button type="button" onClick={() => setAreaStep(3)} className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{content.back}</button>
+                      <button type="button" onClick={handleConfirmAreas} className="rounded-lg bg-[#1A1A2E] px-5 py-2 text-sm font-semibold text-white">{content.confirmAreas}</button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="order-1 border-b border-[#E5E7EB] p-4 sm:order-2 sm:border-b-0 sm:p-5">
+                <div className="overflow-hidden rounded-xl border border-[#D1E7F7]">
+                  <MapContainer center={[45.55, -73.65]} zoom={9} scrollWheelZoom className="h-[220px] w-full sm:h-[300px]">
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <MapViewportSync
+                      points={areaPoints}
+                      activeZone={draftHomeZone}
+                      homeArea={draftHomeArea}
+                      serviceAreas={serviceMode === 'simple' && draftHomeArea ? [draftHomeArea] : draftServiceAreas}
+                      selectionMode="service"
+                    />
+                    {areaPoints.map((point) => {
+                      const isHome = draftHomeArea?.id === point.id;
+                      const isService = (serviceMode === 'simple' && draftHomeArea ? [draftHomeArea] : draftServiceAreas).some((area) => area.id === point.id);
+                      return (
+                        <CircleMarker
+                          key={`wizard-map-${point.id}`}
+                          center={[point.lat, point.lng]}
+                          radius={isHome ? 9 : isService ? 7 : 5}
+                          pathOptions={{
+                            color: isHome ? '#0284C7' : isService ? '#0F766E' : '#60A5FA',
+                            weight: isHome || isService ? 3 : 2,
+                            fillColor: isHome ? '#4FC3F7' : isService ? '#A8E6CF' : '#FFFFFF',
+                            fillOpacity: point.zone === draftHomeZone ? 0.85 : 0.3
+                          }}
+                        >
+                          <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+                            <div className="text-xs font-semibold">{point.name}</div>
+                          </Tooltip>
+                        </CircleMarker>
+                      );
+                    })}
+                  </MapContainer>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {photoSourceOpen ? (
         <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm p-4 sm:items-center animate-[slideUp_0.2s_ease]">
