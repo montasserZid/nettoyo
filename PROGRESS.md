@@ -194,3 +194,11 @@
 - ToastError component created ✅
 - Step 4 mandatory field validation ✅
 - Status: ✅ done
+
+## Step 26 — CleanerDashboard extracted
+- src/pages/CleanerDashboard.tsx created ✅
+- Cleaner component removed from DashboardPages.tsx ✅
+- Router updated to import from new file ✅
+- All other routes still working ✅
+- npm run build passes ✅
+- Status: ✅ done

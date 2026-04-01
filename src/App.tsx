@@ -7,7 +7,7 @@ import { HowItWorksPage } from './pages/HowItWorksPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { LoginPage, SignupPage } from './pages/AuthPages';
 import { AuthCallbackPage } from './pages/AuthCallback';
-import { CleanerDashboardPage } from './pages/DashboardPages';
+import { CleanerDashboardPage } from './pages/CleanerDashboard';
 import { ClientAddSpacePage, ClientDashboardPage } from './pages/ClientDashboardPage';
 import { AuthProvider } from './context/AuthContext';
 import { useLanguage } from './i18n/LanguageContext';
