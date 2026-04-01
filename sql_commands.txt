@@ -1,0 +1,112 @@
+-- =========================================
+-- 1) Cleaner profile persistence alignment
+-- =========================================
+
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS public.cleaner_profiles (
+  id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
+  description TEXT,
+  services TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+  photo_url TEXT,
+  home_area JSONB,
+  service_areas JSONB NOT NULL DEFAULT '[]'::JSONB,
+  weekly_availability JSONB NOT NULL DEFAULT '{}'::JSONB,
+  availability_exceptions JSONB NOT NULL DEFAULT '[]'::JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.cleaner_profiles
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS services TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+  ADD COLUMN IF NOT EXISTS photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS home_area JSONB,
+  ADD COLUMN IF NOT EXISTS service_areas JSONB NOT NULL DEFAULT '[]'::JSONB,
+  ADD COLUMN IF NOT EXISTS weekly_availability JSONB NOT NULL DEFAULT '{}'::JSONB,
+  ADD COLUMN IF NOT EXISTS availability_exceptions JSONB NOT NULL DEFAULT '[]'::JSONB,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+UPDATE public.cleaner_profiles
+SET
+  services = COALESCE(services, '{}'::TEXT[]),
+  service_areas = COALESCE(service_areas, '[]'::JSONB),
+  weekly_availability = COALESCE(weekly_availability, '{}'::JSONB),
+  availability_exceptions = COALESCE(availability_exceptions, '[]'::JSONB);
+
+ALTER TABLE public.cleaner_profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Cleaners can read own profile" ON public.cleaner_profiles;
+DROP POLICY IF EXISTS "Cleaners can insert own profile" ON public.cleaner_profiles;
+DROP POLICY IF EXISTS "Cleaners can update own profile" ON public.cleaner_profiles;
+DROP POLICY IF EXISTS "Cleaners can delete own profile" ON public.cleaner_profiles;
+
+CREATE POLICY "Cleaners can read own profile"
+  ON public.cleaner_profiles FOR SELECT
+  TO authenticated
+  USING (auth.uid() = id);
+
+CREATE POLICY "Cleaners can insert own profile"
+  ON public.cleaner_profiles FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Cleaners can update own profile"
+  ON public.cleaner_profiles FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Cleaners can delete own profile"
+  ON public.cleaner_profiles FOR DELETE
+  TO authenticated
+  USING (auth.uid() = id);
+
+CREATE OR REPLACE FUNCTION public.update_cleaner_profiles_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_cleaner_profiles_updated_at ON public.cleaner_profiles;
+CREATE TRIGGER update_cleaner_profiles_updated_at
+BEFORE UPDATE ON public.cleaner_profiles
+FOR EACH ROW EXECUTE FUNCTION public.update_cleaner_profiles_updated_at();
+
+COMMIT;
+
+
+-- =========================================
+-- 2) Storage bucket/policies for cleaner photo
+-- =========================================
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('space-photos', 'space-photos', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Users can upload own space photos" ON storage.objects;
+CREATE POLICY "Users can upload own space photos"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'space-photos'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS "Anyone can view space photos" ON storage.objects;
+CREATE POLICY "Anyone can view space photos"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (bucket_id = 'space-photos');
+
+DROP POLICY IF EXISTS "Users can delete own space photos" ON storage.objects;
+CREATE POLICY "Users can delete own space photos"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'space-photos'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
