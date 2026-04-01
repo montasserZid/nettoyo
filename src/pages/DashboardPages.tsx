@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { convertToWebP } from '../lib/imageUtils';
+import supabase from '../lib/supabase';
 
 type CleanerServiceId = 'domicile' | 'deep_cleaning' | 'office' | 'moving' | 'post_renovation' | 'airbnb';
 type WeekdayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -37,6 +38,13 @@ type StoredCleanerProfile = {
   photoDataUrl?: string | null;
   weekly_availability?: WeeklyAvailability;
   availability_exceptions?: AvailabilityException[];
+};
+type CleanerProfileRow = {
+  description: string | null;
+  services: string[] | null;
+  photo_url: string | null;
+  weekly_availability: unknown;
+  availability_exceptions: unknown;
 };
 
 const serviceOptions: ServiceOption[] = [
@@ -71,6 +79,7 @@ const contentByLanguage = {
     saveButton: 'Enregistrer le profil',
     selectedServices: 'service(s) selectionne(s)',
     saveHint: 'Donnees preparees pour integration Supabase',
+    profileLoading: 'Chargement du profil...',
     photoTitle: 'Photo de profil',
     photoHelp: 'Optionnelle mais recommandee',
     addPhoto: 'Ajouter une photo',
@@ -102,7 +111,9 @@ const contentByLanguage = {
     addException: 'Ajouter exception',
     noExceptions: 'Aucune exception ajoutee',
     removeException: 'Supprimer',
-    invalidException: "Veuillez completer la date et l'horaire de l'exception."
+    invalidException: "Veuillez completer la date et l'horaire de l'exception.",
+    saveError: 'Impossible de sauvegarder le profil pour le moment.',
+    loadError: 'Impossible de charger le profil enregistre.'
   },
   en: {
     pageBadge: 'Cleaner Workspace',
@@ -114,6 +125,7 @@ const contentByLanguage = {
     saveButton: 'Save profile',
     selectedServices: 'service(s) selected',
     saveHint: 'Data prepared for Supabase integration',
+    profileLoading: 'Loading profile...',
     photoTitle: 'Profile photo',
     photoHelp: 'Optional but recommended',
     addPhoto: 'Add photo',
@@ -145,7 +157,9 @@ const contentByLanguage = {
     addException: 'Add exception',
     noExceptions: 'No exceptions added',
     removeException: 'Remove',
-    invalidException: 'Please complete exception date and time range.'
+    invalidException: 'Please complete exception date and time range.',
+    saveError: 'Unable to save the profile right now.',
+    loadError: 'Unable to load the saved profile.'
   },
   es: {
     pageBadge: 'Espacio limpiador',
@@ -157,6 +171,7 @@ const contentByLanguage = {
     saveButton: 'Guardar perfil',
     selectedServices: 'servicio(s) seleccionado(s)',
     saveHint: 'Datos listos para integracion con Supabase',
+    profileLoading: 'Cargando perfil...',
     photoTitle: 'Foto de perfil',
     photoHelp: 'Opcional pero recomendada',
     addPhoto: 'Agregar foto',
@@ -188,7 +203,9 @@ const contentByLanguage = {
     addException: 'Agregar excepcion',
     noExceptions: 'No hay excepciones agregadas',
     removeException: 'Eliminar',
-    invalidException: 'Completa la fecha y el rango horario de la excepcion.'
+    invalidException: 'Completa la fecha y el rango horario de la excepcion.',
+    saveError: 'No se puede guardar el perfil en este momento.',
+    loadError: 'No se puede cargar el perfil guardado.'
   }
 } as const;
 
@@ -227,6 +244,36 @@ const serviceLabelByLanguage: Record<'fr' | 'en' | 'es', Record<CleanerServiceId
 
 function getCleanerStorageKey(userId?: string) {
   return `nettoyo-cleaner-profile-${userId ?? 'anonymous'}`;
+}
+
+function isCleanerServiceId(value: string): value is CleanerServiceId {
+  return serviceOptions.some((option) => option.id === value);
+}
+
+function normalizeCleanerProfile(
+  row: CleanerProfileRow | null,
+  fallbackAvatarUrl: string | null,
+  fallbackLocalProfile?: StoredCleanerProfile | null
+) {
+  const sourceDescription = row?.description ?? fallbackLocalProfile?.description ?? '';
+  const sourceServices = row?.services ?? fallbackLocalProfile?.services ?? [];
+  const sourcePhoto = row?.photo_url ?? fallbackLocalProfile?.photoDataUrl ?? fallbackAvatarUrl ?? null;
+  const sourceWeeklyAvailability = row?.weekly_availability ?? fallbackLocalProfile?.weekly_availability;
+  const sourceExceptions = row?.availability_exceptions ?? fallbackLocalProfile?.availability_exceptions;
+
+  const services = Array.isArray(sourceServices) ? sourceServices.filter(isCleanerServiceId) : [];
+  const weeklyAvailability = isValidWeeklyAvailability(sourceWeeklyAvailability)
+    ? sourceWeeklyAvailability
+    : defaultWeeklyAvailability;
+  const availabilityExceptions = Array.isArray(sourceExceptions) ? sourceExceptions.filter(isValidException) : [];
+
+  return {
+    description: sourceDescription,
+    services,
+    photoDataUrl: sourcePhoto,
+    weeklyAvailability,
+    availabilityExceptions
+  };
 }
 
 function isValidWeeklyAvailability(value: unknown): value is WeeklyAvailability {
@@ -371,6 +418,8 @@ export function CleanerDashboardPage() {
   const [exceptionDraftEnd, setExceptionDraftEnd] = useState('16:00');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveToast, setSaveToast] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
@@ -379,31 +428,63 @@ export function CleanerDashboardPage() {
   const email = user?.email || profile?.email || '';
 
   useEffect(() => {
-    const savedRaw = window.localStorage.getItem(storageKey);
-    if (!savedRaw) {
-      setDescription('');
-      setSelectedServices([]);
-      setPhotoDataUrl(profile?.avatar_url ?? null);
-      setWeeklyAvailability(defaultWeeklyAvailability);
-      setAvailabilityExceptions([]);
-      return;
-    }
+    let cancelled = false;
 
-    try {
-      const saved = JSON.parse(savedRaw) as StoredCleanerProfile;
-      setDescription(saved.description ?? '');
-      setSelectedServices(saved.services ?? []);
-      setPhotoDataUrl(saved.photoDataUrl ?? profile?.avatar_url ?? null);
-      setWeeklyAvailability(isValidWeeklyAvailability(saved.weekly_availability) ? saved.weekly_availability : defaultWeeklyAvailability);
-      setAvailabilityExceptions(Array.isArray(saved.availability_exceptions) ? saved.availability_exceptions.filter(isValidException) : []);
-    } catch {
-      setDescription('');
-      setSelectedServices([]);
-      setPhotoDataUrl(profile?.avatar_url ?? null);
-      setWeeklyAvailability(defaultWeeklyAvailability);
-      setAvailabilityExceptions([]);
-    }
-  }, [profile?.avatar_url, storageKey]);
+    const loadCleanerProfile = async () => {
+      if (!user?.id) {
+        setDescription('');
+        setSelectedServices([]);
+        setPhotoDataUrl(profile?.avatar_url ?? null);
+        setWeeklyAvailability(defaultWeeklyAvailability);
+        setAvailabilityExceptions([]);
+        setIsProfileLoading(false);
+        return;
+      }
+
+      setIsProfileLoading(true);
+
+      let fallbackLocalProfile: StoredCleanerProfile | null = null;
+      const savedRaw = window.localStorage.getItem(storageKey);
+      if (savedRaw) {
+        try {
+          fallbackLocalProfile = JSON.parse(savedRaw) as StoredCleanerProfile;
+        } catch {
+          fallbackLocalProfile = null;
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('cleaner_profiles')
+        .select('description, services, photo_url, weekly_availability, availability_exceptions')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error && error.code !== 'PGRST205') {
+        console.error('cleaner profile fetch error:', error);
+        setErrorMessage(content.loadError);
+      }
+
+      const normalized = normalizeCleanerProfile(
+        (data as CleanerProfileRow | null) ?? null,
+        profile?.avatar_url ?? null,
+        fallbackLocalProfile
+      );
+      setDescription(normalized.description);
+      setSelectedServices(normalized.services);
+      setPhotoDataUrl(normalized.photoDataUrl);
+      setWeeklyAvailability(normalized.weeklyAvailability);
+      setAvailabilityExceptions(normalized.availabilityExceptions);
+      setIsProfileLoading(false);
+    };
+
+    void loadCleanerProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [content.loadError, profile?.avatar_url, storageKey, user?.id]);
 
   useEffect(() => {
     if (!saveToast) return;
@@ -482,7 +563,14 @@ export function CleanerDashboardPage() {
     setAvailabilityExceptions((current) => current.filter((item) => item.id !== id));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!user?.id) {
+      setErrorMessage(content.saveError);
+      return;
+    }
+
+    setIsSaving(true);
+
     const payload: StoredCleanerProfile = {
       description: description.trim(),
       services: selectedServices,
@@ -490,8 +578,36 @@ export function CleanerDashboardPage() {
       weekly_availability: weeklyAvailability,
       availability_exceptions: availabilityExceptions
     };
+
+    const { error } = await supabase
+      .from('cleaner_profiles')
+      .upsert(
+        {
+          id: user.id,
+          description: payload.description,
+          services: payload.services,
+          photo_url: payload.photoDataUrl,
+          weekly_availability: payload.weekly_availability,
+          availability_exceptions: payload.availability_exceptions
+        },
+        { onConflict: 'id' }
+      );
+
+    if (error) {
+      console.error('cleaner profile save error:', error);
+      setErrorMessage(content.saveError);
+      setIsSaving(false);
+      return;
+    }
+
+    const { error: profileUpdateError } = await supabase.from('profiles').update({ avatar_url: payload.photoDataUrl }).eq('id', user.id);
+    if (profileUpdateError) {
+      console.error('profile avatar sync error:', profileUpdateError);
+    }
+
     window.localStorage.setItem(storageKey, JSON.stringify(payload));
     setSaveToast(true);
+    setIsSaving(false);
   };
 
   return (
@@ -601,6 +717,7 @@ export function CleanerDashboardPage() {
                 <Wand2 size={18} className="text-[#4FC3F7]" />
                 <h2 className="text-xl font-bold text-[#1A1A2E]">{content.descriptionTitle}</h2>
               </div>
+              {isProfileLoading ? <p className="mt-2 text-sm font-semibold text-[#6B7280]">{content.profileLoading}</p> : null}
               <p className="mt-2 text-sm text-[#6B7280]">{content.descriptionHelp}</p>
               <textarea
                 value={description}
@@ -848,10 +965,11 @@ export function CleanerDashboardPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={handleSave}
-                  className="inline-flex items-center justify-center rounded-full bg-[#4FC3F7] px-6 py-3 font-semibold text-white shadow-[0_12px_24px_rgba(79,195,247,0.25)] transition-all hover:bg-[#3FAAD4]"
+                  onClick={() => void handleSave()}
+                  disabled={isSaving || isProfileLoading}
+                  className="inline-flex items-center justify-center rounded-full bg-[#4FC3F7] px-6 py-3 font-semibold text-white shadow-[0_12px_24px_rgba(79,195,247,0.25)] transition-all hover:bg-[#3FAAD4] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {content.saveButton}
+                  {isSaving ? `${content.saveButton}...` : content.saveButton}
                 </button>
               </div>
             </section>
