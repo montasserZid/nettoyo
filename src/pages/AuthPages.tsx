@@ -50,7 +50,10 @@ type AuthApi = {
         last_name: string;
       };
     };
-  }) => Promise<{ data: { session: AuthSession | null }; error: { message: string } | null }>;
+  }) => Promise<{
+    data: { session: AuthSession | null; user: { id: string } | null };
+    error: { message: string } | null;
+  }>;
 };
 
 const auth = supabase.auth as unknown as AuthApi;
@@ -374,8 +377,35 @@ export function SignupPage() {
     if (!selectedRole) { setErrorMessage(content.selectRoleError); return; }
     if (password !== confirmPassword) { setErrorMessage(language === 'fr' ? 'Les mots de passe ne correspondent pas.' : language === 'es' ? 'Las contraseñas no coinciden.' : 'Passwords do not match.'); return; }
     setLoading(true);
-    const { error } = await auth.signUp({ email, password, options: { data: { role: selectedRole, first_name: firstName, last_name: lastName } } });
+    const normalizedFirstName = firstName.trim();
+    const normalizedLastName = lastName.trim();
+    const normalizedCity = city.trim();
+    const { data, error } = await auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          role: selectedRole,
+          first_name: normalizedFirstName,
+          last_name: normalizedLastName,
+          city: normalizedCity
+        }
+      }
+    });
     if (error) { setErrorMessage(error.message); setLoading(false); return; }
+    if (data.user?.id) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          first_name: normalizedFirstName || null,
+          last_name: normalizedLastName || null,
+          city: normalizedCity || null
+        })
+        .eq('id', data.user.id);
+      if (profileError) {
+        console.error('signup profile sync error:', profileError);
+      }
+    }
     setSuccessMessage(content.success); setLoading(false);
   };
 

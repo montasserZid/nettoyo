@@ -52,14 +52,26 @@ export async function fetchProfile(input: string | ProfileSource) {
   const source: ProfileSource = typeof input === 'string' ? { id: input } : input;
   const now = new Date().toISOString();
   const fallbackRole = source.user_metadata?.role === 'nettoyeur' ? 'nettoyeur' : 'client';
+  const metadataFirstName =
+    typeof source.user_metadata?.first_name === 'string' && source.user_metadata.first_name.trim().length > 0
+      ? source.user_metadata.first_name.trim()
+      : null;
+  const metadataLastName =
+    typeof source.user_metadata?.last_name === 'string' && source.user_metadata.last_name.trim().length > 0
+      ? source.user_metadata.last_name.trim()
+      : null;
+  const metadataCity =
+    typeof source.user_metadata?.city === 'string' && source.user_metadata.city.trim().length > 0
+      ? source.user_metadata.city.trim()
+      : null;
 
   const fallbackProfile: Profile = {
     id: source.id,
     email: source.email ?? '',
     role: fallbackRole,
-    first_name: typeof source.user_metadata?.first_name === 'string' ? source.user_metadata.first_name : null,
-    last_name: typeof source.user_metadata?.last_name === 'string' ? source.user_metadata.last_name : null,
-    city: typeof source.user_metadata?.city === 'string' ? source.user_metadata.city : null,
+    first_name: metadataFirstName,
+    last_name: metadataLastName,
+    city: metadataCity,
     avatar_url: null,
     created_at: now,
     updated_at: now
@@ -78,7 +90,38 @@ export async function fetchProfile(input: string | ProfileSource) {
     throw new Error(error.message ?? 'Unable to load profile.');
   }
 
-  return (data as Profile | null) ?? fallbackProfile;
+  const dbProfile = (data as Profile | null) ?? null;
+  if (!dbProfile) {
+    return fallbackProfile;
+  }
+
+  const mergedProfile: Profile = {
+    ...dbProfile,
+    email: dbProfile.email || source.email || '',
+    first_name: dbProfile.first_name ?? metadataFirstName,
+    last_name: dbProfile.last_name ?? metadataLastName,
+    city: dbProfile.city ?? metadataCity
+  };
+
+  const identityPatch: Partial<Profile> = {};
+  if (!dbProfile.first_name && metadataFirstName) {
+    identityPatch.first_name = metadataFirstName;
+  }
+  if (!dbProfile.last_name && metadataLastName) {
+    identityPatch.last_name = metadataLastName;
+  }
+  if (!dbProfile.city && metadataCity) {
+    identityPatch.city = metadataCity;
+  }
+
+  if (Object.keys(identityPatch).length > 0) {
+    const { error: patchError } = await supabase.from('profiles').update(identityPatch).eq('id', source.id);
+    if (patchError) {
+      console.error('profile identity sync error:', patchError);
+    }
+  }
+
+  return mergedProfile;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
