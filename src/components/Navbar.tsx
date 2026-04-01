@@ -73,7 +73,15 @@ export function Navbar() {
             {user ? (
               <div className="relative">
                 <button onClick={() => setAccountMenuOpen((value) => !value)} className="flex items-center gap-3 rounded-full border border-[#E5E7EB] bg-white px-3 py-2 shadow-[0_8px_20px_rgba(17,24,39,0.05)]">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4FC3F7] text-sm font-bold text-white">{initials}</span>
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={profile?.first_name || user.email || 'Profile'}
+                      className="h-9 w-9 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4FC3F7] text-sm font-bold text-white">{initials}</span>
+                  )}
                   <span className="max-w-[140px] truncate text-sm font-semibold text-[#1A1A2E]">{profile?.first_name || user.email}</span>
                 </button>
                 {accountMenuOpen ? (

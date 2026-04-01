@@ -33,6 +33,7 @@ type AuthContextValue = {
   profile: Profile | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  updateProfile: (patch: Partial<Profile>) => void;
   isClient: () => boolean;
   isCleaner: () => boolean;
 };
@@ -230,6 +231,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signOut: async () => {
         await auth.signOut();
+      },
+      updateProfile: (patch: Partial<Profile>) => {
+        setProfile((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            ...patch,
+            updated_at: new Date().toISOString()
+          };
+        });
       },
       isClient: () => profile?.role === 'client',
       isCleaner: () => profile?.role === 'nettoyeur'

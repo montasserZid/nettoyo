@@ -1,7 +1,6 @@
 import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Briefcase, Building2, CalendarDays, Camera, ChevronDown, ChevronUp, Check, Clock3, Home, Layers3, LocateFixed, MapPin, Paintbrush, Plus, Search, Sparkles, Trash2, Truck, CircleUser as UserCircle2, Wand2, X } from 'lucide-react';
-import type { LatLngBoundsExpression } from 'leaflet';
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -13,6 +12,7 @@ import 'leaflet/dist/leaflet.css';
 type CleanerServiceId = 'domicile' | 'deep_cleaning' | 'office' | 'moving' | 'post_renovation' | 'airbnb';
 type WeekdayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 type ExceptionMode = 'all_day' | 'partial';
+type ServiceMode = 'simple' | 'advanced';
 
 type ServiceOption = { id: CleanerServiceId; icon: typeof Home };
 type WeeklyAvailabilityDay = { enabled: boolean; start: string; end: string };
@@ -164,6 +164,9 @@ const contentByLanguage = {
     mapHintHome: 'Cliquez sur la carte pour definir votre zone de domicile.',
     mapHintService: 'Cliquez sur la carte pour ajouter ou retirer des zones de service.',
     areasInZone: 'Zones disponibles',
+    selectAllAreas: 'Tout sélectionner',
+    serviceModeRequired: 'Veuillez choisir votre mode de zones de service',
+    serviceAreaRequired: 'Veuillez sélectionner au moins une zone de service',
     availabilityTitle: 'Disponibilite hebdomadaire',
     availabilityHelp: 'Activez les jours travailles et definissez vos horaires pour chaque jour.',
     unavailableDay: 'Indisponible',
@@ -251,6 +254,9 @@ const contentByLanguage = {
     mapHintHome: 'Click on the map to set your home area.',
     mapHintService: 'Click on the map to add or remove service areas.',
     areasInZone: 'Available areas',
+    selectAllAreas: 'Select all',
+    serviceModeRequired: 'Please choose your service area mode',
+    serviceAreaRequired: 'Please select at least one service area',
     availabilityTitle: 'Weekly availability',
     availabilityHelp: 'Enable working days and set start/end hours for each day.',
     unavailableDay: 'Unavailable',
@@ -338,6 +344,9 @@ const contentByLanguage = {
     mapHintHome: 'Haz clic en el mapa para definir tu zona de domicilio.',
     mapHintService: 'Haz clic en el mapa para agregar o quitar zonas de servicio.',
     areasInZone: 'Zonas disponibles',
+    selectAllAreas: 'Seleccionar todo',
+    serviceModeRequired: 'Por favor elige tu modo de zonas de servicio',
+    serviceAreaRequired: 'Por favor selecciona al menos una zona de servicio',
     availabilityTitle: 'Disponibilidad semanal',
     availabilityHelp: 'Activa los dias laborales y define horarios de inicio y fin por dia.',
     unavailableDay: 'No disponible',
@@ -590,16 +599,39 @@ function MapViewportSync({
           : zonePoints.length > 0
             ? zonePoints
             : points;
-
-    const bounds: LatLngBoundsExpression = targetPoints.map((point) => [point.lat, point.lng]);
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+    const centerLat = targetPoints.reduce((sum, point) => sum + point.lat, 0) / Math.max(targetPoints.length, 1);
+    const centerLng = targetPoints.reduce((sum, point) => sum + point.lng, 0) / Math.max(targetPoints.length, 1);
+    const overviewZoom = selectionMode === 'service' ? 9 : 10;
+    map.setView([centerLat, centerLng], overviewZoom, { animate: true });
   }, [activeZone, homeArea, map, points, selectionMode, serviceAreas]);
 
   return null;
 }
 
+function extractSpacePhotoPath(value: string | null | undefined) {
+  if (!value) return null;
+  const marker = '/storage/v1/object/public/space-photos/';
+  const markerIndex = value.indexOf(marker);
+  if (markerIndex >= 0) {
+    return decodeURIComponent(value.slice(markerIndex + marker.length));
+  }
+  if (value.startsWith('space-photos/')) {
+    return value.slice('space-photos/'.length);
+  }
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:')) {
+    return null;
+  }
+  return value;
+}
+
+async function dataUrlToFile(dataUrl: string, filename: string) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], filename, { type: blob.type || 'image/png' });
+}
+
 export function CleanerDashboardPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfile } = useAuth();
   const { language } = useLanguage();
   const content = contentByLanguage[language];
   const weekdayLabels = weekdayLabelByLanguage[language];
@@ -610,6 +642,8 @@ export function CleanerDashboardPage() {
   const [description, setDescription] = useState('');
   const [selectedServices, setSelectedServices] = useState<CleanerServiceId[]>([]);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [photoFileToUpload, setPhotoFileToUpload] = useState<File | null>(null);
+  const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null);
   const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailability>(defaultWeeklyAvailability);
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([]);
   const [homeArea, setHomeArea] = useState<AreaSelection | null>(null);
@@ -618,8 +652,10 @@ export function CleanerDashboardPage() {
   const [areaStep, setAreaStep] = useState<1 | 2 | 3 | 4>(1);
   const [draftHomeZone, setDraftHomeZone] = useState<string>(firstZoneName);
   const [draftHomeArea, setDraftHomeArea] = useState<AreaSelection | null>(null);
-  const [serviceMode, setServiceMode] = useState<'simple' | 'advanced'>('simple');
+  const [serviceMode, setServiceMode] = useState<ServiceMode | null>(null);
+  const [draftServiceZone, setDraftServiceZone] = useState<string>(firstZoneName);
   const [draftServiceAreas, setDraftServiceAreas] = useState<AreaSelection[]>([]);
+  const [serviceModeError, setServiceModeError] = useState(false);
   const [areaSearch, setAreaSearch] = useState('');
   const [exceptionDraftDate, setExceptionDraftDate] = useState('');
   const [exceptionDraftMode, setExceptionDraftMode] = useState<ExceptionMode>('all_day');
@@ -651,6 +687,8 @@ export function CleanerDashboardPage() {
         setDescription('');
         setSelectedServices([]);
         setPhotoDataUrl(profile?.avatar_url ?? null);
+        setSavedPhotoUrl(profile?.avatar_url ?? null);
+        setPhotoFileToUpload(null);
         setWeeklyAvailability(defaultWeeklyAvailability);
         setAvailabilityExceptions([]);
         setHomeArea(null);
@@ -692,6 +730,8 @@ export function CleanerDashboardPage() {
       setDescription(normalized.description);
       setSelectedServices(normalized.services);
       setPhotoDataUrl(normalized.photoDataUrl);
+      setSavedPhotoUrl(normalized.photoDataUrl ?? null);
+      setPhotoFileToUpload(null);
       setWeeklyAvailability(normalized.weeklyAvailability);
       setAvailabilityExceptions(normalized.availabilityExceptions);
       setHomeArea(normalized.homeArea);
@@ -701,6 +741,7 @@ export function CleanerDashboardPage() {
       } else if (normalized.serviceAreas[0]?.zone) {
         setDraftHomeZone(normalized.serviceAreas[0].zone);
       }
+      setDraftServiceZone(normalized.serviceAreas[0]?.zone ?? normalized.homeArea?.zone ?? firstZoneName);
       setIsProfileLoading(false);
     };
 
@@ -750,11 +791,13 @@ export function CleanerDashboardPage() {
     const reader = new FileReader();
     reader.onload = () => setPhotoDataUrl(typeof reader.result === 'string' ? reader.result : null);
     reader.readAsDataURL(fileToUse);
+    setPhotoFileToUpload(fileToUse);
     setPhotoSourceOpen(false);
   };
 
   const handlePhotoRemove = () => {
     setPhotoDataUrl(null);
+    setPhotoFileToUpload(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     setPhotoModalOpen(false);
@@ -803,11 +846,12 @@ export function CleanerDashboardPage() {
   const openAreaWizard = () => {
     const initialZone = homeArea?.zone ?? serviceAreas[0]?.zone ?? firstZoneName;
     const initialHomeArea = homeArea ?? getZoneArea(initialZone);
-    const isSimpleMode = initialHomeArea ? serviceAreas.length <= 1 && serviceAreas.every((area) => area.id === initialHomeArea.id) : serviceAreas.length === 0;
     setDraftHomeZone(initialZone);
     setDraftHomeArea(initialHomeArea);
-    setServiceMode(isSimpleMode ? 'simple' : 'advanced');
-    setDraftServiceAreas(isSimpleMode ? (initialHomeArea ? [initialHomeArea] : []) : serviceAreas);
+    setDraftServiceZone(serviceAreas[0]?.zone ?? initialZone);
+    setServiceMode(null);
+    setServiceModeError(false);
+    setDraftServiceAreas(serviceAreas);
     setAreaSearch('');
     setAreaStep(1);
     setIsAreaWizardOpen(true);
@@ -817,6 +861,7 @@ export function CleanerDashboardPage() {
     setIsAreaWizardOpen(false);
     setAreaStep(1);
     setAreaSearch('');
+    setServiceModeError(false);
   };
 
   const handleContinueFromStep1 = () => {
@@ -848,30 +893,64 @@ export function CleanerDashboardPage() {
 
   const handleContinueFromStep3 = () => {
     if (!draftHomeArea) return;
+    if (!serviceMode) {
+      setServiceModeError(true);
+      setErrorMessage(content.serviceModeRequired);
+      return;
+    }
     if (serviceMode === 'simple') {
       setDraftServiceAreas([draftHomeArea]);
       setAreaStep(4);
       return;
     }
-    if (draftServiceAreas.length === 0) return;
+    if (draftServiceAreas.length === 0) {
+      setErrorMessage(content.serviceAreaRequired);
+      return;
+    }
     setAreaStep(4);
   };
 
   const handleConfirmAreas = () => {
-    if (!draftHomeArea) return;
+    if (!draftHomeArea || !serviceMode) return;
     setHomeArea(draftHomeArea);
     setServiceAreas(serviceMode === 'simple' ? [draftHomeArea] : draftServiceAreas);
     closeAreaWizard();
   };
 
-  const groupedAdvancedAreas = zones
-    .map((zone) => ({
-      zone: zone.name,
-      areas: areaPoints.filter(
-        (area) => area.zone === zone.name && area.name.toLowerCase().includes(areaSearch.trim().toLowerCase())
-      )
-    }))
-    .filter((group) => group.areas.length > 0);
+  const draftServiceZoneAreas = areaPoints.filter(
+    (area) =>
+      area.zone === draftServiceZone &&
+      area.name.toLowerCase().includes(areaSearch.trim().toLowerCase())
+  );
+  const allDraftZoneAreas = areaPoints.filter((area) => area.zone === draftServiceZone);
+  const isActiveZoneFullySelected =
+    allDraftZoneAreas.length > 0 && allDraftZoneAreas.every((area) => draftServiceAreaIds.has(area.id));
+  const toggleSelectAllForActiveZone = () => {
+    setDraftServiceAreas((current) => {
+      const currentIds = new Set(current.map((item) => item.id));
+      if (allDraftZoneAreas.length > 0 && allDraftZoneAreas.every((area) => currentIds.has(area.id))) {
+        return current.filter((item) => item.zone !== draftServiceZone);
+      }
+      const filtered = current.filter((item) => item.zone !== draftServiceZone);
+      return [...filtered, ...allDraftZoneAreas];
+    });
+  };
+  const activeServiceAreasForMap = serviceMode === 'simple' && draftHomeArea ? [draftHomeArea] : draftServiceAreas;
+
+  useEffect(() => {
+    if (!isAreaWizardOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    const previousTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+    document.body.style.touchAction = 'none';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+      document.body.style.touchAction = previousTouchAction;
+    };
+  }, [isAreaWizardOpen]);
 
   const handleSave = async () => {
     if (!user?.id) {
@@ -881,10 +960,53 @@ export function CleanerDashboardPage() {
 
     setIsSaving(true);
 
+    let nextPhotoUrl = photoDataUrl;
+    const previousPhotoUrl = savedPhotoUrl;
+    let newPhotoPath: string | null = null;
+
+    try {
+      let fileForUpload = photoFileToUpload;
+      if (!fileForUpload && photoDataUrl?.startsWith('data:image/')) {
+        const rawFile = await dataUrlToFile(photoDataUrl, `cleaner-profile-${Date.now()}.png`);
+        fileForUpload = rawFile.type === 'image/webp' ? rawFile : await convertToWebP(rawFile);
+      }
+
+      if (fileForUpload) {
+        if (fileForUpload.type !== 'image/webp') {
+          fileForUpload = await convertToWebP(fileForUpload);
+        }
+        const filePath = `${user.id}/cleaner-profile-${Date.now()}.webp`;
+        const { error: uploadError } = await supabase.storage
+          .from('space-photos')
+          .upload(filePath, fileForUpload, {
+            contentType: 'image/webp',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error('cleaner photo upload error:', uploadError);
+          setErrorMessage(content.saveError);
+          setIsSaving(false);
+          return;
+        }
+
+        const { data: publicData } = supabase.storage.from('space-photos').getPublicUrl(filePath);
+        nextPhotoUrl = publicData.publicUrl;
+        newPhotoPath = filePath;
+      } else if (!photoDataUrl) {
+        nextPhotoUrl = null;
+      }
+    } catch (uploadPrepError) {
+      console.error('cleaner photo preparation error:', uploadPrepError);
+      setErrorMessage(content.saveError);
+      setIsSaving(false);
+      return;
+    }
+
     const payload: StoredCleanerProfile = {
       description: description.trim(),
       services: selectedServices,
-      photoDataUrl,
+      photoDataUrl: nextPhotoUrl,
       weekly_availability: weeklyAvailability,
       availability_exceptions: availabilityExceptions,
       home_area: homeArea,
@@ -934,9 +1056,28 @@ export function CleanerDashboardPage() {
     const { error: profileUpdateError } = await supabase.from('profiles').update({ avatar_url: payload.photoDataUrl }).eq('id', user.id);
     if (profileUpdateError) {
       console.error('profile avatar sync error:', profileUpdateError);
+    } else {
+      updateProfile({ avatar_url: payload.photoDataUrl ?? null });
+    }
+
+    const previousPhotoPath = extractSpacePhotoPath(previousPhotoUrl);
+    const updatedPhotoPath = extractSpacePhotoPath(payload.photoDataUrl ?? null);
+    const previousOwnedByUser = previousPhotoPath?.split('/')[0] === user.id;
+    if (previousPhotoPath && previousOwnedByUser && previousPhotoPath !== updatedPhotoPath) {
+      const { error: deleteError } = await supabase.storage.from('space-photos').remove([previousPhotoPath]);
+      if (deleteError) {
+        console.error('cleaner old photo delete error:', deleteError);
+      }
+    }
+
+    if (newPhotoPath && extractSpacePhotoPath(payload.photoDataUrl ?? null) !== newPhotoPath) {
+      console.warn('cleaner photo path mismatch after upload');
     }
 
     window.localStorage.setItem(storageKey, JSON.stringify(payload));
+    setPhotoDataUrl(payload.photoDataUrl ?? null);
+    setSavedPhotoUrl(payload.photoDataUrl ?? null);
+    setPhotoFileToUpload(null);
     setSaveToast(true);
     setIsSaving(false);
   };
@@ -1161,43 +1302,45 @@ export function CleanerDashboardPage() {
                     </div>
                   </div>
 
-                  <div className="overflow-hidden rounded-xl border border-[#D1E7F7]">
-                    <MapContainer center={[45.55, -73.65]} zoom={9} scrollWheelZoom className="h-[240px] w-full sm:h-[280px]">
-                      <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      />
-                      <MapViewportSync
-                        points={areaPoints}
-                        activeZone={homeArea?.zone ?? serviceAreas[0]?.zone ?? firstZoneName}
-                        homeArea={homeArea}
-                        serviceAreas={serviceAreas}
-                        selectionMode="service"
-                      />
-                      {areaPoints.map((point) => {
-                        const isHome = homeArea?.id === point.id;
-                        const isService = serviceAreaIds.has(point.id);
-                        if (!isHome && !isService) return null;
-                        return (
-                          <CircleMarker
-                            key={`preview-${point.id}`}
-                            center={[point.lat, point.lng]}
-                            radius={isHome ? 9 : 7}
-                            pathOptions={{
-                              color: isHome ? '#0284C7' : '#0F766E',
-                              weight: 3,
-                              fillColor: isHome ? '#4FC3F7' : '#A8E6CF',
-                              fillOpacity: 0.95
-                            }}
-                          >
-                            <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-                              <div className="text-xs font-semibold">{point.name}</div>
-                            </Tooltip>
-                          </CircleMarker>
-                        );
-                      })}
-                    </MapContainer>
-                  </div>
+                  {!isAreaWizardOpen ? (
+                    <div className="overflow-hidden rounded-xl border border-[#D1E7F7]">
+                      <MapContainer center={[45.55, -73.65]} zoom={9} scrollWheelZoom className="h-[240px] w-full sm:h-[280px]">
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <MapViewportSync
+                          points={areaPoints}
+                          activeZone={homeArea?.zone ?? serviceAreas[0]?.zone ?? firstZoneName}
+                          homeArea={homeArea}
+                          serviceAreas={serviceAreas}
+                          selectionMode="service"
+                        />
+                        {areaPoints.map((point) => {
+                          const isHome = homeArea?.id === point.id;
+                          const isService = serviceAreaIds.has(point.id);
+                          if (!isHome && !isService) return null;
+                          return (
+                            <CircleMarker
+                              key={`preview-${point.id}`}
+                              center={[point.lat, point.lng]}
+                              radius={isHome ? 9 : 7}
+                              pathOptions={{
+                                color: isHome ? '#0284C7' : '#0F766E',
+                                weight: 3,
+                                fillColor: isHome ? '#4FC3F7' : '#A8E6CF',
+                                fillOpacity: 0.95
+                              }}
+                            >
+                              <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+                                <div className="text-xs font-semibold">{point.name}</div>
+                              </Tooltip>
+                            </CircleMarker>
+                          );
+                        })}
+                      </MapContainer>
+                    </div>
+                  ) : null}
 
                   <button
                     type="button"
@@ -1424,8 +1567,8 @@ export function CleanerDashboardPage() {
         </div>
 
       {isAreaWizardOpen ? (
-        <div className="fixed inset-0 z-[75] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
-          <div className="h-[92vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-[0_24px_60px_rgba(17,24,39,0.35)] sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-2xl">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4">
+          <div className="relative z-[3001] h-[92vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-[0_24px_60px_rgba(17,24,39,0.35)] sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-2xl">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4 sm:px-6">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{content.wizardTitle}</h3>
@@ -1440,30 +1583,75 @@ export function CleanerDashboardPage() {
               </button>
             </div>
 
-            <div className="grid h-[calc(92vh-74px)] gap-0 sm:h-auto sm:max-h-[calc(90vh-74px)] sm:grid-cols-[1.3fr,1fr]">
-              <div className="order-2 overflow-y-auto border-t border-[#E5E7EB] p-5 sm:order-1 sm:border-r sm:border-t-0 sm:p-6">
+            <div className="h-[calc(92vh-74px)] overflow-y-auto p-5 sm:max-h-[calc(90vh-74px)] sm:p-6">
+              <div>
                 {areaStep === 1 ? (
                   <div className="space-y-4">
-                    <h4 className="text-base font-bold text-[#1A1A2E]">{content.stepHomeZoneTitle}</h4>
-                    <p className="text-sm text-[#6B7280]">{content.stepHomeZoneHelp}</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {zones.map((zone) => (
-                        <button
-                          key={`wizard-zone-${zone.name}`}
-                          type="button"
-                          onClick={() => {
-                            setDraftHomeZone(zone.name);
-                            setDraftHomeArea(getZoneArea(zone.name));
-                          }}
-                          className={`rounded-xl border px-4 py-3 text-left transition-all ${
-                            draftHomeZone === zone.name
-                              ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.12)] shadow-[0_0_0_3px_rgba(79,195,247,0.12)]'
-                              : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'
-                          }`}
+                    <div>
+                      <h4 className="text-base font-bold text-[#1A1A2E]">{content.stepHomeZoneTitle}</h4>
+                      <p className="text-sm text-[#6B7280]">{content.stepHomeZoneHelp}</p>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-[1fr,1fr]">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                        {zones.map((zone) => (
+                          <button
+                            key={`wizard-zone-${zone.name}`}
+                            type="button"
+                            onClick={() => {
+                              setDraftHomeZone(zone.name);
+                              setDraftServiceZone(zone.name);
+                              setDraftHomeArea(getZoneArea(zone.name));
+                            }}
+                            className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                              draftHomeZone === zone.name
+                                ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.12)] shadow-[0_0_0_3px_rgba(79,195,247,0.12)]'
+                                : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-[#1A1A2E]">{zone.name}</p>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="overflow-hidden rounded-xl border border-[#D1E7F7]">
+                        <MapContainer
+                          center={[45.55, -73.65]}
+                          zoom={9}
+                          scrollWheelZoom={false}
+                          className="h-[220px] w-full sm:h-[260px] lg:h-full"
                         >
-                          <p className="text-sm font-semibold text-[#1A1A2E]">{zone.name}</p>
-                        </button>
-                      ))}
+                          <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          />
+                          <MapViewportSync
+                            points={zoneAreas}
+                            activeZone={draftHomeZone}
+                            homeArea={getZoneArea(draftHomeZone)}
+                            serviceAreas={[]}
+                            selectionMode="home"
+                          />
+                          {zoneAreas.map((zonePoint) => {
+                            const isSelected = zonePoint.zone === draftHomeZone;
+                            return (
+                              <CircleMarker
+                                key={`step1-zone-map-${zonePoint.id}`}
+                                center={[zonePoint.lat, zonePoint.lng]}
+                                radius={isSelected ? 10 : 7}
+                                pathOptions={{
+                                  color: isSelected ? '#0284C7' : '#60A5FA',
+                                  weight: isSelected ? 3 : 2,
+                                  fillColor: isSelected ? '#4FC3F7' : '#FFFFFF',
+                                  fillOpacity: 0.92
+                                }}
+                              >
+                                <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+                                  <div className="text-xs font-semibold">{zonePoint.zone}</div>
+                                </Tooltip>
+                              </CircleMarker>
+                            );
+                          })}
+                        </MapContainer>
+                      </div>
                     </div>
                     <div className="flex justify-end">
                       <button
@@ -1527,12 +1715,15 @@ export function CleanerDashboardPage() {
                         type="button"
                         onClick={() => {
                           setServiceMode('simple');
+                          setServiceModeError(false);
                           if (draftHomeArea) setDraftServiceAreas([draftHomeArea]);
                         }}
                         className={`rounded-xl border px-4 py-3 text-left transition-all ${
                           serviceMode === 'simple'
                             ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.1)]'
-                            : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'
+                            : serviceModeError
+                              ? 'border-[#E24B4A] bg-[rgba(252,235,235,0.8)]'
+                              : 'border-[#E5E7EB] bg-white hover:border-[#BFE9FB]'
                         }`}
                       >
                         <p className="text-sm font-semibold text-[#1A1A2E]">{content.onlyHomeService}</p>
@@ -1540,17 +1731,25 @@ export function CleanerDashboardPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setServiceMode('advanced')}
+                        onClick={() => {
+                          setServiceMode('advanced');
+                          setServiceModeError(false);
+                        }}
                         className={`rounded-xl border px-4 py-3 text-left transition-all ${
                           serviceMode === 'advanced'
                             ? 'border-[#16A34A] bg-[rgba(168,230,207,0.25)]'
-                            : 'border-[#E5E7EB] bg-white hover:border-[#A7F3D0]'
+                            : serviceModeError
+                              ? 'border-[#E24B4A] bg-[rgba(252,235,235,0.8)]'
+                              : 'border-[#E5E7EB] bg-white hover:border-[#A7F3D0]'
                         }`}
                       >
                         <p className="text-sm font-semibold text-[#1A1A2E]">{content.advancedService}</p>
                         <p className="mt-1 text-xs text-[#6B7280]">{content.advancedServiceHelp}</p>
                       </button>
                     </div>
+                    {serviceModeError ? (
+                      <p className="text-xs font-medium text-[#A32D2D]">{content.serviceModeRequired}</p>
+                    ) : null}
 
                     {serviceMode === 'advanced' ? (
                       <>
@@ -1564,35 +1763,114 @@ export function CleanerDashboardPage() {
                             className="w-full rounded-lg border border-[#E5E7EB] px-9 py-2.5 text-sm text-[#1A1A2E] outline-none focus:border-[#4FC3F7]"
                           />
                         </label>
-                        <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                          {groupedAdvancedAreas.map((group) => (
-                            <div key={`group-${group.zone}`}>
-                              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#6B7280]">{group.zone}</p>
-                              <div className="flex flex-wrap gap-2">
-                                {group.areas.map((area) => {
-                                  const selected = draftServiceAreaIds.has(area.id);
-                                  return (
-                                    <button
-                                      key={`advanced-${area.id}`}
-                                      type="button"
-                                      onClick={() => toggleDraftServiceArea(area)}
-                                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                                        selected
-                                          ? 'border-[#16A34A] bg-[rgba(168,230,207,0.28)] text-[#166534]'
-                                          : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#A7F3D0]'
-                                      }`}
-                                    >
-                                      {area.name}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
+                        <div className="flex flex-wrap gap-2">
+                          {zones.map((zone) => (
+                            <button
+                              key={`advanced-zone-${zone.name}`}
+                              type="button"
+                              onClick={() => setDraftServiceZone(zone.name)}
+                              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                                draftServiceZone === zone.name
+                                  ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.12)] text-[#0284C7]'
+                                  : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#BFE9FB]'
+                              }`}
+                            >
+                              {zone.name}
+                            </button>
                           ))}
                         </div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">{content.areasInZone} · {draftServiceZone}</p>
+                        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                          <button
+                            type="button"
+                            onClick={toggleSelectAllForActiveZone}
+                            className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-all ${
+                              isActiveZoneFullySelected
+                                ? 'border-[#0284C7] bg-[rgba(79,195,247,0.14)] text-[#0284C7]'
+                                : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#BFE9FB]'
+                            }`}
+                          >
+                            <span className="text-sm font-semibold">{content.selectAllAreas}</span>
+                            {isActiveZoneFullySelected ? <Check size={14} /> : null}
+                          </button>
+                          {(draftServiceZoneAreas.length > 0 ? draftServiceZoneAreas : areaPoints.filter((area) => area.zone === draftServiceZone)).map((area) => {
+                            const selected = draftServiceAreaIds.has(area.id);
+                            return (
+                              <button
+                                key={`advanced-${area.id}`}
+                                type="button"
+                                onClick={() => toggleDraftServiceArea(area)}
+                                className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-all ${
+                                  selected
+                                    ? 'border-[#16A34A] bg-[rgba(168,230,207,0.28)] text-[#166534]'
+                                    : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#A7F3D0]'
+                                }`}
+                              >
+                                <span className="text-sm font-medium text-[#1A1A2E]">{area.name}</span>
+                                <span className="text-xs">{selected ? content.selectedCount : area.zone}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                         <p className="text-xs text-[#6B7280]">{draftServiceAreas.length} {content.selectedCount}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {draftServiceAreas.map((area) => (
+                            <button
+                              key={`draft-chip-${area.id}`}
+                              type="button"
+                              onClick={() => toggleDraftServiceArea(area)}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#A7F3D0] bg-[rgba(168,230,207,0.28)] px-3 py-1 text-xs font-semibold text-[#166534]"
+                            >
+                              {area.name}
+                              <X size={12} />
+                            </button>
+                          ))}
+                        </div>
                       </>
                     ) : null}
+
+                    <div className="overflow-hidden rounded-xl border border-[#D1E7F7]">
+                      <MapContainer
+                        center={[45.55, -73.65]}
+                        zoom={9}
+                        scrollWheelZoom={false}
+                        className="h-[210px] w-full sm:h-[240px]"
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <MapViewportSync
+                          points={areaPoints}
+                          activeZone={draftServiceZone}
+                          homeArea={draftHomeArea}
+                          serviceAreas={activeServiceAreasForMap}
+                          selectionMode="service"
+                        />
+                        {areaPoints.map((point) => {
+                          const isHome = draftHomeArea?.id === point.id;
+                          const isService = activeServiceAreasForMap.some((area) => area.id === point.id);
+                          if (!isHome && !isService) return null;
+                          return (
+                            <CircleMarker
+                              key={`wizard-step3-map-${point.id}`}
+                              center={[point.lat, point.lng]}
+                              radius={isHome ? 9 : 7}
+                              pathOptions={{
+                                color: isHome ? '#0284C7' : '#0F766E',
+                                weight: 3,
+                                fillColor: isHome ? '#4FC3F7' : '#A8E6CF',
+                                fillOpacity: 0.95
+                              }}
+                            >
+                              <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+                                <div className="text-xs font-semibold">{point.name}</div>
+                              </Tooltip>
+                            </CircleMarker>
+                          );
+                        })}
+                      </MapContainer>
+                    </div>
 
                     <div className="flex items-center justify-between gap-2">
                       <button type="button" onClick={() => setAreaStep(2)} className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{content.back}</button>
@@ -1623,51 +1901,54 @@ export function CleanerDashboardPage() {
                         )}
                       </div>
                     </div>
+                    <div className="overflow-hidden rounded-xl border border-[#D1E7F7]">
+                      <MapContainer
+                        center={[45.55, -73.65]}
+                        zoom={9}
+                        scrollWheelZoom={false}
+                        className="h-[220px] w-full sm:h-[280px]"
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <MapViewportSync
+                          points={areaPoints}
+                          activeZone={draftServiceZone}
+                          homeArea={draftHomeArea}
+                          serviceAreas={activeServiceAreasForMap}
+                          selectionMode="service"
+                        />
+                        {areaPoints.map((point) => {
+                          const isHome = draftHomeArea?.id === point.id;
+                          const isService = activeServiceAreasForMap.some((area) => area.id === point.id);
+                          if (!isHome && !isService) return null;
+                          return (
+                            <CircleMarker
+                              key={`wizard-map-preview-${point.id}`}
+                              center={[point.lat, point.lng]}
+                              radius={isHome ? 9 : 7}
+                              pathOptions={{
+                                color: isHome ? '#0284C7' : '#0F766E',
+                                weight: 3,
+                                fillColor: isHome ? '#4FC3F7' : '#A8E6CF',
+                                fillOpacity: 0.95
+                              }}
+                            >
+                              <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+                                <div className="text-xs font-semibold">{point.name}</div>
+                              </Tooltip>
+                            </CircleMarker>
+                          );
+                        })}
+                      </MapContainer>
+                    </div>
                     <div className="flex items-center justify-between gap-2">
                       <button type="button" onClick={() => setAreaStep(3)} className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{content.back}</button>
                       <button type="button" onClick={handleConfirmAreas} className="rounded-lg bg-[#1A1A2E] px-5 py-2 text-sm font-semibold text-white">{content.confirmAreas}</button>
                     </div>
                   </div>
                 ) : null}
-              </div>
-
-              <div className="order-1 border-b border-[#E5E7EB] p-4 sm:order-2 sm:border-b-0 sm:p-5">
-                <div className="overflow-hidden rounded-xl border border-[#D1E7F7]">
-                  <MapContainer center={[45.55, -73.65]} zoom={9} scrollWheelZoom className="h-[220px] w-full sm:h-[300px]">
-                    <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    <MapViewportSync
-                      points={areaPoints}
-                      activeZone={draftHomeZone}
-                      homeArea={draftHomeArea}
-                      serviceAreas={serviceMode === 'simple' && draftHomeArea ? [draftHomeArea] : draftServiceAreas}
-                      selectionMode="service"
-                    />
-                    {areaPoints.map((point) => {
-                      const isHome = draftHomeArea?.id === point.id;
-                      const isService = (serviceMode === 'simple' && draftHomeArea ? [draftHomeArea] : draftServiceAreas).some((area) => area.id === point.id);
-                      return (
-                        <CircleMarker
-                          key={`wizard-map-${point.id}`}
-                          center={[point.lat, point.lng]}
-                          radius={isHome ? 9 : isService ? 7 : 5}
-                          pathOptions={{
-                            color: isHome ? '#0284C7' : isService ? '#0F766E' : '#60A5FA',
-                            weight: isHome || isService ? 3 : 2,
-                            fillColor: isHome ? '#4FC3F7' : isService ? '#A8E6CF' : '#FFFFFF',
-                            fillOpacity: point.zone === draftHomeZone ? 0.85 : 0.3
-                          }}
-                        >
-                          <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-                            <div className="text-xs font-semibold">{point.name}</div>
-                          </Tooltip>
-                        </CircleMarker>
-                      );
-                    })}
-                  </MapContainer>
-                </div>
               </div>
             </div>
           </div>
