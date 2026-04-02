@@ -110,3 +110,10 @@ CREATE POLICY "Users can delete own space photos"
     bucket_id = 'space-photos'
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- =========================================
+-- 3) Cleaner home address (Geoapify structured data)
+-- =========================================
+
+ALTER TABLE public.cleaner_profiles
+  ADD COLUMN IF NOT EXISTS home_address JSONB;

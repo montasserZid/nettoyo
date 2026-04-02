@@ -5,6 +5,8 @@ import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-le
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { convertToWebP } from '../lib/imageUtils';
+import { fetchGeoapifyAddressSuggestions } from '../lib/geoapify';
+import type { AddressSuggestion, HomeAddress } from '../lib/geoapify';
 import supabase from '../lib/supabase';
 import zonesData from '../data/zones.json';
 import 'leaflet/dist/leaflet.css';
@@ -25,6 +27,7 @@ type StoredCleanerProfile = {
   photoDataUrl?: string | null;
   weekly_availability?: WeeklyAvailability;
   availability_exceptions?: AvailabilityException[];
+  home_address?: HomeAddress | null;
   home_area?: AreaSelection | null;
   service_areas?: AreaSelection[];
 };
@@ -34,6 +37,7 @@ type CleanerProfileRow = {
   photo_url: string | null;
   weekly_availability: unknown;
   availability_exceptions: unknown;
+  home_address?: unknown;
   home_area?: unknown;
   service_areas?: unknown;
 };
@@ -94,6 +98,63 @@ function getZoneArea(zoneName: string) {
   return zoneAreas.find((zone) => zone.zone === zoneName) ?? null;
 }
 
+function repairMojibake(value: string) {
+  return value
+    .replace(/Ã©/g, 'é')
+    .replace(/Ã¨/g, 'è')
+    .replace(/Ãª/g, 'ê')
+    .replace(/Ã«/g, 'ë')
+    .replace(/Ã /g, 'à')
+    .replace(/Ã¢/g, 'â')
+    .replace(/Ã´/g, 'ô')
+    .replace(/Ã»/g, 'û')
+    .replace(/Ã§/g, 'ç')
+    .replace(/â€“/g, '-')
+    .replace(/â€”/g, '-')
+    .replace(/â€™/g, "'")
+    .replace(/â€˜/g, "'");
+}
+
+function normalizeTextForMatch(value: string) {
+  return repairMojibake(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const zoneByNormalizedCity = areaPoints.reduce<Map<string, string[]>>((map, area) => {
+  const key = normalizeTextForMatch(area.name);
+  const existing = map.get(key) ?? [];
+  if (!existing.includes(area.zone)) {
+    existing.push(area.zone);
+  }
+  map.set(key, existing);
+  return map;
+}, new Map<string, string[]>());
+
+const montrealZoneName = zones.find((zone) => normalizeTextForMatch(zone.name) === 'montreal')?.name ?? zones[0]?.name ?? '';
+
+function deriveZoneFromCityName(city?: string | null) {
+  const normalizedCity = normalizeTextForMatch(city ?? '');
+  if (!normalizedCity) return null;
+
+  const matchedZones = zoneByNormalizedCity.get(normalizedCity);
+  if (matchedZones?.length) {
+    if (matchedZones.includes(montrealZoneName)) {
+      return montrealZoneName;
+    }
+    return matchedZones[0];
+  }
+
+  if (normalizedCity === 'montreal') {
+    return montrealZoneName;
+  }
+
+  return null;
+}
+
 const contentByLanguage = {
   fr: {
     pageBadge: 'Espace nettoyeur',
@@ -123,6 +184,17 @@ const contentByLanguage = {
       'Exemple: Plus de 5 ans d experience, specialise en menage residentiel et Airbnb. Ponctuelle, minutieuse et equipee pour les interventions en profondeur.',
     servicesTitle: 'Services proposes',
     servicesHelp: 'Selectionnez les prestations que vous acceptez actuellement.',
+    homeAddressTitle: 'Adresse de domicile',
+    homeAddressHelp: 'Tapez votre adresse et selectionnez une suggestion valide au Canada.',
+    homeAddressPlaceholder: 'Ex: 123 Rue Sainte-Catherine Ouest, Montreal',
+    homeAddressMissingKey: 'Ajoutez VITE_GEOAPIFY_API_KEY dans votre environnement.',
+    homeAddressLoading: 'Recherche en cours...',
+    homeAddressNoResults: 'Aucun resultat trouve. Essayez une adresse plus precise.',
+    homeAddressNotSelected: 'Selectionnez une suggestion pour enregistrer une adresse valide.',
+    homeAddressRequired: 'Veuillez selectionner votre adresse de domicile.',
+    homeAddressSelected: 'Adresse confirmee',
+    homeAddressClear: 'Effacer l adresse',
+    homeAddressZoneMissing: 'Impossible de determiner votre zone de domicile avec cette adresse.',
     areaSectionTitle: 'Zones de couverture',
     areaSectionHelp: 'Definissez votre zone de residence et les secteurs ou vous acceptez des missions.',
     homeAreaTitle: 'Zone de domicile',
@@ -213,6 +285,17 @@ const contentByLanguage = {
       'Example: 5+ years of experience, specialized in residential and Airbnb cleaning. Reliable, detail-oriented, and equipped for deep cleaning sessions.',
     servicesTitle: 'Services offered',
     servicesHelp: 'Select all services you currently offer.',
+    homeAddressTitle: 'Home address',
+    homeAddressHelp: 'Type your address and select a valid Canadian suggestion.',
+    homeAddressPlaceholder: 'Example: 123 Sainte-Catherine St W, Montreal',
+    homeAddressMissingKey: 'Add VITE_GEOAPIFY_API_KEY to your environment.',
+    homeAddressLoading: 'Searching...',
+    homeAddressNoResults: 'No matches found. Try a more specific address.',
+    homeAddressNotSelected: 'Please choose one suggestion to save a valid address.',
+    homeAddressRequired: 'Please select your home address.',
+    homeAddressSelected: 'Address confirmed',
+    homeAddressClear: 'Clear address',
+    homeAddressZoneMissing: 'We could not determine your home zone from this address.',
     areaSectionTitle: 'Coverage areas',
     areaSectionHelp: 'Set your home base and the areas where you accept bookings.',
     homeAreaTitle: 'Home area',
@@ -303,6 +386,17 @@ const contentByLanguage = {
       'Ejemplo: Mas de 5 anos de experiencia, especializada en limpieza residencial y Airbnb. Puntual, detallista y preparada para limpiezas profundas.',
     servicesTitle: 'Servicios ofrecidos',
     servicesHelp: 'Selecciona todos los servicios que ofreces actualmente.',
+    homeAddressTitle: 'Direccion de domicilio',
+    homeAddressHelp: 'Escribe tu direccion y selecciona una sugerencia valida en Canada.',
+    homeAddressPlaceholder: 'Ej: 123 Rue Sainte-Catherine Ouest, Montreal',
+    homeAddressMissingKey: 'Agrega VITE_GEOAPIFY_API_KEY en tu entorno.',
+    homeAddressLoading: 'Buscando...',
+    homeAddressNoResults: 'No se encontraron resultados. Prueba con una direccion mas precisa.',
+    homeAddressNotSelected: 'Selecciona una sugerencia para guardar una direccion valida.',
+    homeAddressRequired: 'Selecciona tu direccion de domicilio.',
+    homeAddressSelected: 'Direccion confirmada',
+    homeAddressClear: 'Borrar direccion',
+    homeAddressZoneMissing: 'No pudimos determinar tu zona de domicilio con esta direccion.',
     areaSectionTitle: 'Zonas de cobertura',
     areaSectionHelp: 'Define tu zona de residencia y las zonas donde aceptas servicios.',
     homeAreaTitle: 'Zona de domicilio',
@@ -420,6 +514,23 @@ function isValidAreaSelection(value: unknown): value is AreaSelection {
   );
 }
 
+function isValidHomeAddress(value: unknown): value is HomeAddress {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as HomeAddress;
+  return (
+    typeof candidate.formatted === 'string' &&
+    typeof candidate.lat === 'number' &&
+    typeof candidate.lng === 'number' &&
+    (typeof candidate.city === 'string' || candidate.city === null) &&
+    (typeof candidate.state === 'string' || candidate.state === null) &&
+    (typeof candidate.postal_code === 'string' || candidate.postal_code === null) &&
+    (typeof candidate.country === 'string' || candidate.country === null) &&
+    (typeof candidate.country_code === 'string' || candidate.country_code === null) &&
+    (typeof candidate.street === 'string' || candidate.street === null) &&
+    (typeof candidate.street_number === 'string' || candidate.street_number === null)
+  );
+}
+
 function normalizeCleanerProfile(
   row: CleanerProfileRow | null,
   fallbackAvatarUrl: string | null,
@@ -430,6 +541,7 @@ function normalizeCleanerProfile(
   const sourcePhoto = row?.photo_url ?? fallbackLocalProfile?.photoDataUrl ?? fallbackAvatarUrl ?? null;
   const sourceWeeklyAvailability = row?.weekly_availability ?? fallbackLocalProfile?.weekly_availability;
   const sourceExceptions = row?.availability_exceptions ?? fallbackLocalProfile?.availability_exceptions;
+  const sourceHomeAddress = row?.home_address ?? fallbackLocalProfile?.home_address;
   const sourceHomeArea = row?.home_area ?? fallbackLocalProfile?.home_area;
   const sourceServiceAreas = row?.service_areas ?? fallbackLocalProfile?.service_areas;
 
@@ -438,6 +550,7 @@ function normalizeCleanerProfile(
     ? sourceWeeklyAvailability
     : defaultWeeklyAvailability;
   const availabilityExceptions = Array.isArray(sourceExceptions) ? sourceExceptions.filter(isValidException) : [];
+  const homeAddress = isValidHomeAddress(sourceHomeAddress) ? sourceHomeAddress : null;
   const homeArea = isValidAreaSelection(sourceHomeArea) ? sourceHomeArea : null;
   const serviceAreas = Array.isArray(sourceServiceAreas) ? sourceServiceAreas.filter(isValidAreaSelection) : [];
 
@@ -447,6 +560,7 @@ function normalizeCleanerProfile(
     photoDataUrl: sourcePhoto,
     weeklyAvailability,
     availabilityExceptions,
+    homeAddress,
     homeArea,
     serviceAreas
   };
@@ -638,6 +752,8 @@ export function CleanerDashboardPage() {
   const serviceLabels = serviceLabelByLanguage[language];
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const homeAddressRef = useRef<HTMLDivElement | null>(null);
+  const autocompleteAbortRef = useRef<AbortController | null>(null);
 
   const [description, setDescription] = useState('');
   const [selectedServices, setSelectedServices] = useState<CleanerServiceId[]>([]);
@@ -646,6 +762,12 @@ export function CleanerDashboardPage() {
   const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null);
   const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailability>(defaultWeeklyAvailability);
   const [availabilityExceptions, setAvailabilityExceptions] = useState<AvailabilityException[]>([]);
+  const [homeAddress, setHomeAddress] = useState<HomeAddress | null>(null);
+  const [homeAddressInput, setHomeAddressInput] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
+  const [isAddressLoading, setIsAddressLoading] = useState(false);
+  const [homeAddressValidationError, setHomeAddressValidationError] = useState<string | null>(null);
   const [homeArea, setHomeArea] = useState<AreaSelection | null>(null);
   const [serviceAreas, setServiceAreas] = useState<AreaSelection[]>([]);
   const [isAreaWizardOpen, setIsAreaWizardOpen] = useState(false);
@@ -667,6 +789,7 @@ export function CleanerDashboardPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const geoapifyApiKey = (import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined)?.trim() ?? '';
 
   const storageKey = useMemo(() => getCleanerStorageKey(user?.id), [user?.id]);
   const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Nettoyo';
@@ -674,6 +797,11 @@ export function CleanerDashboardPage() {
   const serviceAreaIds = useMemo(() => new Set(serviceAreas.map((area) => area.id)), [serviceAreas]);
   const draftServiceAreaIds = useMemo(() => new Set(draftServiceAreas.map((area) => area.id)), [draftServiceAreas]);
   const currentZoneAreas = useMemo(() => areaPoints.filter((point) => point.zone === draftHomeZone), [draftHomeZone]);
+  const derivedHomeZone = useMemo(() => deriveZoneFromCityName(homeAddress?.city), [homeAddress?.city]);
+  const derivedHomeArea = useMemo(
+    () => (derivedHomeZone ? getZoneArea(derivedHomeZone) : null),
+    [derivedHomeZone]
+  );
   const filteredCurrentZoneAreas = useMemo(
     () => currentZoneAreas.filter((area) => area.name.toLowerCase().includes(areaSearch.trim().toLowerCase())),
     [areaSearch, currentZoneAreas]
@@ -691,6 +819,11 @@ export function CleanerDashboardPage() {
         setPhotoFileToUpload(null);
         setWeeklyAvailability(defaultWeeklyAvailability);
         setAvailabilityExceptions([]);
+        setHomeAddress(null);
+        setHomeAddressInput('');
+        setAddressSuggestions([]);
+        setIsAddressDropdownOpen(false);
+        setHomeAddressValidationError(null);
         setHomeArea(null);
         setServiceAreas([]);
         setIsProfileLoading(false);
@@ -734,14 +867,21 @@ export function CleanerDashboardPage() {
       setPhotoFileToUpload(null);
       setWeeklyAvailability(normalized.weeklyAvailability);
       setAvailabilityExceptions(normalized.availabilityExceptions);
-      setHomeArea(normalized.homeArea);
+      setHomeAddress(normalized.homeAddress);
+      setHomeAddressInput(normalized.homeAddress?.formatted ?? '');
+      setAddressSuggestions([]);
+      setIsAddressDropdownOpen(false);
+      setHomeAddressValidationError(null);
+      const normalizedHomeZone = deriveZoneFromCityName(normalized.homeAddress?.city);
+      const normalizedHomeArea = normalizedHomeZone ? getZoneArea(normalizedHomeZone) : normalized.homeArea;
+      setHomeArea(normalizedHomeArea);
       setServiceAreas(normalized.serviceAreas);
-      if (normalized.homeArea?.zone) {
-        setDraftHomeZone(normalized.homeArea.zone);
+      if (normalizedHomeArea?.zone) {
+        setDraftHomeZone(normalizedHomeArea.zone);
       } else if (normalized.serviceAreas[0]?.zone) {
         setDraftHomeZone(normalized.serviceAreas[0].zone);
       }
-      setDraftServiceZone(normalized.serviceAreas[0]?.zone ?? normalized.homeArea?.zone ?? firstZoneName);
+      setDraftServiceZone(normalized.serviceAreas[0]?.zone ?? normalizedHomeArea?.zone ?? firstZoneName);
       setIsProfileLoading(false);
     };
 
@@ -763,6 +903,94 @@ export function CleanerDashboardPage() {
     const timer = window.setTimeout(() => setErrorMessage(null), 3000);
     return () => window.clearTimeout(timer);
   }, [errorMessage]);
+
+  useEffect(() => {
+    if (!homeAddress) {
+      setHomeArea(null);
+      return;
+    }
+    setHomeArea(derivedHomeArea);
+  }, [derivedHomeArea, homeAddress]);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!homeAddressRef.current?.contains(event.target as Node)) {
+        setIsAddressDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    const query = homeAddressInput.trim();
+    if (!geoapifyApiKey || query.length < 3 || (homeAddress?.formatted ?? '') === query) {
+      autocompleteAbortRef.current?.abort();
+      setIsAddressLoading(false);
+      setAddressSuggestions([]);
+      return;
+    }
+
+    const abortController = new AbortController();
+    autocompleteAbortRef.current?.abort();
+    autocompleteAbortRef.current = abortController;
+
+    const timer = window.setTimeout(() => {
+      setIsAddressLoading(true);
+      fetchGeoapifyAddressSuggestions(query, geoapifyApiKey, language, abortController.signal)
+        .then((results) => {
+          setAddressSuggestions(results);
+        })
+        .catch((error) => {
+          if ((error as { name?: string }).name !== 'AbortError') {
+            console.error('geoapify autocomplete error:', error);
+            setAddressSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (!abortController.signal.aborted) {
+            setIsAddressLoading(false);
+          }
+        });
+    }, 280);
+
+    return () => {
+      window.clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [geoapifyApiKey, homeAddress?.formatted, homeAddressInput, language]);
+
+  const handleHomeAddressInputChange = (value: string) => {
+    setHomeAddressInput(value);
+    setIsAddressDropdownOpen(true);
+    setHomeAddressValidationError(null);
+    if (homeAddress && value.trim() !== homeAddress.formatted) {
+      setHomeAddress(null);
+    }
+  };
+
+  const handleSelectHomeAddress = (suggestion: AddressSuggestion) => {
+    setHomeAddress(suggestion.address);
+    setHomeAddressInput(suggestion.address.formatted);
+    setDraftHomeZone(deriveZoneFromCityName(suggestion.address.city) ?? firstZoneName);
+    setAddressSuggestions([]);
+    setIsAddressDropdownOpen(false);
+    setHomeAddressValidationError(null);
+  };
+
+  const handleClearHomeAddress = () => {
+    setHomeAddress(null);
+    setHomeAddressInput('');
+    setAddressSuggestions([]);
+    setIsAddressDropdownOpen(false);
+    setHomeAddressValidationError(null);
+    setHomeArea(null);
+  };
 
   const toggleService = (serviceId: CleanerServiceId) => {
     setSelectedServices((current) => (current.includes(serviceId) ? current.filter((item) => item !== serviceId) : [...current, serviceId]));
@@ -844,8 +1072,12 @@ export function CleanerDashboardPage() {
   };
 
   const openAreaWizard = () => {
-    const initialZone = homeArea?.zone ?? serviceAreas[0]?.zone ?? firstZoneName;
-    const initialHomeArea = homeArea ?? getZoneArea(initialZone);
+    const initialHomeArea = derivedHomeArea ?? homeArea;
+    if (!initialHomeArea) {
+      setErrorMessage(content.homeAddressZoneMissing);
+      return;
+    }
+    const initialZone = initialHomeArea.zone;
     setDraftHomeZone(initialZone);
     setDraftHomeArea(initialHomeArea);
     setDraftServiceZone(serviceAreas[0]?.zone ?? initialZone);
@@ -853,53 +1085,43 @@ export function CleanerDashboardPage() {
     setServiceModeError(false);
     setDraftServiceAreas(serviceAreas);
     setAreaSearch('');
-    setAreaStep(1);
+    setAreaStep(3);
     setIsAreaWizardOpen(true);
   };
 
   const closeAreaWizard = () => {
     setIsAreaWizardOpen(false);
-    setAreaStep(1);
+    setAreaStep(3);
     setAreaSearch('');
     setServiceModeError(false);
   };
 
   const handleContinueFromStep1 = () => {
-    if (!draftHomeZone) return;
-    setDraftHomeArea(getZoneArea(draftHomeZone));
-    setAreaStep(2);
-    setAreaSearch('');
+    setAreaStep(3);
   };
 
   const handleSkipExactArea = () => {
-    const zoneArea = getZoneArea(draftHomeZone);
-    setDraftHomeArea(zoneArea);
-    if (serviceMode === 'simple') {
-      setDraftServiceAreas(zoneArea ? [zoneArea] : []);
-    }
     setAreaStep(3);
   };
 
   const handleContinueFromStep2 = () => {
-    if (!draftHomeArea) {
-      handleSkipExactArea();
-      return;
-    }
-    if (serviceMode === 'simple') {
-      setDraftServiceAreas([draftHomeArea]);
-    }
     setAreaStep(3);
   };
 
   const handleContinueFromStep3 = () => {
-    if (!draftHomeArea) return;
+    const zoneArea = derivedHomeArea ?? draftHomeArea;
+    if (!zoneArea) {
+      setErrorMessage(content.homeAddressZoneMissing);
+      return;
+    }
+    setDraftHomeArea(zoneArea);
     if (!serviceMode) {
       setServiceModeError(true);
       setErrorMessage(content.serviceModeRequired);
       return;
     }
     if (serviceMode === 'simple') {
-      setDraftServiceAreas([draftHomeArea]);
+      setDraftServiceAreas([zoneArea]);
       setAreaStep(4);
       return;
     }
@@ -911,9 +1133,10 @@ export function CleanerDashboardPage() {
   };
 
   const handleConfirmAreas = () => {
-    if (!draftHomeArea || !serviceMode) return;
-    setHomeArea(draftHomeArea);
-    setServiceAreas(serviceMode === 'simple' ? [draftHomeArea] : draftServiceAreas);
+    const zoneArea = derivedHomeArea ?? draftHomeArea;
+    if (!zoneArea || !serviceMode) return;
+    setHomeArea(zoneArea);
+    setServiceAreas(serviceMode === 'simple' ? [zoneArea] : draftServiceAreas);
     closeAreaWizard();
   };
 
@@ -935,7 +1158,8 @@ export function CleanerDashboardPage() {
       return [...filtered, ...allDraftZoneAreas];
     });
   };
-  const activeServiceAreasForMap = serviceMode === 'simple' && draftHomeArea ? [draftHomeArea] : draftServiceAreas;
+  const simpleModeArea = derivedHomeArea ?? draftHomeArea;
+  const activeServiceAreasForMap = serviceMode === 'simple' && simpleModeArea ? [simpleModeArea] : draftServiceAreas;
 
   useEffect(() => {
     if (!isAreaWizardOpen) return;
@@ -955,6 +1179,16 @@ export function CleanerDashboardPage() {
   const handleSave = async () => {
     if (!user?.id) {
       setErrorMessage(content.saveError);
+      return;
+    }
+    if (!homeAddress) {
+      setHomeAddressValidationError(content.homeAddressRequired);
+      setErrorMessage(content.homeAddressNotSelected);
+      return;
+    }
+    if (!derivedHomeArea) {
+      setHomeAddressValidationError(content.homeAddressZoneMissing);
+      setErrorMessage(content.homeAddressZoneMissing);
       return;
     }
 
@@ -1009,7 +1243,8 @@ export function CleanerDashboardPage() {
       photoDataUrl: nextPhotoUrl,
       weekly_availability: weeklyAvailability,
       availability_exceptions: availabilityExceptions,
-      home_area: homeArea,
+      home_address: homeAddress,
+      home_area: derivedHomeArea,
       service_areas: serviceAreas
     };
 
@@ -1023,13 +1258,20 @@ export function CleanerDashboardPage() {
           photo_url: payload.photoDataUrl,
           weekly_availability: payload.weekly_availability,
           availability_exceptions: payload.availability_exceptions,
+          home_address: payload.home_address,
           home_area: payload.home_area,
           service_areas: payload.service_areas
         },
         { onConflict: 'id' }
       );
 
-    if (error && (error.code === '42703' || error.message?.toLowerCase().includes('home_area') || error.message?.toLowerCase().includes('service_areas'))) {
+    if (
+      error &&
+      (error.code === '42703' ||
+        error.message?.toLowerCase().includes('home_address') ||
+        error.message?.toLowerCase().includes('home_area') ||
+        error.message?.toLowerCase().includes('service_areas'))
+    ) {
       const retry = await supabase
         .from('cleaner_profiles')
         .upsert(
@@ -1078,6 +1320,7 @@ export function CleanerDashboardPage() {
     setPhotoDataUrl(payload.photoDataUrl ?? null);
     setSavedPhotoUrl(payload.photoDataUrl ?? null);
     setPhotoFileToUpload(null);
+    setHomeAddressValidationError(null);
     setSaveToast(true);
     setIsSaving(false);
   };
@@ -1281,6 +1524,90 @@ export function CleanerDashboardPage() {
               </div>
 
               <div className="border-t border-[#E5E7EB] bg-[#FAFBFC] p-5 sm:p-6">
+                <div className="mb-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5" ref={homeAddressRef}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">{content.homeAddressTitle}</p>
+                      <p className="mt-1 text-xs text-[#6B7280] sm:text-sm">{content.homeAddressHelp}</p>
+                    </div>
+                    {homeAddress ? (
+                      <span className="inline-flex shrink-0 items-center rounded-full border border-[#A7F3D0] bg-[rgba(168,230,207,0.28)] px-2.5 py-1 text-[11px] font-semibold text-[#166534]">
+                        {content.homeAddressSelected}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {!geoapifyApiKey ? (
+                    <p className="mt-3 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs font-medium text-[#B91C1C]">
+                      {content.homeAddressMissingKey}
+                    </p>
+                  ) : null}
+
+                  <div className="relative mt-3">
+                    <Search size={15} className="pointer-events-none absolute left-3 top-3 text-[#9CA3AF]" />
+                    <input
+                      type="text"
+                      value={homeAddressInput}
+                      onChange={(event) => handleHomeAddressInputChange(event.target.value)}
+                      onFocus={() => setIsAddressDropdownOpen(true)}
+                      placeholder={content.homeAddressPlaceholder}
+                      autoComplete="off"
+                      className={`w-full rounded-xl border bg-white px-10 py-3 pr-12 text-sm text-[#1A1A2E] outline-none transition-all ${
+                        homeAddressValidationError
+                          ? 'border-[#E24B4A] shadow-[0_0_0_2px_rgba(226,75,74,0.12)]'
+                          : 'border-[#E5E7EB] focus:border-[#4FC3F7] focus:shadow-[0_0_0_2px_rgba(79,195,247,0.14)]'
+                      }`}
+                    />
+                    {homeAddressInput ? (
+                      <button
+                        type="button"
+                        onClick={handleClearHomeAddress}
+                        aria-label={content.homeAddressClear}
+                        className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280] transition-all hover:border-[#D1D5DB] hover:bg-[#F8FAFC]"
+                      >
+                        <X size={14} />
+                      </button>
+                    ) : null}
+
+                    {isAddressDropdownOpen && geoapifyApiKey && homeAddressInput.trim().length >= 3 ? (
+                      <div className="absolute z-30 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-[#D1E7F7] bg-white shadow-[0_12px_32px_rgba(17,24,39,0.16)]">
+                        {isAddressLoading ? (
+                          <p className="px-4 py-3 text-sm text-[#6B7280]">{content.homeAddressLoading}</p>
+                        ) : addressSuggestions.length > 0 ? (
+                          addressSuggestions.map((suggestion) => (
+                            <button
+                              key={suggestion.id}
+                              type="button"
+                              onClick={() => handleSelectHomeAddress(suggestion)}
+                              className="w-full border-b border-[#F1F5F9] px-4 py-3 text-left transition-all last:border-b-0 hover:bg-[#F8FCFF]"
+                            >
+                              <p className="text-sm font-semibold text-[#1A1A2E]">{suggestion.primary}</p>
+                              {suggestion.secondary ? (
+                                <p className="mt-0.5 text-xs text-[#6B7280]">{suggestion.secondary}</p>
+                              ) : null}
+                            </button>
+                          ))
+                        ) : (
+                          <p className="px-4 py-3 text-sm text-[#6B7280]">{content.homeAddressNoResults}</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {homeAddressValidationError ? (
+                    <p className="mt-2 text-xs font-medium text-[#B91C1C]">{homeAddressValidationError}</p>
+                  ) : null}
+
+                  {homeAddress ? (
+                    <div className="mt-3 rounded-lg border border-[#E5E7EB] bg-[#FAFBFC] p-3">
+                      <p className="text-sm font-semibold text-[#1A1A2E]">{homeAddress.formatted}</p>
+                      <p className="mt-1 text-xs text-[#6B7280]">
+                        {homeAddress.city ?? 'N/A'} | {homeAddress.state ?? 'N/A'} | {homeAddress.postal_code ?? 'N/A'} | {homeAddress.country ?? 'N/A'}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
                 <div className="space-y-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-3">
@@ -1572,7 +1899,7 @@ export function CleanerDashboardPage() {
             <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4 sm:px-6">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{content.wizardTitle}</h3>
-                <p className="text-xs text-[#6B7280]">Step {areaStep}/4</p>
+                <p className="text-xs text-[#6B7280]">Step {areaStep === 4 ? 2 : 1}/2</p>
               </div>
               <button
                 type="button"
@@ -1716,7 +2043,8 @@ export function CleanerDashboardPage() {
                         onClick={() => {
                           setServiceMode('simple');
                           setServiceModeError(false);
-                          if (draftHomeArea) setDraftServiceAreas([draftHomeArea]);
+                          const zoneArea = derivedHomeArea ?? draftHomeArea;
+                          if (zoneArea) setDraftServiceAreas([zoneArea]);
                         }}
                         className={`rounded-xl border px-4 py-3 text-left transition-all ${
                           serviceMode === 'simple'
@@ -1873,7 +2201,7 @@ export function CleanerDashboardPage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-2">
-                      <button type="button" onClick={() => setAreaStep(2)} className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{content.back}</button>
+                      <button type="button" onClick={closeAreaWizard} className="rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{content.back}</button>
                       <button type="button" onClick={handleContinueFromStep3} className="rounded-lg bg-[#1A1A2E] px-5 py-2 text-sm font-semibold text-white">{content.continue}</button>
                     </div>
                   </div>
