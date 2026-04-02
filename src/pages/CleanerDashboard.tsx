@@ -2,7 +2,7 @@ import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Briefcase, Building2, CalendarDays, Camera, Check, Clock3, Home, Layers3, LocateFixed, MapPin, Paintbrush, Plus, Search, Sparkles, Trash2, Truck, CircleUser as UserCircle2, Wand2, X } from 'lucide-react';
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet';
-import { TimeStepControl } from '../components/TimeStepControl';
+import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { convertToWebP } from '../lib/imageUtils';
@@ -1537,17 +1537,19 @@ export function CleanerDashboardPage() {
                               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                                 <label className="w-full sm:w-auto sm:flex-initial">
                                   <span className="block text-xs font-semibold uppercase tracking-wide text-[#6B7280] mb-1.5">{content.start}</span>
-                                  <TimeStepControl
+                                  <TimePickerField
                                     value={value.start}
                                     onChange={(nextValue) => updateWeeklyAvailability(day, { start: nextValue })}
+                                    label={content.start}
                                   />
                                 </label>
                                 <span className="hidden sm:block text-[#D1D5DB] font-medium">—</span>
                                 <label className="w-full sm:w-auto sm:flex-initial">
                                   <span className="block text-xs font-semibold uppercase tracking-wide text-[#6B7280] mb-1.5">{content.end}</span>
-                                  <TimeStepControl
+                                  <TimePickerField
                                     value={value.end}
                                     onChange={(nextValue) => updateWeeklyAvailability(day, { end: nextValue })}
+                                    label={content.end}
                                   />
                                 </label>
                               </div>
@@ -1624,16 +1626,18 @@ export function CleanerDashboardPage() {
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <label className="block">
                             <span className="block text-xs font-bold uppercase tracking-wide text-[#6B7280] mb-2">{content.start}</span>
-                            <TimeStepControl
+                            <TimePickerField
                               value={exceptionDraftStart}
                               onChange={setExceptionDraftStart}
+                              label={content.start}
                             />
                           </label>
                           <label className="block">
                             <span className="block text-xs font-bold uppercase tracking-wide text-[#6B7280] mb-2">{content.end}</span>
-                            <TimeStepControl
+                            <TimePickerField
                               value={exceptionDraftEnd}
                               onChange={setExceptionDraftEnd}
+                              label={content.end}
                             />
                           </label>
                         </div>
