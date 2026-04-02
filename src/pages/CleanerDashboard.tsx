@@ -7,8 +7,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { convertToWebP } from '../lib/imageUtils';
 import { fetchGeoapifyAddressSuggestions } from '../lib/geoapify';
 import type { AddressSuggestion, HomeAddress } from '../lib/geoapify';
+import { areaPoints, firstZoneName, getZoneArea, deriveZoneFromCityName, zoneAreas, zones } from '../lib/zoneMapping';
 import supabase from '../lib/supabase';
-import zonesData from '../data/zones.json';
 import 'leaflet/dist/leaflet.css';
 
 type CleanerServiceId = 'domicile' | 'deep_cleaning' | 'office' | 'moving' | 'post_renovation' | 'airbnb';
@@ -41,8 +41,6 @@ type CleanerProfileRow = {
   home_area?: unknown;
   service_areas?: unknown;
 };
-type ZoneCity = { name: string; lat: number; lng: number };
-type ZoneItem = { name: string; cities: ZoneCity[] };
 
 const serviceOptions: ServiceOption[] = [
   { id: 'domicile', icon: Home },
@@ -65,95 +63,6 @@ const defaultWeeklyAvailability: WeeklyAvailability = {
   sunday: { enabled: true, start: '06:00', end: '16:00' }
 };
 
-const zones = zonesData.zones as ZoneItem[];
-
-function areaId(zone: string, city: string) {
-  return `${zone}::${city}`;
-}
-
-const areaPoints: AreaSelection[] = zones.flatMap((zone) =>
-  zone.cities.map((city) => ({
-    id: areaId(zone.name, city.name),
-    zone: zone.name,
-    name: city.name,
-    lat: city.lat,
-    lng: city.lng
-  }))
-);
-
-const firstZoneName = zones[0]?.name ?? '';
-const zoneAreas: AreaSelection[] = zones.map((zone) => {
-  const lat = zone.cities.reduce((sum, city) => sum + city.lat, 0) / Math.max(zone.cities.length, 1);
-  const lng = zone.cities.reduce((sum, city) => sum + city.lng, 0) / Math.max(zone.cities.length, 1);
-  return {
-    id: `zone::${zone.name}`,
-    zone: zone.name,
-    name: zone.name,
-    lat,
-    lng
-  };
-});
-
-function getZoneArea(zoneName: string) {
-  return zoneAreas.find((zone) => zone.zone === zoneName) ?? null;
-}
-
-function repairMojibake(value: string) {
-  return value
-    .replace(/Ã©/g, 'é')
-    .replace(/Ã¨/g, 'è')
-    .replace(/Ãª/g, 'ê')
-    .replace(/Ã«/g, 'ë')
-    .replace(/Ã /g, 'à')
-    .replace(/Ã¢/g, 'â')
-    .replace(/Ã´/g, 'ô')
-    .replace(/Ã»/g, 'û')
-    .replace(/Ã§/g, 'ç')
-    .replace(/â€“/g, '-')
-    .replace(/â€”/g, '-')
-    .replace(/â€™/g, "'")
-    .replace(/â€˜/g, "'");
-}
-
-function normalizeTextForMatch(value: string) {
-  return repairMojibake(value)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-const zoneByNormalizedCity = areaPoints.reduce<Map<string, string[]>>((map, area) => {
-  const key = normalizeTextForMatch(area.name);
-  const existing = map.get(key) ?? [];
-  if (!existing.includes(area.zone)) {
-    existing.push(area.zone);
-  }
-  map.set(key, existing);
-  return map;
-}, new Map<string, string[]>());
-
-const montrealZoneName = zones.find((zone) => normalizeTextForMatch(zone.name) === 'montreal')?.name ?? zones[0]?.name ?? '';
-
-function deriveZoneFromCityName(city?: string | null) {
-  const normalizedCity = normalizeTextForMatch(city ?? '');
-  if (!normalizedCity) return null;
-
-  const matchedZones = zoneByNormalizedCity.get(normalizedCity);
-  if (matchedZones?.length) {
-    if (matchedZones.includes(montrealZoneName)) {
-      return montrealZoneName;
-    }
-    return matchedZones[0];
-  }
-
-  if (normalizedCity === 'montreal') {
-    return montrealZoneName;
-  }
-
-  return null;
-}
 
 const contentByLanguage = {
   fr: {

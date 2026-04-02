@@ -9,6 +9,7 @@ import { LoginPage, SignupPage } from './pages/AuthPages';
 import { AuthCallbackPage } from './pages/AuthCallback';
 import { CleanerDashboardPage } from './pages/CleanerDashboard';
 import { ClientAddSpacePage, ClientDashboardPage } from './pages/ClientDashboardPage';
+import { ClientReservationPage } from './pages/ClientReservationPage';
 import { AuthProvider } from './context/AuthContext';
 import { useLanguage } from './i18n/LanguageContext';
 import { useEffect } from 'react';
@@ -23,6 +24,7 @@ function AppContent() {
     signup: 'Sign Up',
     clientDashboard: 'Dashboard',
     clientAddSpace: 'Add Space',
+    clientReservation: 'Reservation',
     cleanerDashboard: 'Cleaner Dashboard'
   };
 
@@ -50,6 +52,10 @@ function AppContent() {
       ) : route === 'clientAddSpace' ? (
         <ProtectedRoute>
           <ClientAddSpacePage />
+        </ProtectedRoute>
+      ) : route === 'clientReservation' ? (
+        <ProtectedRoute>
+          <ClientReservationPage />
         </ProtectedRoute>
       ) : route === 'cleanerDashboard' ? (
         <ProtectedRoute>

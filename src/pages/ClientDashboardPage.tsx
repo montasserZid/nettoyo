@@ -1,11 +1,14 @@
 import type { ChangeEvent, ReactNode, RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bath, BedDouble, Briefcase, Building2, Camera, ChefHat, ChevronLeft, ChevronRight, Grid2x2 as Grid2X2, Home, Loader2, Lock, MapPin, Monitor, Pencil, Plus, Shirt, Sofa, Star, Trash2, Warehouse, WashingMachine, X } from 'lucide-react';
+import { Bath, BedDouble, Briefcase, Building2, Camera, ChefHat, ChevronLeft, ChevronRight, Grid2x2 as Grid2X2, Home, Loader2, Lock, MapPin, Monitor, Pencil, Plus, Search, Shirt, Sofa, Star, Trash2, Warehouse, WashingMachine, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
 import { ToastError } from '../components/ToastError';
 import { convertToWebP } from '../lib/imageUtils';
+import { fetchGeoapifyAddressSuggestions } from '../lib/geoapify';
+import type { AddressSuggestion } from '../lib/geoapify';
+import { deriveZoneFromCityName } from '../lib/zoneMapping';
 import supabase from '../lib/supabase';
 
 type SpaceType = 'apartment' | 'house' | 'office' | 'other';
@@ -33,7 +36,11 @@ type SpaceRecord = {
   quebec_format: string | null;
   address: string | null;
   city: string | null;
+  province: string | null;
   postal_code: string | null;
+  derived_zone: string | null;
+  latitude: number | null;
+  longitude: number | null;
   floor: string | null;
   access_code: string | null;
   photo_url: string | null;
@@ -64,7 +71,11 @@ type AddSpaceForm = {
   rooms: Rooms;
   address: string;
   city: string;
+  province: string;
   postalCode: string;
+  derivedZone: string;
+  latitude: string;
+  longitude: string;
   floor: string;
   accessCode: string;
   notes: string;
@@ -283,6 +294,7 @@ const contentByLanguage = {
         toastRequiredFields: 'Veuillez remplir les champs obligatoires',
         addressRequired: "L'adresse est obligatoire",
         cityRequired: 'La ville est obligatoire',
+        addressSelectRequired: 'Veuillez selectionner une adresse proposee ou passer en mode manuel.',
         upload: "Impossible d'envoyer la photo pour le moment.",
         generic: "Impossible d'enregistrer cet espace pour le moment.",
         profileMissing: 'Impossible de sauvegarder sans profil client actif.'
@@ -339,7 +351,14 @@ const contentByLanguage = {
         title: "Informations sur l'espace",
         address: 'Adresse',
         city: 'Ville',
+        province: 'Province',
         postalCode: 'Code postal',
+        derivedZone: 'Zone derivee',
+        unknownZone: 'Zone inconnue',
+        useManual: 'Entrer manuellement',
+        useAutocomplete: 'Utiliser autocomplete',
+        autocompleteHint: 'Recherchez votre adresse au Canada puis selectionnez une suggestion.',
+        manualHint: 'Saisissez votre adresse manuellement.',
         floor: 'Étage',
         accessCode: "Code d'accès",
         accessCodePlaceholder: 'Ex: #1234 ou sonnette 3B',
@@ -416,6 +435,7 @@ const contentByLanguage = {
         toastRequiredFields: 'Please fill in the required fields',
         addressRequired: 'Address is required',
         cityRequired: 'City is required',
+        addressSelectRequired: 'Please select one suggested address or switch to manual mode.',
         upload: 'Unable to upload the photo right now.',
         generic: 'Unable to save this space right now.',
         profileMissing: 'Unable to save without an active client profile.'
@@ -467,7 +487,14 @@ const contentByLanguage = {
         title: 'Space information',
         address: 'Address',
         city: 'City',
+        province: 'Province / State',
         postalCode: 'Postal code',
+        derivedZone: 'Derived zone',
+        unknownZone: 'Unknown zone',
+        useManual: 'Enter manually',
+        useAutocomplete: 'Use autocomplete',
+        autocompleteHint: 'Search your address in Canada and pick a suggestion.',
+        manualHint: 'Fill in your address manually.',
         floor: 'Floor',
         accessCode: 'Access code',
         accessCodePlaceholder: 'E.g. #1234 or buzzer 3B',
@@ -539,6 +566,7 @@ const contentByLanguage = {
         toastRequiredFields: 'Por favor completa los campos obligatorios',
         addressRequired: 'La dirección es obligatoria',
         cityRequired: 'La ciudad es obligatoria',
+        addressSelectRequired: 'Selecciona una direccion sugerida o cambia al modo manual.',
         upload: 'No se pudo subir la foto en este momento.',
         generic: 'No se pudo guardar este espacio en este momento.',
         profileMissing: 'No se puede guardar sin un perfil de cliente activo.'
@@ -590,7 +618,14 @@ const contentByLanguage = {
         title: 'Información del espacio',
         address: 'Dirección',
         city: 'Ciudad',
+        province: 'Provincia / Estado',
         postalCode: 'Código postal',
+        derivedZone: 'Zona derivada',
+        unknownZone: 'Zona desconocida',
+        useManual: 'Entrar manualmente',
+        useAutocomplete: 'Usar autocompletar',
+        autocompleteHint: 'Busca tu direccion en Canada y elige una sugerencia.',
+        manualHint: 'Completa tu direccion manualmente.',
         floor: 'Piso',
         accessCode: 'Código de acceso',
         accessCodePlaceholder: 'Ej: #1234 o timbre 3B',
@@ -682,7 +717,8 @@ function TextInput({
   icon,
   type = 'text',
   inputRef,
-  className
+  className,
+  readOnly = false
 }: {
   value: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -691,6 +727,7 @@ function TextInput({
   type?: string;
   inputRef?: RefObject<HTMLInputElement | null>;
   className?: string;
+  readOnly?: boolean;
 }) {
   return (
     <div className="relative">
@@ -704,6 +741,7 @@ function TextInput({
         type={type}
         value={value}
         onChange={onChange}
+        readOnly={readOnly}
         placeholder={placeholder}
         className={`w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3.5 text-[#1A1A2E] outline-none transition-all placeholder:text-[#9CA3AF] focus:border-[#4FC3F7] focus:shadow-[0_0_0_4px_rgba(79,195,247,0.12)] ${icon ? 'pl-11' : ''} ${className ?? ''}`}
       />
@@ -1236,8 +1274,16 @@ export function ClientAddSpacePage() {
   const spaceNameRef = useRef<HTMLInputElement | null>(null);
   const addressRef = useRef<HTMLInputElement | null>(null);
   const cityRef = useRef<HTMLInputElement | null>(null);
+  const addressSectionRef = useRef<HTMLDivElement | null>(null);
+  const autocompleteAbortRef = useRef<AbortController | null>(null);
   const [step, setStep] = useState(1);
   const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
+  const [addressMode, setAddressMode] = useState<'autocomplete' | 'manual'>('autocomplete');
+  const [addressQuery, setAddressQuery] = useState('');
+  const [selectedSuggestion, setSelectedSuggestion] = useState<AddressSuggestion | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
+  const [isAddressLoading, setIsAddressLoading] = useState(false);
   const [form, setForm] = useState<AddSpaceForm>({
     name: '',
     type: null,
@@ -1246,7 +1292,11 @@ export function ClientAddSpacePage() {
     rooms: formatRoomPresets['4½'],
     address: '',
     city: '',
+    province: '',
     postalCode: '',
+    derivedZone: '',
+    latitude: '',
+    longitude: '',
     floor: '',
     accessCode: '',
     notes: '',
@@ -1275,6 +1325,7 @@ export function ClientAddSpacePage() {
   const [showDraftToast, setShowDraftToast] = useState(false);
   const [fadeDraftToast, setFadeDraftToast] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ address: boolean; city: boolean }>({ address: false, city: false });
+  const geoapifyApiKey = (import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined)?.trim() ?? '';
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1317,12 +1368,39 @@ export function ClientAddSpacePage() {
         name: draft.spaceName ?? currentForm.name,
         address: draft.formData?.address ?? currentForm.address,
         city: draft.formData?.city ?? currentForm.city,
+        province: draft.formData?.province ?? currentForm.province,
         postalCode: draft.formData?.postalCode ?? currentForm.postalCode,
+        derivedZone: draft.formData?.derivedZone ?? currentForm.derivedZone,
+        latitude: draft.formData?.latitude ?? currentForm.latitude,
+        longitude: draft.formData?.longitude ?? currentForm.longitude,
         floor: draft.formData?.floor ?? currentForm.floor,
         accessCode: draft.formData?.accessCode ?? currentForm.accessCode,
         notes: draft.formData?.notes ?? currentForm.notes,
         isFavorite: typeof draft.formData?.isFavorite === 'boolean' ? draft.formData.isFavorite : currentForm.isFavorite
       }));
+      setAddressMode((draft.formData as { addressMode?: 'autocomplete' | 'manual' } | undefined)?.addressMode ?? 'autocomplete');
+      setAddressQuery(draft.formData?.address ?? '');
+      const draftLat = Number((draft.formData as { latitude?: string } | undefined)?.latitude ?? '');
+      const draftLng = Number((draft.formData as { longitude?: string } | undefined)?.longitude ?? '');
+      if (Number.isFinite(draftLat) && Number.isFinite(draftLng) && draft.formData?.address) {
+        setSelectedSuggestion({
+          id: `draft-${draftLat}-${draftLng}`,
+          primary: draft.formData.address,
+          secondary: [draft.formData.city, draft.formData.province].filter(Boolean).join(', '),
+          address: {
+            formatted: draft.formData.address,
+            lat: draftLat,
+            lng: draftLng,
+            city: draft.formData.city ?? null,
+            state: (draft.formData as { province?: string } | undefined)?.province ?? null,
+            postal_code: draft.formData.postalCode ?? null,
+            country: 'Canada',
+            country_code: 'CA',
+            street: null,
+            street_number: null
+          }
+        });
+      }
 
       setShowDraftToast(true);
       setFadeDraftToast(false);
@@ -1372,12 +1450,37 @@ export function ClientAddSpacePage() {
         rooms: normalizeRooms(space.rooms),
         address: space.address ?? '',
         city: space.city ?? '',
+        province: space.province ?? '',
         postalCode: space.postal_code ?? '',
+        derivedZone: space.derived_zone ?? deriveZoneFromCityName(space.city) ?? '',
+        latitude: typeof space.latitude === 'number' ? String(space.latitude) : '',
+        longitude: typeof space.longitude === 'number' ? String(space.longitude) : '',
         floor: space.floor ?? '',
         accessCode: space.access_code ?? '',
         notes: space.notes ?? '',
         isFavorite: space.is_favorite
       });
+      setAddressQuery(space.address ?? '');
+      setAddressMode(space.latitude !== null && space.longitude !== null ? 'autocomplete' : 'manual');
+      if (typeof space.latitude === 'number' && typeof space.longitude === 'number' && space.address) {
+        setSelectedSuggestion({
+          id: `loaded-${space.latitude}-${space.longitude}`,
+          primary: space.address,
+          secondary: [space.city, space.province].filter(Boolean).join(', '),
+          address: {
+            formatted: space.address,
+            lat: space.latitude,
+            lng: space.longitude,
+            city: space.city,
+            state: space.province,
+            postal_code: space.postal_code,
+            country: 'Canada',
+            country_code: 'CA',
+            street: null,
+            street_number: null
+          }
+        });
+      }
       setExistingPhotoUrl(space.photo_url);
       setPhotoPreview(space.photo_url);
       setHydrating(false);
@@ -1403,9 +1506,14 @@ export function ClientAddSpacePage() {
       roomCounts: form.rooms,
       spaceName: form.name,
       formData: {
+        addressMode,
         address: form.address,
         city: form.city,
+        province: form.province,
         postalCode: form.postalCode,
+        derivedZone: form.derivedZone,
+        latitude: form.latitude,
+        longitude: form.longitude,
         floor: form.floor,
         accessCode: form.accessCode,
         notes: form.notes,
@@ -1415,7 +1523,7 @@ export function ClientAddSpacePage() {
     };
 
     window.sessionStorage.setItem(ADD_SPACE_DRAFT_STORAGE_KEY, JSON.stringify(draft));
-  }, [editingId, form, step]);
+  }, [addressMode, editingId, form, step]);
 
   const totalRooms = useMemo(
     () => Object.values(form.rooms).reduce((sum, value) => sum + value, 0),
@@ -1477,6 +1585,125 @@ export function ClientAddSpacePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!addressSectionRef.current?.contains(event.target as Node)) {
+        setIsAddressDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (addressMode !== 'autocomplete') {
+      autocompleteAbortRef.current?.abort();
+      setAddressSuggestions([]);
+      setIsAddressLoading(false);
+      return;
+    }
+
+    const query = addressQuery.trim();
+    if (!geoapifyApiKey || query.length < 3 || (selectedSuggestion?.address.formatted ?? '') === query) {
+      autocompleteAbortRef.current?.abort();
+      setAddressSuggestions([]);
+      setIsAddressLoading(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+    autocompleteAbortRef.current?.abort();
+    autocompleteAbortRef.current = abortController;
+
+    const timer = window.setTimeout(() => {
+      setIsAddressLoading(true);
+      fetchGeoapifyAddressSuggestions(query, geoapifyApiKey, language, abortController.signal)
+        .then((results) => setAddressSuggestions(results))
+        .catch((error) => {
+          if ((error as { name?: string }).name !== 'AbortError') {
+            console.error('client geoapify autocomplete error:', error);
+            setAddressSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (!abortController.signal.aborted) {
+            setIsAddressLoading(false);
+          }
+        });
+    }, 280);
+
+    return () => {
+      window.clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [addressMode, addressQuery, geoapifyApiKey, language, selectedSuggestion?.address.formatted]);
+
+  const updateDerivedZoneFromCity = (cityValue: string) => {
+    const nextZone = deriveZoneFromCityName(cityValue);
+    setForm((currentForm) => ({ ...currentForm, city: cityValue, derivedZone: nextZone ?? '' }));
+    if (cityValue.trim() && fieldErrors.city) {
+      setFieldErrors((currentErrors) => ({ ...currentErrors, city: false }));
+    }
+  };
+
+  const handleAddressQueryChange = (value: string) => {
+    setAddressQuery(value);
+    setIsAddressDropdownOpen(true);
+    setSelectedSuggestion(null);
+    setForm((currentForm) => ({
+      ...currentForm,
+      address: value,
+      city: '',
+      province: '',
+      postalCode: '',
+      derivedZone: '',
+      latitude: '',
+      longitude: ''
+    }));
+    if (value.trim() && fieldErrors.address) {
+      setFieldErrors((currentErrors) => ({ ...currentErrors, address: false }));
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
+    const zone = deriveZoneFromCityName(suggestion.address.city);
+    setSelectedSuggestion(suggestion);
+    setAddressQuery(suggestion.address.formatted);
+    setAddressSuggestions([]);
+    setIsAddressDropdownOpen(false);
+    setForm((currentForm) => ({
+      ...currentForm,
+      address: suggestion.address.formatted,
+      city: suggestion.address.city ?? '',
+      province: suggestion.address.state ?? '',
+      postalCode: suggestion.address.postal_code ?? '',
+      derivedZone: zone ?? '',
+      latitude: String(suggestion.address.lat),
+      longitude: String(suggestion.address.lng)
+    }));
+    setFieldErrors({ address: false, city: false });
+  };
+
+  const switchToManualMode = () => {
+    setAddressMode('manual');
+    setAddressSuggestions([]);
+    setIsAddressDropdownOpen(false);
+    setSelectedSuggestion(null);
+    setForm((currentForm) => ({ ...currentForm, latitude: '', longitude: '' }));
+  };
+
+  const switchToAutocompleteMode = () => {
+    setAddressMode('autocomplete');
+    setAddressQuery(form.address);
+    setIsAddressDropdownOpen(false);
+    setSelectedSuggestion(null);
+  };
+
   const handleNext = () => {
     setErrorMessage(null);
 
@@ -1528,6 +1755,13 @@ export function ClientAddSpacePage() {
       setErrorMessage(content.addSpace.errors.toastRequiredFields);
       cityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       cityRef.current?.focus();
+      return false;
+    }
+
+    if (addressMode === 'autocomplete' && !selectedSuggestion) {
+      setErrorMessage(content.addSpace.errors.addressSelectRequired);
+      addressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      addressRef.current?.focus();
       return false;
     }
 
@@ -1651,7 +1885,7 @@ export function ClientAddSpacePage() {
         }
       }
 
-      const payload = {
+      const payloadBase = {
         client_id: profile.id,
         name: form.name.trim(),
         type: form.type,
@@ -1668,9 +1902,27 @@ export function ClientAddSpacePage() {
         rooms: form.rooms,
         updated_at: new Date().toISOString()
       };
+      const payloadExtended = {
+        ...payloadBase,
+        province: form.province.trim() || null,
+        derived_zone: form.derivedZone.trim() || deriveZoneFromCityName(form.city) || null,
+        latitude: form.latitude.trim() && Number.isFinite(Number(form.latitude)) ? Number(form.latitude) : null,
+        longitude: form.longitude.trim() && Number.isFinite(Number(form.longitude)) ? Number(form.longitude) : null
+      };
 
       if (editingId) {
-        const { error } = await supabase.from('spaces').update(payload).eq('id', editingId);
+        let { error } = await supabase.from('spaces').update(payloadExtended).eq('id', editingId);
+        if (
+          error &&
+          (error.code === '42703' ||
+            error.message?.toLowerCase().includes('province') ||
+            error.message?.toLowerCase().includes('derived_zone') ||
+            error.message?.toLowerCase().includes('latitude') ||
+            error.message?.toLowerCase().includes('longitude'))
+        ) {
+          const retry = await supabase.from('spaces').update(payloadBase).eq('id', editingId);
+          error = retry.error;
+        }
         if (error) {
           if (error.code === '42P01') {
             setErrorMessage(
@@ -1685,10 +1937,22 @@ export function ClientAddSpacePage() {
           return;
         }
       } else {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('spaces')
-          .insert([payload])
+          .insert([payloadExtended])
           .select();
+        if (
+          error &&
+          (error.code === '42703' ||
+            error.message?.toLowerCase().includes('province') ||
+            error.message?.toLowerCase().includes('derived_zone') ||
+            error.message?.toLowerCase().includes('latitude') ||
+            error.message?.toLowerCase().includes('longitude'))
+        ) {
+          const retry = await supabase.from('spaces').insert([payloadBase]).select();
+          data = retry.data;
+          error = retry.error;
+        }
 
         console.log('Spaces insert result:', data);
 
@@ -1979,52 +2243,149 @@ export function ClientAddSpacePage() {
                   </div>
 
                   {/* Location Section */}
-                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5E7EB]">
-                    <h3 className="text-sm font-bold text-[#1A1A2E] mb-3 flex items-center gap-2">
-                      <MapPin size={16} className="text-[#4FC3F7]" />
-                      Location
-                    </h3>
+                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#E5E7EB]" ref={addressSectionRef}>
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <h3 className="text-sm font-bold text-[#1A1A2E] flex items-center gap-2">
+                        <MapPin size={16} className="text-[#4FC3F7]" />
+                        {content.addSpace.detailsStep.title}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={addressMode === 'autocomplete' ? switchToManualMode : switchToAutocompleteMode}
+                        className="inline-flex h-9 shrink-0 items-center rounded-full border border-[#E5E7EB] px-3 text-xs font-semibold text-[#1A1A2E] transition-all hover:border-[#BFE9FB] hover:bg-[#F8FCFF]"
+                      >
+                        {addressMode === 'autocomplete'
+                          ? content.addSpace.detailsStep.useManual
+                          : content.addSpace.detailsStep.useAutocomplete}
+                      </button>
+                    </div>
+                    <p className="mb-3 text-xs text-[#6B7280]">
+                      {addressMode === 'autocomplete'
+                        ? content.addSpace.detailsStep.autocompleteHint
+                        : content.addSpace.detailsStep.manualHint}
+                    </p>
                     <div className="space-y-3">
-                      <Field label={content.addSpace.detailsStep.address}>
-                        <TextInput
-                          inputRef={addressRef}
-                          value={form.address}
-                          onChange={(event) => {
-                            const nextAddress = event.target.value;
-                            setForm((currentForm) => ({ ...currentForm, address: nextAddress }));
-                            if (nextAddress.trim() && fieldErrors.address) {
-                              setFieldErrors((currentErrors) => ({ ...currentErrors, address: false }));
-                            }
-                          }}
-                          className={fieldErrors.address ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB]'}
-                        />
-                        {fieldErrors.address ? (
-                          <span style={{ color: '#A32D2D', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                            {content.addSpace.errors.addressRequired}
-                          </span>
-                        ) : null}
-                      </Field>
-                      <div className="grid gap-3 grid-cols-2">
-                        <Field label={content.addSpace.detailsStep.city}>
-                          <TextInput
-                            inputRef={cityRef}
-                            value={form.city}
-                            onChange={(event) => {
-                              const nextCity = event.target.value;
-                              setForm((currentForm) => ({ ...currentForm, city: nextCity }));
-                              if (nextCity.trim() && fieldErrors.city) {
-                                setFieldErrors((currentErrors) => ({ ...currentErrors, city: false }));
-                              }
-                            }}
-                            className={fieldErrors.city ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB]'}
-                          />
-                          {fieldErrors.city ? (
-                            <span style={{ color: '#A32D2D', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                              {content.addSpace.errors.cityRequired}
-                            </span>
-                          ) : null}
-                        </Field>
-                        <Field label={content.addSpace.detailsStep.postalCode}><TextInput value={form.postalCode} onChange={(event) => setForm((currentForm) => ({ ...currentForm, postalCode: event.target.value }))} /></Field>
+                      {addressMode === 'autocomplete' ? (
+                        <>
+                          <Field label={content.addSpace.detailsStep.address}>
+                            <div className="relative">
+                              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+                              <input
+                                ref={addressRef}
+                                type="text"
+                                value={addressQuery}
+                                onChange={(event) => handleAddressQueryChange(event.target.value)}
+                                onFocus={() => setIsAddressDropdownOpen(true)}
+                                className={`w-full rounded-xl border bg-white px-10 py-3 pr-12 text-sm text-[#1A1A2E] outline-none transition-all ${
+                                  fieldErrors.address
+                                    ? 'border-[#E24B4A] bg-[#FCEBEB]'
+                                    : 'border-[#E5E7EB] focus:border-[#4FC3F7] focus:shadow-[0_0_0_4px_rgba(79,195,247,0.12)]'
+                                }`}
+                              />
+                              {addressQuery ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddressQueryChange('')}
+                                  className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280]"
+                                >
+                                  <X size={14} />
+                                </button>
+                              ) : null}
+                              {isAddressDropdownOpen && geoapifyApiKey && addressQuery.trim().length >= 3 ? (
+                                <div className="absolute z-40 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-[#D1E7F7] bg-white shadow-[0_12px_32px_rgba(17,24,39,0.16)]">
+                                  {isAddressLoading ? (
+                                    <p className="px-4 py-3 text-sm text-[#6B7280]">Searching...</p>
+                                  ) : addressSuggestions.length > 0 ? (
+                                    addressSuggestions.map((suggestion) => (
+                                      <button
+                                        key={suggestion.id}
+                                        type="button"
+                                        onClick={() => handleSelectSuggestion(suggestion)}
+                                        className="w-full border-b border-[#F1F5F9] px-4 py-3 text-left transition-all last:border-b-0 hover:bg-[#F8FCFF]"
+                                      >
+                                        <p className="text-sm font-semibold text-[#1A1A2E]">{suggestion.primary}</p>
+                                        {suggestion.secondary ? <p className="mt-0.5 text-xs text-[#6B7280]">{suggestion.secondary}</p> : null}
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <p className="px-4 py-3 text-sm text-[#6B7280]">No result</p>
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                            {fieldErrors.address ? (
+                              <span style={{ color: '#A32D2D', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                                {content.addSpace.errors.addressRequired}
+                              </span>
+                            ) : null}
+                          </Field>
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <Field label={content.addSpace.detailsStep.city}>
+                              <TextInput inputRef={cityRef} value={form.city} onChange={(event) => updateDerivedZoneFromCity(event.target.value)} readOnly className={fieldErrors.city ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB]'} />
+                              {fieldErrors.city ? (
+                                <span style={{ color: '#A32D2D', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                                  {content.addSpace.errors.cityRequired}
+                                </span>
+                              ) : null}
+                            </Field>
+                            <Field label={content.addSpace.detailsStep.province}>
+                              <TextInput value={form.province} onChange={(event) => setForm((currentForm) => ({ ...currentForm, province: event.target.value }))} readOnly />
+                            </Field>
+                            <Field label={content.addSpace.detailsStep.postalCode}>
+                              <TextInput value={form.postalCode} onChange={(event) => setForm((currentForm) => ({ ...currentForm, postalCode: event.target.value }))} readOnly />
+                            </Field>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Field label={content.addSpace.detailsStep.address}>
+                            <TextInput
+                              inputRef={addressRef}
+                              value={form.address}
+                              onChange={(event) => {
+                                const nextAddress = event.target.value;
+                                setForm((currentForm) => ({ ...currentForm, address: nextAddress }));
+                                setAddressQuery(nextAddress);
+                                if (nextAddress.trim() && fieldErrors.address) {
+                                  setFieldErrors((currentErrors) => ({ ...currentErrors, address: false }));
+                                }
+                              }}
+                              className={fieldErrors.address ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB]'}
+                            />
+                            {fieldErrors.address ? (
+                              <span style={{ color: '#A32D2D', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                                {content.addSpace.errors.addressRequired}
+                              </span>
+                            ) : null}
+                          </Field>
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <Field label={content.addSpace.detailsStep.city}>
+                              <TextInput
+                                inputRef={cityRef}
+                                value={form.city}
+                                onChange={(event) => updateDerivedZoneFromCity(event.target.value)}
+                                className={fieldErrors.city ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB]'}
+                              />
+                              {fieldErrors.city ? (
+                                <span style={{ color: '#A32D2D', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                                  {content.addSpace.errors.cityRequired}
+                                </span>
+                              ) : null}
+                            </Field>
+                            <Field label={content.addSpace.detailsStep.province}>
+                              <TextInput value={form.province} onChange={(event) => setForm((currentForm) => ({ ...currentForm, province: event.target.value }))} />
+                            </Field>
+                            <Field label={content.addSpace.detailsStep.postalCode}>
+                              <TextInput value={form.postalCode} onChange={(event) => setForm((currentForm) => ({ ...currentForm, postalCode: event.target.value }))} />
+                            </Field>
+                          </div>
+                        </>
+                      )}
+                      <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-3 py-2">
+                        <p className="text-xs font-semibold text-[#6B7280]">{content.addSpace.detailsStep.derivedZone}</p>
+                        <p className="mt-0.5 text-sm font-semibold text-[#1A1A2E]">
+                          {form.derivedZone || content.addSpace.detailsStep.unknownZone}
+                        </p>
                       </div>
                     </div>
                   </div>

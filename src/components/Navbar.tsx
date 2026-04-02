@@ -1,20 +1,37 @@
 import { Menu, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Language } from '../i18n/translations';
 import { getLocalizedSectionPath, getPathForRoute } from '../i18n/routes';
 import { NettoyoLogo } from './NettoyoLogo';
+import supabase from '../lib/supabase';
 
 const accountLabels = {
-  fr: { profile: 'Mon profil', logout: 'Se déconnecter' },
+  fr: { profile: 'Mon profil', logout: 'Se deconnecter' },
   en: { profile: 'My profile', logout: 'Log out' },
-  es: { profile: 'Mi perfil', logout: 'Cerrar sesión' }
+  es: { profile: 'Mi perfil', logout: 'Cerrar sesion' }
+} as const;
+
+const reservationCtaLabels = {
+  fr: {
+    cleaner: 'Mes reservations',
+    cleanerWithCount: (count: number) => `Mes reservations (${count})`
+  },
+  en: {
+    cleaner: 'My bookings',
+    cleanerWithCount: (count: number) => `My bookings (${count})`
+  },
+  es: {
+    cleaner: 'Mis reservas',
+    cleanerWithCount: (count: number) => `Mis reservas (${count})`
+  }
 } as const;
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [cleanerBookingCount, setCleanerBookingCount] = useState<number | null>(null);
   const { language, setLanguage, route, navigateTo, t } = useLanguage();
   const { user, profile, signOut, isCleaner } = useAuth();
 
@@ -25,7 +42,10 @@ export function Navbar() {
   const cleanerPath = getLocalizedSectionPath(language, 'become-cleaner');
   const dashboardRoute = isCleaner() ? 'cleanerDashboard' : 'clientDashboard';
   const dashboardPath = getPathForRoute(language, dashboardRoute);
+  const reservationRoute = user ? (isCleaner() ? 'cleanerDashboard' : 'clientReservation') : 'login';
+  const reservationPath = getPathForRoute(language, reservationRoute);
   const labels = accountLabels[language];
+  const reservationLabels = reservationCtaLabels[language];
 
   const initials = useMemo(() => {
     const first = profile?.first_name?.[0] ?? user?.email?.[0] ?? 'N';
@@ -33,7 +53,40 @@ export function Navbar() {
     return `${first}${second}`.toUpperCase();
   }, [profile?.first_name, profile?.last_name, user?.email]);
 
-  const goTo = (nextRoute: typeof dashboardRoute | 'howItWorks' | 'services' | 'login') => {
+  useEffect(() => {
+    if (!user?.id || !isCleaner()) {
+      setCleanerBookingCount(null);
+      return;
+    }
+
+    let active = true;
+
+    const loadCleanerBookingCount = async () => {
+      const { count, error } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('cleaner_id', user.id);
+
+      if (!active) {
+        return;
+      }
+
+      if (error) {
+        setCleanerBookingCount(0);
+        return;
+      }
+
+      setCleanerBookingCount(count ?? 0);
+    };
+
+    void loadCleanerBookingCount();
+
+    return () => {
+      active = false;
+    };
+  }, [isCleaner, user?.id]);
+
+  const goTo = (nextRoute: typeof dashboardRoute | 'howItWorks' | 'services' | 'login' | 'clientReservation') => {
     setMobileMenuOpen(false);
     setAccountMenuOpen(false);
     navigateTo(nextRoute);
@@ -48,6 +101,14 @@ export function Navbar() {
 
   const howItWorksClass = route === 'howItWorks' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E] font-medium hover:text-[#4FC3F7] transition-colors';
   const servicesClass = route === 'services' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E] font-medium hover:text-[#4FC3F7] transition-colors';
+
+  const reservationCtaText = user
+    ? isCleaner()
+      ? cleanerBookingCount === null
+        ? reservationLabels.cleaner
+        : reservationLabels.cleanerWithCount(cleanerBookingCount)
+      : t.nav.bookNow
+    : t.nav.bookNow;
 
   return (
     <nav className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white">
@@ -95,7 +156,7 @@ export function Navbar() {
               <a href={loginPath} onClick={(event) => { event.preventDefault(); goTo('login'); }} className="px-4 py-2 font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.login}</a>
             )}
 
-            <a href={user ? dashboardPath : loginPath} onClick={(event) => { event.preventDefault(); goTo(user ? dashboardRoute : 'login'); }} className="rounded-full bg-[#4FC3F7] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#3FAAD4]">{t.nav.bookNow}</a>
+            <a href={reservationPath} onClick={(event) => { event.preventDefault(); goTo(reservationRoute); }} className="rounded-full bg-[#4FC3F7] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#3FAAD4]">{reservationCtaText}</a>
           </div>
 
           <button className="text-[#1A1A2E] md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>{mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}</button>
@@ -124,7 +185,7 @@ export function Navbar() {
               <a href={loginPath} onClick={(event) => { event.preventDefault(); goTo('login'); }} className="block w-full rounded-lg border border-[#E5E7EB] px-4 py-2 text-center font-medium text-[#1A1A2E]">{t.nav.login}</a>
             )}
 
-            <a href={user ? dashboardPath : loginPath} onClick={(event) => { event.preventDefault(); goTo(user ? dashboardRoute : 'login'); }} className="block w-full rounded-full bg-[#4FC3F7] px-6 py-3 text-center font-semibold text-white">{t.nav.bookNow}</a>
+            <a href={reservationPath} onClick={(event) => { event.preventDefault(); goTo(reservationRoute); }} className="block w-full rounded-full bg-[#4FC3F7] px-6 py-3 text-center font-semibold text-white">{reservationCtaText}</a>
           </div>
         </div>
       ) : null}

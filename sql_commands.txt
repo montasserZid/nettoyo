@@ -117,3 +117,55 @@ CREATE POLICY "Users can delete own space photos"
 
 ALTER TABLE public.cleaner_profiles
   ADD COLUMN IF NOT EXISTS home_address JSONB;
+
+-- =========================================
+-- 4) Client spaces address metadata for matching
+-- =========================================
+
+ALTER TABLE public.spaces
+  ADD COLUMN IF NOT EXISTS province TEXT,
+  ADD COLUMN IF NOT EXISTS derived_zone TEXT,
+  ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+
+-- =========================================
+-- 5) Reservation listing read policies (client -> cleaner cards)
+-- =========================================
+
+DROP POLICY IF EXISTS "Authenticated can read cleaner profiles for matching" ON public.cleaner_profiles;
+CREATE POLICY "Authenticated can read cleaner profiles for matching"
+  ON public.cleaner_profiles
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated can read cleaner identities" ON public.profiles;
+CREATE POLICY "Authenticated can read cleaner identities"
+  ON public.profiles
+  FOR SELECT
+  TO authenticated
+  USING (role = 'nettoyeur');
+
+-- =========================================
+-- 6) Booking write/read support for reservation flow
+-- =========================================
+
+ALTER TABLE public.bookings
+  ADD COLUMN IF NOT EXISTS cleaner_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS bookings_cleaner_id_idx
+  ON public.bookings(cleaner_id);
+
+DROP POLICY IF EXISTS "Clients can create own bookings" ON public.bookings;
+CREATE POLICY "Clients can create own bookings"
+  ON public.bookings
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = client_id);
+
+DROP POLICY IF EXISTS "Cleaners can view assigned bookings" ON public.bookings;
+CREATE POLICY "Cleaners can view assigned bookings"
+  ON public.bookings
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = cleaner_id);

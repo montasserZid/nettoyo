@@ -9,6 +9,7 @@ export type AppRoute =
   | 'authCallback'
   | 'clientDashboard'
   | 'clientAddSpace'
+  | 'clientReservation'
   | 'cleanerDashboard';
 
 const localizedRouteSegments: Record<
@@ -44,6 +45,11 @@ const localizedRouteSegments: Record<
     fr: 'dashboard/client/ajouter-espace',
     en: 'dashboard/client/add-space',
     es: 'dashboard/client/agregar-espacio'
+  },
+  clientReservation: {
+    fr: 'dashboard/client/reservation',
+    en: 'dashboard/client/reservation',
+    es: 'dashboard/client/reserva'
   }
 };
 
