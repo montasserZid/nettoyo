@@ -147,15 +147,41 @@ CREATE POLICY "Authenticated can read cleaner identities"
   USING (role = 'nettoyeur');
 
 -- =========================================
--- 6) Booking write/read support for reservation flow
+-- 7) Booking setup (run in this exact order)
 -- =========================================
 
+-- First) Create the bookings table if it does not exist.
+CREATE TABLE IF NOT EXISTS public.bookings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  client_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  space_id UUID REFERENCES public.spaces(id) ON DELETE CASCADE NOT NULL,
+  status TEXT DEFAULT 'pending'
+    CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+  service_type TEXT,
+  scheduled_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Second) Add cleaner_id used by cleaner dashboard/reservation linking.
 ALTER TABLE public.bookings
   ADD COLUMN IF NOT EXISTS cleaner_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
 
+-- Third) Ensure RLS is enabled for bookings.
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+
+-- Fourth) Add index for cleaner_id lookups.
 CREATE INDEX IF NOT EXISTS bookings_cleaner_id_idx
   ON public.bookings(cleaner_id);
 
+-- Fifth) Clients can read their own bookings.
+DROP POLICY IF EXISTS "Clients can view own bookings" ON public.bookings;
+CREATE POLICY "Clients can view own bookings"
+  ON public.bookings
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = client_id);
+
+-- Sixth) Clients can create their own bookings.
 DROP POLICY IF EXISTS "Clients can create own bookings" ON public.bookings;
 CREATE POLICY "Clients can create own bookings"
   ON public.bookings
@@ -163,6 +189,7 @@ CREATE POLICY "Clients can create own bookings"
   TO authenticated
   WITH CHECK (auth.uid() = client_id);
 
+-- Seventh) Cleaners can read bookings assigned to them.
 DROP POLICY IF EXISTS "Cleaners can view assigned bookings" ON public.bookings;
 CREATE POLICY "Cleaners can view assigned bookings"
   ON public.bookings

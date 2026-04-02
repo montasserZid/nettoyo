@@ -20,12 +20,19 @@ DROP POLICY IF EXISTS "Cleaners can read own profile" ON public.cleaner_profiles
 DROP POLICY IF EXISTS "Cleaners can insert own profile" ON public.cleaner_profiles;
 DROP POLICY IF EXISTS "Cleaners can update own profile" ON public.cleaner_profiles;
 DROP POLICY IF EXISTS "Cleaners can delete own profile" ON public.cleaner_profiles;
+DROP POLICY IF EXISTS "Authenticated users can view cleaner profiles" ON public.cleaner_profiles;
 
 CREATE POLICY "Cleaners can read own profile"
   ON public.cleaner_profiles
   FOR SELECT
   TO authenticated
   USING (auth.uid() = id);
+
+CREATE POLICY "Authenticated users can view cleaner profiles"
+  ON public.cleaner_profiles
+  FOR SELECT
+  TO authenticated
+  USING (true);
 
 CREATE POLICY "Cleaners can insert own profile"
   ON public.cleaner_profiles

@@ -41,19 +41,19 @@ export function getZoneArea(zoneName: string) {
 
 function repairMojibake(value: string) {
   return value
-    .replace(/é/g, '�')
-    .replace(/è/g, '�')
-    .replace(/ê/g, '�')
-    .replace(/ë/g, '�')
-    .replace(/� /g, '�')
-    .replace(/â/g, '�')
-    .replace(/ô/g, '�')
-    .replace(/û/g, '�')
-    .replace(/ç/g, '�')
-    .replace(/–/g, '-')
-    .replace(/—/g, '-')
-    .replace(/’/g, "'")
-    .replace(/‘/g, "'");
+    .replace(/Ã©/g, 'é')
+    .replace(/Ã¨/g, 'è')
+    .replace(/Ãª/g, 'ê')
+    .replace(/Ã«/g, 'ë')
+    .replace(/Ã /g, 'à')
+    .replace(/Ã¢/g, 'â')
+    .replace(/Ã´/g, 'ô')
+    .replace(/Ã»/g, 'û')
+    .replace(/Ã§/g, 'ç')
+    .replace(/â€“/g, '-')
+    .replace(/â€”/g, '-')
+    .replace(/â€™/g, "'")
+    .replace(/â€˜/g, "'");
 }
 
 function normalizeTextForMatch(value: string) {
@@ -92,6 +92,84 @@ export function deriveZoneFromCityName(city?: string | null) {
   if (normalizedCity === 'montreal') {
     return montrealZoneName;
   }
+
+  return null;
+}
+
+type ZoneResolutionInput = {
+  formatted?: string | null;
+  city?: string | null;
+  postal_code?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+};
+
+function pickPreferredZone(zonesForMatch: string[]) {
+  if (zonesForMatch.includes(montrealZoneName)) {
+    return montrealZoneName;
+  }
+  return zonesForMatch[0] ?? null;
+}
+
+function extractZonesFromText(value: string) {
+  const normalized = normalizeTextForMatch(value);
+  if (!normalized) return null;
+
+  const padded = ` ${normalized} `;
+  const matched = new Set<string>();
+
+  for (const [cityKey, zonesForCity] of zoneByNormalizedCity.entries()) {
+    if (!cityKey) continue;
+    if (padded.includes(` ${cityKey} `)) {
+      zonesForCity.forEach((zoneName) => matched.add(zoneName));
+    }
+  }
+
+  if (matched.size === 0) return null;
+  return pickPreferredZone(Array.from(matched));
+}
+
+function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function deriveZoneFromCoordinates(lat?: number | null, lng?: number | null) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const nearest = zoneAreas.reduce<{ zone: string; distanceKm: number } | null>((closest, zoneArea) => {
+    const distanceKm = haversineDistanceKm(lat as number, lng as number, zoneArea.lat, zoneArea.lng);
+    if (!closest || distanceKm < closest.distanceKm) {
+      return { zone: zoneArea.zone, distanceKm };
+    }
+    return closest;
+  }, null);
+
+  if (!nearest) return null;
+  return nearest.distanceKm <= 90 ? nearest.zone : null;
+}
+
+export function deriveZoneFromAddress(address?: ZoneResolutionInput | null) {
+  if (!address) return null;
+
+  const fromCity = deriveZoneFromCityName(address.city);
+  if (fromCity) return fromCity;
+
+  const fromFormattedText = extractZonesFromText(address.formatted ?? '');
+  if (fromFormattedText) return fromFormattedText;
+
+  const normalizedPostal = normalizeTextForMatch(address.postal_code ?? '');
+  if (normalizedPostal.startsWith('h')) {
+    return montrealZoneName;
+  }
+
+  const fromCoords = deriveZoneFromCoordinates(address.lat, address.lng);
+  if (fromCoords) return fromCoords;
 
   return null;
 }

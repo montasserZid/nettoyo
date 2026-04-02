@@ -1,11 +1,10 @@
 import { Menu, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Language } from '../i18n/translations';
 import { getLocalizedSectionPath, getPathForRoute } from '../i18n/routes';
 import { NettoyoLogo } from './NettoyoLogo';
-import supabase from '../lib/supabase';
 
 const accountLabels = {
   fr: { profile: 'Mon profil', logout: 'Se deconnecter' },
@@ -15,23 +14,19 @@ const accountLabels = {
 
 const reservationCtaLabels = {
   fr: {
-    cleaner: 'Mes reservations',
-    cleanerWithCount: (count: number) => `Mes reservations (${count})`
+    cleaner: 'Mes reservations'
   },
   en: {
-    cleaner: 'My bookings',
-    cleanerWithCount: (count: number) => `My bookings (${count})`
+    cleaner: 'My bookings'
   },
   es: {
-    cleaner: 'Mis reservas',
-    cleanerWithCount: (count: number) => `Mis reservas (${count})`
+    cleaner: 'Mis reservas'
   }
 } as const;
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [cleanerBookingCount, setCleanerBookingCount] = useState<number | null>(null);
   const { language, setLanguage, route, navigateTo, t } = useLanguage();
   const { user, profile, signOut, isCleaner } = useAuth();
 
@@ -53,39 +48,6 @@ export function Navbar() {
     return `${first}${second}`.toUpperCase();
   }, [profile?.first_name, profile?.last_name, user?.email]);
 
-  useEffect(() => {
-    if (!user?.id || !isCleaner()) {
-      setCleanerBookingCount(null);
-      return;
-    }
-
-    let active = true;
-
-    const loadCleanerBookingCount = async () => {
-      const { count, error } = await supabase
-        .from('bookings')
-        .select('*', { count: 'exact', head: true })
-        .eq('cleaner_id', user.id);
-
-      if (!active) {
-        return;
-      }
-
-      if (error) {
-        setCleanerBookingCount(0);
-        return;
-      }
-
-      setCleanerBookingCount(count ?? 0);
-    };
-
-    void loadCleanerBookingCount();
-
-    return () => {
-      active = false;
-    };
-  }, [isCleaner, user?.id]);
-
   const goTo = (nextRoute: typeof dashboardRoute | 'howItWorks' | 'services' | 'login' | 'clientReservation') => {
     setMobileMenuOpen(false);
     setAccountMenuOpen(false);
@@ -104,9 +66,7 @@ export function Navbar() {
 
   const reservationCtaText = user
     ? isCleaner()
-      ? cleanerBookingCount === null
-        ? reservationLabels.cleaner
-        : reservationLabels.cleanerWithCount(cleanerBookingCount)
+      ? reservationLabels.cleaner
       : t.nav.bookNow
     : t.nav.bookNow;
 
