@@ -1,9 +1,11 @@
 import { Menu, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Language } from '../i18n/translations';
 import { getLocalizedSectionPath, getPathForRoute } from '../i18n/routes';
+import { getMontrealToday, isTodayOrFutureInMontreal } from '../lib/montrealDate';
+import supabase from '../lib/supabase';
 import { NettoyoLogo } from './NettoyoLogo';
 
 const accountLabels = {
@@ -14,19 +16,40 @@ const accountLabels = {
 
 const reservationCtaLabels = {
   fr: {
-    cleaner: 'Mes reservations'
+    cleaner: 'Mes reservations',
+    cleanerWithCount: (count: number) => `Mes reservations (${count})`
   },
   en: {
-    cleaner: 'My bookings'
+    cleaner: 'My bookings',
+    cleanerWithCount: (count: number) => `My bookings (${count})`
   },
   es: {
-    cleaner: 'Mis reservas'
+    cleaner: 'Mis reservas',
+    cleanerWithCount: (count: number) => `Mis reservas (${count})`
   }
 } as const;
+
+const cleanerNavLabels = {
+  fr: 'Historique',
+  en: 'History',
+  es: 'Historial'
+} as const;
+
+type CleanerBookingPreview = {
+  id: string;
+  status: string;
+  scheduled_at: string | null;
+};
+
+function isAcceptedStatus(status: string) {
+  return status === 'confirmed' || status === 'accepted';
+}
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [upcomingBookingCount, setUpcomingBookingCount] = useState<number | null>(null);
+  const [pendingBookingCount, setPendingBookingCount] = useState(0);
   const { language, setLanguage, route, navigateTo, t } = useLanguage();
   const { user, profile, signOut, isCleaner } = useAuth();
 
@@ -35,12 +58,14 @@ export function Navbar() {
   const servicesPath = getPathForRoute(language, 'services');
   const loginPath = getPathForRoute(language, 'login');
   const cleanerPath = getLocalizedSectionPath(language, 'become-cleaner');
+  const cleanerHistoryPath = getPathForRoute(language, 'cleanerHistory');
   const dashboardRoute = isCleaner() ? 'cleanerDashboard' : 'clientDashboard';
   const dashboardPath = getPathForRoute(language, dashboardRoute);
-  const reservationRoute = user ? (isCleaner() ? 'cleanerDashboard' : 'clientReservation') : 'login';
+  const reservationRoute = user ? (isCleaner() ? 'cleanerReservations' : 'clientReservation') : 'login';
   const reservationPath = getPathForRoute(language, reservationRoute);
   const labels = accountLabels[language];
   const reservationLabels = reservationCtaLabels[language];
+  const cleanerNavText = cleanerNavLabels[language];
 
   const initials = useMemo(() => {
     const first = profile?.first_name?.[0] ?? user?.email?.[0] ?? 'N';
@@ -48,7 +73,57 @@ export function Navbar() {
     return `${first}${second}`.toUpperCase();
   }, [profile?.first_name, profile?.last_name, user?.email]);
 
-  const goTo = (nextRoute: typeof dashboardRoute | 'howItWorks' | 'services' | 'login' | 'clientReservation') => {
+  useEffect(() => {
+    if (!user?.id || !isCleaner()) {
+      setUpcomingBookingCount(null);
+      setPendingBookingCount(0);
+      return;
+    }
+
+    let active = true;
+    const loadCleanerBookingStats = async () => {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('id,status,scheduled_at')
+        .eq('cleaner_id', user.id)
+        .in('status', ['pending', 'confirmed'])
+        .order('scheduled_at', { ascending: true });
+
+      if (!active) return;
+      if (error) {
+        console.error('Navbar cleaner bookings fetch error:', error);
+        setUpcomingBookingCount(0);
+        setPendingBookingCount(0);
+        return;
+      }
+
+      const montrealToday = getMontrealToday();
+      const upcoming = ((data as CleanerBookingPreview[] | null) ?? []).filter(
+        (booking) => booking.scheduled_at && isTodayOrFutureInMontreal(booking.scheduled_at, montrealToday)
+      );
+      const pending = upcoming.filter((booking) => booking.status === 'pending').length;
+      const accepted = upcoming.filter((booking) => isAcceptedStatus(booking.status)).length;
+
+      setPendingBookingCount(pending);
+      setUpcomingBookingCount(pending + accepted);
+    };
+
+    void loadCleanerBookingStats();
+    return () => {
+      active = false;
+    };
+  }, [isCleaner, user?.id]);
+
+  const goTo = (
+    nextRoute:
+      | typeof dashboardRoute
+      | 'howItWorks'
+      | 'services'
+      | 'login'
+      | 'clientReservation'
+      | 'cleanerReservations'
+      | 'cleanerHistory'
+  ) => {
     setMobileMenuOpen(false);
     setAccountMenuOpen(false);
     navigateTo(nextRoute);
@@ -66,7 +141,7 @@ export function Navbar() {
 
   const reservationCtaText = user
     ? isCleaner()
-      ? reservationLabels.cleaner
+      ? reservationLabels.cleanerWithCount(upcomingBookingCount ?? 0)
       : t.nav.bookNow
     : t.nav.bookNow;
 
@@ -81,7 +156,11 @@ export function Navbar() {
           <div className="hidden items-center space-x-8 md:flex">
             <a href={howItWorksPath} onClick={(event) => { event.preventDefault(); goTo('howItWorks'); }} className={howItWorksClass}>{t.nav.howItWorks}</a>
             <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={servicesClass}>{t.nav.services}</a>
-            <a href={cleanerPath} className="font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.becomeCleaner}</a>
+            {isCleaner() ? (
+              <a href={cleanerHistoryPath} onClick={(event) => { event.preventDefault(); goTo('cleanerHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'cleanerHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>{cleanerNavText}</a>
+            ) : (
+              <a href={cleanerPath} className="font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.becomeCleaner}</a>
+            )}
           </div>
 
           <div className="hidden items-center space-x-4 md:flex">
@@ -116,7 +195,7 @@ export function Navbar() {
               <a href={loginPath} onClick={(event) => { event.preventDefault(); goTo('login'); }} className="px-4 py-2 font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.login}</a>
             )}
 
-            <a href={reservationPath} onClick={(event) => { event.preventDefault(); goTo(reservationRoute); }} className="rounded-full bg-[#4FC3F7] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#3FAAD4]">{reservationCtaText}</a>
+            <a href={reservationPath} onClick={(event) => { event.preventDefault(); goTo(reservationRoute); }} className="relative rounded-full bg-[#4FC3F7] px-6 py-2 font-semibold text-white transition-colors hover:bg-[#3FAAD4]">{reservationCtaText}{isCleaner() && pendingBookingCount > 0 ? <span className="absolute -right-2 -top-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[11px] font-bold text-white">{pendingBookingCount}</span> : null}</a>
           </div>
 
           <button className="text-[#1A1A2E] md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>{mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}</button>
@@ -128,7 +207,11 @@ export function Navbar() {
           <div className="space-y-4 px-4 py-4">
             <a href={howItWorksPath} onClick={(event) => { event.preventDefault(); goTo('howItWorks'); }} className={`block ${route === 'howItWorks' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.howItWorks}</a>
             <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={`block ${route === 'services' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.services}</a>
-            <a href={cleanerPath} className="block font-medium text-[#1A1A2E]">{t.nav.becomeCleaner}</a>
+            {isCleaner() ? (
+              <a href={cleanerHistoryPath} onClick={(event) => { event.preventDefault(); goTo('cleanerHistory'); }} className={`block font-medium ${route === 'cleanerHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>{cleanerNavText}</a>
+            ) : (
+              <a href={cleanerPath} className="block font-medium text-[#1A1A2E]">{t.nav.becomeCleaner}</a>
+            )}
 
             <div className="flex items-center space-x-3 border-t border-[#E5E7EB] pt-2">
               {(Object.keys(flags) as Language[]).map((lang) => (
@@ -145,7 +228,7 @@ export function Navbar() {
               <a href={loginPath} onClick={(event) => { event.preventDefault(); goTo('login'); }} className="block w-full rounded-lg border border-[#E5E7EB] px-4 py-2 text-center font-medium text-[#1A1A2E]">{t.nav.login}</a>
             )}
 
-            <a href={reservationPath} onClick={(event) => { event.preventDefault(); goTo(reservationRoute); }} className="block w-full rounded-full bg-[#4FC3F7] px-6 py-3 text-center font-semibold text-white">{reservationCtaText}</a>
+            <a href={reservationPath} onClick={(event) => { event.preventDefault(); goTo(reservationRoute); }} className="relative block w-full rounded-full bg-[#4FC3F7] px-6 py-3 text-center font-semibold text-white">{reservationCtaText}{isCleaner() && pendingBookingCount > 0 ? <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[11px] font-bold text-white">{pendingBookingCount}</span> : null}</a>
           </div>
         </div>
       ) : null}

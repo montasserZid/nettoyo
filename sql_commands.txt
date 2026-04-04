@@ -196,3 +196,85 @@ CREATE POLICY "Cleaners can view assigned bookings"
   FOR SELECT
   TO authenticated
   USING (auth.uid() = cleaner_id);
+
+-- =========================================
+-- 8) Cleaner historique + avis (run in this exact order)
+-- =========================================
+
+-- First) Create review table (one cleaner review per booking).
+CREATE TABLE IF NOT EXISTS public.cleaner_client_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id UUID NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
+  cleaner_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  rating SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT cleaner_client_reviews_booking_unique UNIQUE (booking_id)
+);
+
+-- Second) Add lookup indexes for cleaner/client review pages.
+CREATE INDEX IF NOT EXISTS cleaner_client_reviews_cleaner_id_idx
+  ON public.cleaner_client_reviews(cleaner_id);
+
+CREATE INDEX IF NOT EXISTS cleaner_client_reviews_client_id_idx
+  ON public.cleaner_client_reviews(client_id);
+
+-- Third) Enable RLS.
+ALTER TABLE public.cleaner_client_reviews ENABLE ROW LEVEL SECURITY;
+
+-- Fourth) Cleaner can read their own submitted reviews.
+DROP POLICY IF EXISTS "Cleaners can read own history reviews" ON public.cleaner_client_reviews;
+CREATE POLICY "Cleaners can read own history reviews"
+  ON public.cleaner_client_reviews
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = cleaner_id);
+
+-- Fifth) Cleaner can insert only for own assigned bookings.
+DROP POLICY IF EXISTS "Cleaners can insert one review for own bookings" ON public.cleaner_client_reviews;
+CREATE POLICY "Cleaners can insert one review for own bookings"
+  ON public.cleaner_client_reviews
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = cleaner_id
+    AND EXISTS (
+      SELECT 1
+      FROM public.bookings b
+      WHERE b.id = booking_id
+        AND b.cleaner_id = auth.uid()
+        AND b.client_id = cleaner_client_reviews.client_id
+    )
+  );
+
+-- Sixth) Lock updates/deletes (single submission behavior).
+DROP POLICY IF EXISTS "No review updates after submission" ON public.cleaner_client_reviews;
+CREATE POLICY "No review updates after submission"
+  ON public.cleaner_client_reviews
+  FOR UPDATE
+  TO authenticated
+  USING (false);
+
+DROP POLICY IF EXISTS "No review deletes" ON public.cleaner_client_reviews;
+CREATE POLICY "No review deletes"
+  ON public.cleaner_client_reviews
+  FOR DELETE
+  TO authenticated
+  USING (false);
+
+-- Seventh) Allow cleaners to read client row when assigned via bookings (for first_name display).
+DROP POLICY IF EXISTS "Cleaners can read assigned clients" ON public.profiles;
+CREATE POLICY "Cleaners can read assigned clients"
+  ON public.profiles
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.bookings b
+      WHERE b.client_id = profiles.id
+        AND b.cleaner_id = auth.uid()
+    )
+  );

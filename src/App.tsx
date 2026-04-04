@@ -10,6 +10,8 @@ import { AuthCallbackPage } from './pages/AuthCallback';
 import { CleanerDashboardPage } from './pages/CleanerDashboard';
 import { ClientAddSpacePage, ClientDashboardPage } from './pages/ClientDashboardPage';
 import { ClientReservationPage } from './pages/ClientReservationPage';
+import { CleanerReservationsPage } from './pages/CleanerReservationsPage';
+import { CleanerHistoryPage } from './pages/CleanerHistoryPage';
 import { AuthProvider } from './context/AuthContext';
 import { useLanguage } from './i18n/LanguageContext';
 import { useEffect } from 'react';
@@ -25,7 +27,9 @@ function AppContent() {
     clientDashboard: 'Dashboard',
     clientAddSpace: 'Add Space',
     clientReservation: 'Reservation',
-    cleanerDashboard: 'Cleaner Dashboard'
+    cleanerDashboard: 'Cleaner Dashboard',
+    cleanerReservations: 'Cleaner Reservations',
+    cleanerHistory: 'Cleaner History'
   };
 
   useEffect(() => {
@@ -60,6 +64,14 @@ function AppContent() {
       ) : route === 'cleanerDashboard' ? (
         <ProtectedRoute>
           <CleanerDashboardPage />
+        </ProtectedRoute>
+      ) : route === 'cleanerReservations' ? (
+        <ProtectedRoute>
+          <CleanerReservationsPage />
+        </ProtectedRoute>
+      ) : route === 'cleanerHistory' ? (
+        <ProtectedRoute>
+          <CleanerHistoryPage />
         </ProtectedRoute>
       ) : (
         <HomePage />

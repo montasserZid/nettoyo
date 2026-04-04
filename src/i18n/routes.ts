@@ -10,10 +10,12 @@ export type AppRoute =
   | 'clientDashboard'
   | 'clientAddSpace'
   | 'clientReservation'
-  | 'cleanerDashboard';
+  | 'cleanerDashboard'
+  | 'cleanerReservations'
+  | 'cleanerHistory';
 
 const localizedRouteSegments: Record<
-  Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard'>,
+  Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>,
   Record<Language, string>
 > = {
   howItWorks: {
@@ -53,9 +55,11 @@ const localizedRouteSegments: Record<
   }
 };
 
-const staticRoutePaths: Record<Extract<AppRoute, 'authCallback' | 'cleanerDashboard'>, string> = {
+const staticRoutePaths: Record<Extract<AppRoute, 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>, string> = {
   authCallback: '/auth/callback',
-  cleanerDashboard: '/dashboard/nettoyeur'
+  cleanerDashboard: '/dashboard/nettoyeur',
+  cleanerReservations: '/dashboard/nettoyeur/reservations',
+  cleanerHistory: '/dashboard/nettoyeur/historique'
 };
 
 export function getPathForRoute(language: Language, route: AppRoute) {
@@ -76,7 +80,7 @@ export function getLocalizedSectionPath(language: Language, sectionId: string) {
 
 export function resolveRoute(pathname: string): { language: Language; route: AppRoute } {
   const staticMatch = (Object.entries(staticRoutePaths) as Array<
-    [Extract<AppRoute, 'authCallback' | 'cleanerDashboard'>, string]
+    [Extract<AppRoute, 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>, string]
   >).find(([, value]) => value === pathname);
 
   if (staticMatch) {
@@ -95,7 +99,7 @@ export function resolveRoute(pathname: string): { language: Language; route: App
 
   const matchingRoute = (
     Object.keys(localizedRouteSegments) as Array<
-      Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard'>
+      Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>
     >
   ).find(
     (route) => localizedRouteSegments[route][language] === rawSlug
