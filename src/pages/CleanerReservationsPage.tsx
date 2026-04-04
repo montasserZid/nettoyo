@@ -18,6 +18,7 @@ type CleanerBooking = {
   id: string;
   status: BookingStatus;
   service_type: string | null;
+  estimated_hours?: number | null;
   scheduled_at: string | null;
   created_at: string;
   space_id: string;
@@ -60,6 +61,9 @@ const contentByLanguage = {
     contactSoon: 'Contact bientot disponible',
     actionError: "Impossible de mettre a jour la reservation pour l'instant.",
     loading: 'Chargement des reservations...'
+    ,
+    estimatedHours: 'Estimation',
+    hoursSuffix: 'h'
   },
   en: {
     title: 'My bookings',
@@ -85,7 +89,9 @@ const contentByLanguage = {
     close: 'Close',
     contactSoon: 'Contact coming soon',
     actionError: 'Unable to update booking right now.',
-    loading: 'Loading bookings...'
+    loading: 'Loading bookings...',
+    estimatedHours: 'Estimate',
+    hoursSuffix: 'h'
   },
   es: {
     title: 'Mis reservas',
@@ -111,7 +117,9 @@ const contentByLanguage = {
     close: 'Cerrar',
     contactSoon: 'Contacto disponible pronto',
     actionError: 'No se pudo actualizar la reserva.',
-    loading: 'Cargando reservas...'
+    loading: 'Cargando reservas...',
+    estimatedHours: 'Estimacion',
+    hoursSuffix: 'h'
   }
 } as const;
 
@@ -223,7 +231,7 @@ export function CleanerReservationsPage() {
   const loadBookings = async (cleanerId: string) => {
     const { data, error } = await supabase
       .from('bookings')
-      .select('id,status,service_type,scheduled_at,created_at,space_id,client_id,spaces(address,city,postal_code,rooms,notes,name)')
+      .select('id,status,service_type,estimated_hours,scheduled_at,created_at,space_id,client_id,spaces(address,city,postal_code,rooms,notes,name)')
       .eq('cleaner_id', cleanerId)
       .in('status', ['pending', 'confirmed', 'accepted'])
       .order('scheduled_at', { ascending: true });
@@ -313,6 +321,9 @@ export function CleanerReservationsPage() {
           <CalendarDays size={14} className="text-[#4FC3F7]" />
           <span>{formatMontrealDateTime(booking.scheduled_at, language)}</span>
         </div>
+        <p className="mt-2 text-xs font-semibold text-[#0284C7]">
+          {content.estimatedHours}: {booking.estimated_hours ?? '--'}{booking.estimated_hours ? content.hoursSuffix : ''}
+        </p>
 
         <p className="mt-3 rounded-xl bg-[rgba(79,195,247,0.08)] px-3 py-2 text-xs font-medium text-[#4B5563]">
           {content.privacy}
@@ -365,6 +376,9 @@ export function CleanerReservationsPage() {
           <Clock3 size={14} className="text-[#4FC3F7]" />
           <span>{formatMontrealDateTime(booking.scheduled_at, language)}</span>
         </div>
+        <p className="mt-2 text-xs font-semibold text-[#0284C7]">
+          {content.estimatedHours}: {booking.estimated_hours ?? '--'}{booking.estimated_hours ? content.hoursSuffix : ''}
+        </p>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
@@ -445,6 +459,9 @@ export function CleanerReservationsPage() {
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{selectedIsPending ? content.modalTitlePending : content.modalTitleAccepted}</h3>
                 <p className="mt-1 text-sm font-semibold text-[#0284C7]">{getServiceLabel(selectedBooking.service_type, language)}</p>
                 <p className="mt-1 text-sm text-[#4B5563]">{formatMontrealDateTime(selectedBooking.scheduled_at, language)}</p>
+                <p className="mt-1 text-sm font-semibold text-[#0284C7]">
+                  {content.estimatedHours}: {selectedBooking.estimated_hours ?? '--'}{selectedBooking.estimated_hours ? content.hoursSuffix : ''}
+                </p>
               </div>
               <button type="button" onClick={() => setSelectedBooking(null)} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F7F7F7]">
                 <X size={16} />

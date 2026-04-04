@@ -3,6 +3,7 @@
 CREATE TABLE IF NOT EXISTS public.cleaner_profiles (
   id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
   description TEXT,
+  hourly_rate NUMERIC(5,2) CHECK (hourly_rate >= 16 AND hourly_rate <= 40),
   services TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
   photo_url TEXT,
   home_address JSONB,
@@ -13,6 +14,10 @@ CREATE TABLE IF NOT EXISTS public.cleaner_profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.cleaner_profiles
+  ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(5,2)
+  CHECK (hourly_rate >= 16 AND hourly_rate <= 40);
 
 ALTER TABLE public.cleaner_profiles ENABLE ROW LEVEL SECURITY;
 

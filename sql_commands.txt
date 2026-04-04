@@ -352,3 +352,17 @@ CREATE POLICY "No client review deletes"
 -- 1) Run section 7 (bookings) if not already applied.
 -- 2) Run section 8 (cleaner historique + avis).
 -- 3) Run section 9 (client historique + avis).
+
+-- =========================================
+-- 11) Booking estimation fields (hourly rate + estimated hours)
+-- =========================================
+
+-- First) Cleaner hourly rate on cleaner_profiles (16$ to 40$).
+ALTER TABLE public.cleaner_profiles
+  ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(5,2)
+  CHECK (hourly_rate >= 16 AND hourly_rate <= 40);
+
+-- Second) Estimated hours selected by client on bookings.
+ALTER TABLE public.bookings
+  ADD COLUMN IF NOT EXISTS estimated_hours NUMERIC(4,2)
+  CHECK (estimated_hours > 0);

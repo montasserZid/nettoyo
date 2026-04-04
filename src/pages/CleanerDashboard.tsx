@@ -24,6 +24,7 @@ type AvailabilityException = { id: string; date: string; mode: ExceptionMode; st
 type AreaSelection = { id: string; zone: string; name: string; lat: number; lng: number };
 type StoredCleanerProfile = {
   description?: string;
+  hourly_rate?: number | null;
   services?: CleanerServiceId[];
   photoDataUrl?: string | null;
   weekly_availability?: WeeklyAvailability;
@@ -34,6 +35,7 @@ type StoredCleanerProfile = {
 };
 type CleanerProfileRow = {
   description: string | null;
+  hourly_rate?: number | null;
   services: string[] | null;
   photo_url: string | null;
   weekly_availability: unknown;
@@ -92,6 +94,10 @@ const contentByLanguage = {
     descriptionHelp: 'Parlez de votre experience, de vos specialites et de votre methode de travail.',
     descriptionPlaceholder:
       'Exemple: Plus de 5 ans d experience, specialise en menage residentiel et Airbnb. Ponctuelle, minutieuse et equipee pour les interventions en profondeur.',
+    hourlyRateTitle: 'Taux horaire',
+    hourlyRateHelp: 'Indiquez votre tarif de base (16$ a 40$ / heure).',
+    hourlyRatePlaceholder: 'Ex: 25',
+    hourlyRateInvalid: 'Entrez un taux valide entre 16$ et 40$.',
     servicesTitle: 'Services proposes',
     servicesHelp: 'Selectionnez les prestations que vous acceptez actuellement.',
     homeAddressTitle: 'Adresse de domicile',
@@ -193,6 +199,10 @@ const contentByLanguage = {
     descriptionHelp: 'Highlight your experience, specialties, and working style.',
     descriptionPlaceholder:
       'Example: 5+ years of experience, specialized in residential and Airbnb cleaning. Reliable, detail-oriented, and equipped for deep cleaning sessions.',
+    hourlyRateTitle: 'Hourly rate',
+    hourlyRateHelp: 'Set your base rate (from $16 to $40 per hour).',
+    hourlyRatePlaceholder: 'Ex: 25',
+    hourlyRateInvalid: 'Enter a valid rate between $16 and $40.',
     servicesTitle: 'Services offered',
     servicesHelp: 'Select all services you currently offer.',
     homeAddressTitle: 'Home address',
@@ -294,6 +304,10 @@ const contentByLanguage = {
     descriptionHelp: 'Destaca tu experiencia, especialidades y forma de trabajar.',
     descriptionPlaceholder:
       'Ejemplo: Mas de 5 anos de experiencia, especializada en limpieza residencial y Airbnb. Puntual, detallista y preparada para limpiezas profundas.',
+    hourlyRateTitle: 'Tarifa por hora',
+    hourlyRateHelp: 'Define tu tarifa base (de 16$ a 40$ por hora).',
+    hourlyRatePlaceholder: 'Ej: 25',
+    hourlyRateInvalid: 'Ingresa una tarifa valida entre 16$ y 40$.',
     servicesTitle: 'Servicios ofrecidos',
     servicesHelp: 'Selecciona todos los servicios que ofreces actualmente.',
     homeAddressTitle: 'Direccion de domicilio',
@@ -447,6 +461,7 @@ function normalizeCleanerProfile(
   fallbackLocalProfile?: StoredCleanerProfile | null
 ) {
   const sourceDescription = row?.description ?? fallbackLocalProfile?.description ?? '';
+  const sourceHourlyRate = row?.hourly_rate ?? fallbackLocalProfile?.hourly_rate ?? null;
   const sourceServices = row?.services ?? fallbackLocalProfile?.services ?? [];
   const sourcePhoto = row?.photo_url ?? fallbackLocalProfile?.photoDataUrl ?? fallbackAvatarUrl ?? null;
   const sourceWeeklyAvailability = row?.weekly_availability ?? fallbackLocalProfile?.weekly_availability;
@@ -466,6 +481,7 @@ function normalizeCleanerProfile(
 
   return {
     description: sourceDescription,
+    hourlyRate: typeof sourceHourlyRate === 'number' && Number.isFinite(sourceHourlyRate) ? sourceHourlyRate : null,
     services,
     photoDataUrl: sourcePhoto,
     weeklyAvailability,
@@ -564,6 +580,7 @@ export function CleanerDashboardPage() {
   const autocompleteAbortRef = useRef<AbortController | null>(null);
 
   const [description, setDescription] = useState('');
+  const [hourlyRateInput, setHourlyRateInput] = useState('');
   const [selectedServices, setSelectedServices] = useState<CleanerServiceId[]>([]);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [photoFileToUpload, setPhotoFileToUpload] = useState<File | null>(null);
@@ -621,6 +638,7 @@ export function CleanerDashboardPage() {
     const loadCleanerProfile = async () => {
       if (!user?.id) {
         setDescription('');
+        setHourlyRateInput('');
         setSelectedServices([]);
         setPhotoDataUrl(profile?.avatar_url ?? null);
         setSavedPhotoUrl(profile?.avatar_url ?? null);
@@ -669,6 +687,7 @@ export function CleanerDashboardPage() {
         fallbackLocalProfile
       );
       setDescription(normalized.description);
+      setHourlyRateInput(normalized.hourlyRate !== null ? String(normalized.hourlyRate) : '');
       setSelectedServices(normalized.services);
       setPhotoDataUrl(normalized.photoDataUrl);
       setSavedPhotoUrl(normalized.photoDataUrl ?? null);
@@ -1002,6 +1021,11 @@ export function CleanerDashboardPage() {
       setErrorMessage(content.homeAddressZoneMissing);
       return;
     }
+    const parsedHourlyRate = Number(hourlyRateInput);
+    if (!Number.isFinite(parsedHourlyRate) || parsedHourlyRate < 16 || parsedHourlyRate > 40) {
+      setErrorMessage(content.hourlyRateInvalid);
+      return;
+    }
 
     setIsSaving(true);
 
@@ -1050,6 +1074,7 @@ export function CleanerDashboardPage() {
 
     const payload: StoredCleanerProfile = {
       description: description.trim(),
+      hourly_rate: parsedHourlyRate,
       services: selectedServices,
       photoDataUrl: nextPhotoUrl,
       weekly_availability: weeklyAvailability,
@@ -1065,6 +1090,7 @@ export function CleanerDashboardPage() {
         {
           id: user.id,
           description: payload.description,
+          hourly_rate: payload.hourly_rate,
           services: payload.services,
           photo_url: payload.photoDataUrl,
           weekly_availability: payload.weekly_availability,
@@ -1081,7 +1107,8 @@ export function CleanerDashboardPage() {
       (error.code === '42703' ||
         error.message?.toLowerCase().includes('home_address') ||
         error.message?.toLowerCase().includes('home_area') ||
-        error.message?.toLowerCase().includes('service_areas'))
+        error.message?.toLowerCase().includes('service_areas') ||
+        error.message?.toLowerCase().includes('hourly_rate'))
     ) {
       const retry = await supabase
         .from('cleaner_profiles')
@@ -1269,6 +1296,24 @@ export function CleanerDashboardPage() {
                 />
                 <div className="mt-2 flex items-center justify-between">
                   <p className="text-xs text-[#9CA3AF]">{description.length}/1200</p>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-[#E5E7EB] bg-white p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">{content.hourlyRateTitle}</p>
+                  <p className="mt-1 text-xs text-[#6B7280] sm:text-sm">{content.hourlyRateHelp}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={16}
+                      max={40}
+                      step={1}
+                      value={hourlyRateInput}
+                      onChange={(event) => setHourlyRateInput(event.target.value)}
+                      placeholder={content.hourlyRatePlaceholder}
+                      className="w-full rounded-xl border border-[#E5E7EB] px-4 py-2.5 text-sm font-semibold text-[#1A1A2E] outline-none transition-all focus:border-[#4FC3F7] focus:shadow-[0_0_0_4px_rgba(79,195,247,0.08)]"
+                    />
+                    <span className="shrink-0 text-sm font-bold text-[#0284C7]">$/h</span>
+                  </div>
                 </div>
               </div>
             </section>
