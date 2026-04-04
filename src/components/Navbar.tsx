@@ -34,6 +34,11 @@ const cleanerNavLabels = {
   en: 'History',
   es: 'Historial'
 } as const;
+const clientNavLabels = {
+  fr: 'Historique',
+  en: 'History',
+  es: 'Historial'
+} as const;
 
 type CleanerBookingPreview = {
   id: string;
@@ -51,7 +56,7 @@ export function Navbar() {
   const [upcomingBookingCount, setUpcomingBookingCount] = useState<number | null>(null);
   const [pendingBookingCount, setPendingBookingCount] = useState(0);
   const { language, setLanguage, route, navigateTo, t } = useLanguage();
-  const { user, profile, signOut, isCleaner } = useAuth();
+  const { user, profile, signOut, isCleaner, isClient } = useAuth();
 
   const flags: Record<Language, string> = { fr: '🇫🇷', en: '🇬🇧', es: '🇪🇸' };
   const howItWorksPath = getPathForRoute(language, 'howItWorks');
@@ -59,6 +64,7 @@ export function Navbar() {
   const loginPath = getPathForRoute(language, 'login');
   const cleanerPath = getLocalizedSectionPath(language, 'become-cleaner');
   const cleanerHistoryPath = getPathForRoute(language, 'cleanerHistory');
+  const clientHistoryPath = getPathForRoute(language, 'clientHistory');
   const dashboardRoute = isCleaner() ? 'cleanerDashboard' : 'clientDashboard';
   const dashboardPath = getPathForRoute(language, dashboardRoute);
   const reservationRoute = user ? (isCleaner() ? 'cleanerReservations' : 'clientReservation') : 'login';
@@ -66,6 +72,7 @@ export function Navbar() {
   const labels = accountLabels[language];
   const reservationLabels = reservationCtaLabels[language];
   const cleanerNavText = cleanerNavLabels[language];
+  const clientNavText = clientNavLabels[language];
 
   const initials = useMemo(() => {
     const first = profile?.first_name?.[0] ?? user?.email?.[0] ?? 'N';
@@ -121,6 +128,7 @@ export function Navbar() {
       | 'services'
       | 'login'
       | 'clientReservation'
+      | 'clientHistory'
       | 'cleanerReservations'
       | 'cleanerHistory'
   ) => {
@@ -158,6 +166,8 @@ export function Navbar() {
             <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={servicesClass}>{t.nav.services}</a>
             {isCleaner() ? (
               <a href={cleanerHistoryPath} onClick={(event) => { event.preventDefault(); goTo('cleanerHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'cleanerHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>{cleanerNavText}</a>
+            ) : user && isClient() ? (
+              <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'clientHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>{clientNavText}</a>
             ) : (
               <a href={cleanerPath} className="font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.becomeCleaner}</a>
             )}
@@ -209,6 +219,8 @@ export function Navbar() {
             <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={`block ${route === 'services' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.services}</a>
             {isCleaner() ? (
               <a href={cleanerHistoryPath} onClick={(event) => { event.preventDefault(); goTo('cleanerHistory'); }} className={`block font-medium ${route === 'cleanerHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>{cleanerNavText}</a>
+            ) : user && isClient() ? (
+              <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`block font-medium ${route === 'clientHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>{clientNavText}</a>
             ) : (
               <a href={cleanerPath} className="block font-medium text-[#1A1A2E]">{t.nav.becomeCleaner}</a>
             )}

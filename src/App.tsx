@@ -10,6 +10,7 @@ import { AuthCallbackPage } from './pages/AuthCallback';
 import { CleanerDashboardPage } from './pages/CleanerDashboard';
 import { ClientAddSpacePage, ClientDashboardPage } from './pages/ClientDashboardPage';
 import { ClientReservationPage } from './pages/ClientReservationPage';
+import { ClientHistoryPage } from './pages/ClientHistoryPage';
 import { CleanerReservationsPage } from './pages/CleanerReservationsPage';
 import { CleanerHistoryPage } from './pages/CleanerHistoryPage';
 import { AuthProvider } from './context/AuthContext';
@@ -26,6 +27,7 @@ function AppContent() {
     signup: 'Sign Up',
     clientDashboard: 'Dashboard',
     clientAddSpace: 'Add Space',
+    clientHistory: 'Client History',
     clientReservation: 'Reservation',
     cleanerDashboard: 'Cleaner Dashboard',
     cleanerReservations: 'Cleaner Reservations',
@@ -56,6 +58,10 @@ function AppContent() {
       ) : route === 'clientAddSpace' ? (
         <ProtectedRoute>
           <ClientAddSpacePage />
+        </ProtectedRoute>
+      ) : route === 'clientHistory' ? (
+        <ProtectedRoute>
+          <ClientHistoryPage />
         </ProtectedRoute>
       ) : route === 'clientReservation' ? (
         <ProtectedRoute>

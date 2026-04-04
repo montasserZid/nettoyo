@@ -9,13 +9,14 @@ export type AppRoute =
   | 'authCallback'
   | 'clientDashboard'
   | 'clientAddSpace'
+  | 'clientHistory'
   | 'clientReservation'
   | 'cleanerDashboard'
   | 'cleanerReservations'
   | 'cleanerHistory';
 
 const localizedRouteSegments: Record<
-  Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>,
+  Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory' | 'clientHistory'>,
   Record<Language, string>
 > = {
   howItWorks: {
@@ -55,8 +56,9 @@ const localizedRouteSegments: Record<
   }
 };
 
-const staticRoutePaths: Record<Extract<AppRoute, 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>, string> = {
+const staticRoutePaths: Record<Extract<AppRoute, 'authCallback' | 'clientHistory' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>, string> = {
   authCallback: '/auth/callback',
+  clientHistory: '/dashboard/client/historique',
   cleanerDashboard: '/dashboard/nettoyeur',
   cleanerReservations: '/dashboard/nettoyeur/reservations',
   cleanerHistory: '/dashboard/nettoyeur/historique'
@@ -80,7 +82,7 @@ export function getLocalizedSectionPath(language: Language, sectionId: string) {
 
 export function resolveRoute(pathname: string): { language: Language; route: AppRoute } {
   const staticMatch = (Object.entries(staticRoutePaths) as Array<
-    [Extract<AppRoute, 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>, string]
+    [Extract<AppRoute, 'authCallback' | 'clientHistory' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>, string]
   >).find(([, value]) => value === pathname);
 
   if (staticMatch) {
@@ -99,7 +101,7 @@ export function resolveRoute(pathname: string): { language: Language; route: App
 
   const matchingRoute = (
     Object.keys(localizedRouteSegments) as Array<
-      Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory'>
+      Exclude<AppRoute, 'home' | 'authCallback' | 'cleanerDashboard' | 'cleanerReservations' | 'cleanerHistory' | 'clientHistory'>
     >
   ).find(
     (route) => localizedRouteSegments[route][language] === rawSlug

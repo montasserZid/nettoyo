@@ -1171,61 +1171,6 @@ export function ClientDashboardPage() {
             </div>
           )}
         </section>
-
-        <section className="mt-8 rounded-[28px] bg-white p-6 shadow-[0_14px_32px_rgba(17,24,39,0.06)]">
-          <h2 className="text-2xl font-bold text-[#1A1A2E]">{content.history.title}</h2>
-          {errorMessage ? (
-            <div className="mt-5 rounded-2xl bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-[#B91C1C]">
-              {errorMessage}
-            </div>
-          ) : null}
-          {bookings.length === 0 ? (
-            <p className="mt-5 text-sm text-[#6B7280]">{content.history.empty}</p>
-          ) : (
-            <div className="mt-6 space-y-3">
-              {bookings.map((booking) => {
-                const statusTone =
-                  booking.status === 'completed'
-                    ? 'bg-[rgba(168,230,207,0.38)] text-[#047857]'
-                    : booking.status === 'confirmed'
-                      ? 'bg-[rgba(79,195,247,0.18)] text-[#0284C7]'
-                      : booking.status === 'cancelled'
-                        ? 'bg-[rgba(239,68,68,0.14)] text-[#DC2626]'
-                        : 'bg-[rgba(245,158,11,0.18)] text-[#B45309]';
-
-                const statusLabel =
-                  booking.status === 'completed'
-                    ? content.history.completed
-                    : booking.status === 'confirmed'
-                      ? content.history.confirmed
-                      : booking.status === 'cancelled'
-                        ? content.history.cancelled
-                        : content.history.pending;
-
-                return (
-                  <div
-                    key={booking.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-[#E5E7EB] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone}`}>
-                        {statusLabel}
-                      </span>
-                      <div>
-                        <p className="font-semibold text-[#1A1A2E]">{getSpaceDisplayName(booking) || '—'}</p>
-                        <p className="text-sm text-[#6B7280]">
-                          {booking.service_type || content.history.noService} ·{' '}
-                          {formatDate(language, booking.scheduled_at || booking.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-sm font-semibold text-[#6B7280]">$--</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
         {deleteCandidate ? (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
@@ -2481,3 +2426,4 @@ export function ClientAddSpacePage() {
     </div>
   );
 }
+

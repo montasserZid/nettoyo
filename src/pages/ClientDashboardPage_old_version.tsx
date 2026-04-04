@@ -1042,7 +1042,7 @@ export function ClientDashboardPage() {
                         </p>
                       </div>
                     </div>
-                    <p className="text-sm font-semibold text-[#6B7280]">$--</p>
+                    <p className="text-sm font-semibold text-[#6B7280]">--</p>
                   </div>
                 );
               })}
