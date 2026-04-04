@@ -12,6 +12,7 @@ CREATE TABLE public.bookings (
   status TEXT DEFAULT 'pending'
     CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
   service_type TEXT,
+  cleaner_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   scheduled_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -22,5 +23,24 @@ CREATE POLICY "Clients can view own bookings"
   ON public.bookings FOR SELECT
   USING (auth.uid() = client_id);
 
+CREATE POLICY "Clients can create own bookings"
+  ON public.bookings FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = client_id);
+
+CREATE POLICY "Cleaners can view assigned bookings"
+  ON public.bookings FOR SELECT
+  TO authenticated
+  USING (auth.uid() = cleaner_id);
+
+CREATE POLICY "Cleaners can update own pending bookings"
+  ON public.bookings FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = cleaner_id AND status = 'pending')
+  WITH CHECK (auth.uid() = cleaner_id AND status IN ('confirmed', 'cancelled'));
+
 CREATE INDEX bookings_client_id_idx
   ON public.bookings(client_id);
+
+CREATE INDEX bookings_cleaner_id_idx
+  ON public.bookings(cleaner_id);

@@ -30,6 +30,7 @@ type ReviewRow = {
   booking_id: string;
   cleaner_id: string;
   client_id: string;
+  confirmation_response?: 'yes' | 'no' | null;
   rating: number;
   comment: string | null;
   created_at: string;
@@ -135,6 +136,12 @@ const serviceLabels: Record<string, { fr: string; en: string; es: string }> = {
   airbnb: { fr: 'Airbnb', en: 'Airbnb', es: 'Airbnb' }
 };
 
+const followupLabels = {
+  fr: { action: 'Le menage est-il termine ?', question: 'Le menage est-il termine ?', yes: 'Oui', no: 'Non', required: 'Veuillez choisir Oui ou Non.' },
+  en: { action: 'Is the cleaning done?', question: 'Is the cleaning done?', yes: 'Yes', no: 'No', required: 'Please choose Yes or No.' },
+  es: { action: 'El trabajo esta terminado?', question: 'El trabajo esta terminado?', yes: 'Si', no: 'No', required: 'Selecciona Si o No.' }
+} as const;
+
 function getPrimarySpace(space: HistoryBooking['spaces']): BookingSpace {
   if (!space) return null;
   return Array.isArray(space) ? (space[0] ?? null) : space;
@@ -177,12 +184,14 @@ export function CleanerHistoryPage() {
   const { language } = useLanguage();
   const { user, isCleaner } = useAuth();
   const content = contentByLanguage[language];
+  const followup = followupLabels[language];
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<HistoryBooking[]>([]);
   const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const [reviewsByBookingId, setReviewsByBookingId] = useState<Record<string, ReviewRow>>({});
   const [selectedBooking, setSelectedBooking] = useState<HistoryBooking | null>(null);
   const [reviewBooking, setReviewBooking] = useState<HistoryBooking | null>(null);
+  const [confirmationResponse, setConfirmationResponse] = useState<'yes' | 'no' | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [savingReview, setSavingReview] = useState(false);
@@ -240,7 +249,7 @@ export function CleanerHistoryPage() {
     if (pastRows.length > 0) {
       const reviewRes = await supabase
         .from('cleaner_client_reviews')
-        .select('id,booking_id,cleaner_id,client_id,rating,comment,created_at')
+        .select('id,booking_id,cleaner_id,client_id,confirmation_response,rating,comment,created_at')
         .in('booking_id', pastRows.map((b) => b.id))
         .eq('cleaner_id', cleanerId);
 
@@ -270,10 +279,31 @@ export function CleanerHistoryPage() {
     void loadHistory(user.id);
   }, [isCleaner, user?.id]);
 
+  useEffect(() => {
+    if (!reviewBooking) {
+      setConfirmationResponse(null);
+      return;
+    }
+    const existing = reviewsByBookingId[reviewBooking.id];
+    if (existing) {
+      setConfirmationResponse(existing.confirmation_response ?? null);
+      setRating(existing.rating);
+      setComment(existing.comment ?? '');
+      return;
+    }
+    setConfirmationResponse(null);
+    setRating(0);
+    setComment('');
+  }, [reviewBooking, reviewsByBookingId]);
+
   const montrealToday = useMemo(() => getMontrealToday(), []);
 
   const submitReview = async () => {
     if (!user?.id || !reviewBooking) return;
+    if (!confirmationResponse) {
+      setErrorMessage(followup.required);
+      return;
+    }
     if (rating < 1 || rating > 5) {
       setErrorMessage(content.reviewError);
       return;
@@ -286,6 +316,7 @@ export function CleanerHistoryPage() {
           booking_id: reviewBooking.id,
           cleaner_id: user.id,
           client_id: reviewBooking.client_id,
+          confirmation_response: confirmationResponse,
           rating,
           comment: comment.trim() || null
         }
@@ -300,9 +331,11 @@ export function CleanerHistoryPage() {
 
     setSavingReview(false);
     setReviewBooking(null);
+    setConfirmationResponse(null);
     setRating(0);
     setComment('');
     setToast(content.reviewSaved);
+    window.dispatchEvent(new Event('history-followup-updated'));
     await loadHistory(user.id);
   };
 
@@ -368,9 +401,9 @@ export function CleanerHistoryPage() {
                         {content.viewReview}
                       </button>
                     ) : (
-                      <button type="button" onClick={() => { setReviewBooking(booking); setRating(0); setComment(''); }} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#4FC3F7] px-3 py-2 text-sm font-semibold text-white">
+                      <button type="button" onClick={() => setReviewBooking(booking)} className="inline-flex animate-pulse items-center justify-center gap-1.5 rounded-full bg-[#4FC3F7] px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(79,195,247,0.35)]">
                         <Star size={14} />
-                        {content.leaveReview}
+                        {followup.action}
                       </button>
                     )}
                   </div>
@@ -435,6 +468,12 @@ export function CleanerHistoryPage() {
             {reviewsByBookingId[reviewBooking.id] ? (
               <div className="mt-5 space-y-4">
                 <div>
+                  <p className="text-sm font-semibold text-[#1A1A2E]">{followup.question}</p>
+                  <p className="mt-2 text-sm text-[#4B5563]">
+                    {reviewsByBookingId[reviewBooking.id].confirmation_response === 'yes' ? followup.yes : followup.no}
+                  </p>
+                </div>
+                <div>
                   <p className="text-sm font-semibold text-[#1A1A2E]">{content.ratingTitle}</p>
                   <div className="mt-2 flex items-center gap-1.5">
                     {Array.from({ length: 5 }).map((_, idx) => (
@@ -449,6 +488,33 @@ export function CleanerHistoryPage() {
               </div>
             ) : (
               <div className="mt-5 space-y-4">
+                <div>
+                  <p className="text-sm font-semibold text-[#1A1A2E]">{followup.question}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmationResponse('yes')}
+                      className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+                        confirmationResponse === 'yes'
+                          ? 'bg-[rgba(168,230,207,0.45)] text-[#1A1A2E]'
+                          : 'border border-[#E5E7EB] text-[#4B5563]'
+                      }`}
+                    >
+                      {followup.yes}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmationResponse('no')}
+                      className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+                        confirmationResponse === 'no'
+                          ? 'bg-[rgba(251,191,36,0.26)] text-[#1A1A2E]'
+                          : 'border border-[#E5E7EB] text-[#4B5563]'
+                      }`}
+                    >
+                      {followup.no}
+                    </button>
+                  </div>
+                </div>
                 <div>
                   <p className="text-sm font-semibold text-[#1A1A2E]">{content.ratingTitle}</p>
                   <div className="mt-2 flex items-center gap-1.5">

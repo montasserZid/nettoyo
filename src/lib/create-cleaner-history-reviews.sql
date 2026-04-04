@@ -9,12 +9,17 @@ CREATE TABLE IF NOT EXISTS public.cleaner_client_reviews (
   booking_id UUID NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   cleaner_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  confirmation_response TEXT CHECK (confirmation_response IN ('yes', 'no')),
   rating SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
   comment TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT cleaner_client_reviews_booking_unique UNIQUE (booking_id)
 );
+
+ALTER TABLE public.cleaner_client_reviews
+  ADD COLUMN IF NOT EXISTS confirmation_response TEXT
+  CHECK (confirmation_response IN ('yes', 'no'));
 
 CREATE INDEX IF NOT EXISTS cleaner_client_reviews_cleaner_id_idx
   ON public.cleaner_client_reviews(cleaner_id);

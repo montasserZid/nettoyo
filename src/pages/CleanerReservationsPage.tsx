@@ -60,6 +60,12 @@ const contentByLanguage = {
     close: 'Fermer',
     contactSoon: 'Contact bientot disponible',
     actionError: "Impossible de mettre a jour la reservation pour l'instant.",
+    confirmTitle: 'Confirmation',
+    confirmMessage: 'Etes-vous sur ?',
+    yes: 'Oui',
+    no: 'Non',
+    acceptedToast: 'Reservation acceptee.',
+    declinedToast: 'Demande refusee.',
     loading: 'Chargement des reservations...'
     ,
     estimatedHours: 'Estimation',
@@ -89,6 +95,12 @@ const contentByLanguage = {
     close: 'Close',
     contactSoon: 'Contact coming soon',
     actionError: 'Unable to update booking right now.',
+    confirmTitle: 'Confirmation',
+    confirmMessage: 'Are you sure?',
+    yes: 'Yes',
+    no: 'No',
+    acceptedToast: 'Booking accepted.',
+    declinedToast: 'Request declined.',
     loading: 'Loading bookings...',
     estimatedHours: 'Estimate',
     hoursSuffix: 'h'
@@ -117,6 +129,12 @@ const contentByLanguage = {
     close: 'Cerrar',
     contactSoon: 'Contacto disponible pronto',
     actionError: 'No se pudo actualizar la reserva.',
+    confirmTitle: 'Confirmacion',
+    confirmMessage: 'Estas seguro?',
+    yes: 'Si',
+    no: 'No',
+    acceptedToast: 'Reserva aceptada.',
+    declinedToast: 'Solicitud rechazada.',
     loading: 'Cargando reservas...',
     estimatedHours: 'Estimacion',
     hoursSuffix: 'h'
@@ -212,6 +230,7 @@ export function CleanerReservationsPage() {
   const [bookings, setBookings] = useState<CleanerBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<CleanerBooking | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ booking: CleanerBooking; nextStatus: 'confirmed' | 'cancelled' } | null>(null);
   const [actionBookingId, setActionBookingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -291,6 +310,12 @@ export function CleanerReservationsPage() {
       return;
     }
 
+    setBookings((current) =>
+      current
+        .map((item) => (item.id === booking.id ? { ...item, status: nextStatus } : item))
+        .filter((item) => item.status !== 'cancelled')
+    );
+    setToast(nextStatus === 'confirmed' ? content.acceptedToast : content.declinedToast);
     await loadBookings(user.id);
     setActionBookingId(null);
     if (selectedBooking?.id === booking.id) {
@@ -299,6 +324,18 @@ export function CleanerReservationsPage() {
         setSelectedBooking(null);
       }
     }
+  };
+
+  const requestAction = (booking: CleanerBooking, nextStatus: 'confirmed' | 'cancelled') => {
+    if (actionBookingId) return;
+    setConfirmAction({ booking, nextStatus });
+  };
+
+  const confirmActionNow = async () => {
+    if (!confirmAction) return;
+    const { booking, nextStatus } = confirmAction;
+    setConfirmAction(null);
+    await runAction(booking, nextStatus);
   };
 
   if (!isCleaner()) return null;
@@ -333,7 +370,7 @@ export function CleanerReservationsPage() {
           <button
             type="button"
             disabled={actionBookingId === booking.id}
-            onClick={() => void runAction(booking, 'cancelled')}
+            onClick={() => requestAction(booking, 'cancelled')}
             className="inline-flex items-center justify-center rounded-full border border-[#FCA5A5] px-3 py-2 text-xs font-semibold text-[#B91C1C] transition-colors hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-60"
           >
             {content.refuse}
@@ -348,7 +385,7 @@ export function CleanerReservationsPage() {
           <button
             type="button"
             disabled={actionBookingId === booking.id}
-            onClick={() => void runAction(booking, 'confirmed')}
+            onClick={() => requestAction(booking, 'confirmed')}
             className="inline-flex items-center justify-center rounded-full bg-[#4FC3F7] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#3FAAD4] disabled:opacity-60"
           >
             {actionBookingId === booking.id ? <Loader2 size={13} className="animate-spin" /> : content.accept}
@@ -498,7 +535,7 @@ export function CleanerReservationsPage() {
                   <button
                     type="button"
                     disabled={actionBookingId === selectedBooking.id}
-                    onClick={() => void runAction(selectedBooking, 'cancelled')}
+                    onClick={() => requestAction(selectedBooking, 'cancelled')}
                     className="rounded-full border border-[#FCA5A5] px-4 py-2 text-sm font-semibold text-[#B91C1C] hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-60"
                   >
                     {content.refuse}
@@ -506,7 +543,7 @@ export function CleanerReservationsPage() {
                   <button
                     type="button"
                     disabled={actionBookingId === selectedBooking.id}
-                    onClick={() => void runAction(selectedBooking, 'confirmed')}
+                    onClick={() => requestAction(selectedBooking, 'confirmed')}
                     className="inline-flex min-w-[120px] items-center justify-center rounded-full bg-[#4FC3F7] px-5 py-2 text-sm font-semibold text-white hover:bg-[#3FAAD4] disabled:opacity-60"
                   >
                     {actionBookingId === selectedBooking.id ? <Loader2 size={14} className="animate-spin" /> : content.accept}
@@ -531,6 +568,45 @@ export function CleanerReservationsPage() {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmAction ? (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-[#1A1A2E]">{content.confirmTitle}</h3>
+                <p className="mt-1 text-sm text-[#4B5563]">{content.confirmMessage}</p>
+              </div>
+              <button type="button" onClick={() => setConfirmAction(null)} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F7F7F7]">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-[#F8FCFF] px-4 py-3 text-sm text-[#1A1A2E]">
+              <p className="font-semibold">{getServiceLabel(confirmAction.booking.service_type, language)}</p>
+              <p className="mt-1 text-[#4B5563]">{formatMontrealDateTime(confirmAction.booking.scheduled_at, language)}</p>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280] hover:bg-[#F9FAFB]"
+              >
+                {content.no}
+              </button>
+              <button
+                type="button"
+                disabled={Boolean(actionBookingId)}
+                onClick={() => void confirmActionNow()}
+                className="inline-flex min-w-[96px] items-center justify-center rounded-full bg-[#4FC3F7] px-5 py-2 text-sm font-semibold text-white hover:bg-[#3FAAD4] disabled:opacity-60"
+              >
+                {actionBookingId === confirmAction.booking.id ? <Loader2 size={14} className="animate-spin" /> : content.yes}
+              </button>
             </div>
           </div>
         </div>

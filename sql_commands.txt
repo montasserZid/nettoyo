@@ -197,6 +197,18 @@ CREATE POLICY "Cleaners can view assigned bookings"
   TO authenticated
   USING (auth.uid() = cleaner_id);
 
+-- Eighth) Cleaners can update status on their own pending bookings.
+DROP POLICY IF EXISTS "Cleaners can update own pending bookings" ON public.bookings;
+CREATE POLICY "Cleaners can update own pending bookings"
+  ON public.bookings
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = cleaner_id AND status = 'pending')
+  WITH CHECK (
+    auth.uid() = cleaner_id
+    AND status IN ('confirmed', 'cancelled')
+  );
+
 -- =========================================
 -- 8) Cleaner historique + avis (run in this exact order)
 -- =========================================
@@ -207,12 +219,17 @@ CREATE TABLE IF NOT EXISTS public.cleaner_client_reviews (
   booking_id UUID NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   cleaner_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  confirmation_response TEXT CHECK (confirmation_response IN ('yes', 'no')),
   rating SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
   comment TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT cleaner_client_reviews_booking_unique UNIQUE (booking_id)
 );
+
+ALTER TABLE public.cleaner_client_reviews
+  ADD COLUMN IF NOT EXISTS confirmation_response TEXT
+  CHECK (confirmation_response IN ('yes', 'no'));
 
 -- Second) Add lookup indexes for cleaner/client review pages.
 CREATE INDEX IF NOT EXISTS cleaner_client_reviews_cleaner_id_idx
@@ -289,12 +306,17 @@ CREATE TABLE IF NOT EXISTS public.client_cleaner_reviews (
   booking_id UUID NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   cleaner_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  confirmation_response TEXT CHECK (confirmation_response IN ('yes', 'no')),
   rating SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
   comment TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT client_cleaner_reviews_booking_unique UNIQUE (booking_id)
 );
+
+ALTER TABLE public.client_cleaner_reviews
+  ADD COLUMN IF NOT EXISTS confirmation_response TEXT
+  CHECK (confirmation_response IN ('yes', 'no'));
 
 -- Second) Add lookup indexes.
 CREATE INDEX IF NOT EXISTS client_cleaner_reviews_client_id_idx
@@ -366,3 +388,17 @@ ALTER TABLE public.cleaner_profiles
 ALTER TABLE public.bookings
   ADD COLUMN IF NOT EXISTS estimated_hours NUMERIC(4,2)
   CHECK (estimated_hours > 0);
+
+-- =========================================
+-- 12) Post-job confirmation (history follow-up)
+-- =========================================
+
+-- First) Add cleaner-side confirmation response field.
+ALTER TABLE public.cleaner_client_reviews
+  ADD COLUMN IF NOT EXISTS confirmation_response TEXT
+  CHECK (confirmation_response IN ('yes', 'no'));
+
+-- Second) Add client-side confirmation response field.
+ALTER TABLE public.client_cleaner_reviews
+  ADD COLUMN IF NOT EXISTS confirmation_response TEXT
+  CHECK (confirmation_response IN ('yes', 'no'));

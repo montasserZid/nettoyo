@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { Language } from '../i18n/translations';
 import { getLocalizedSectionPath, getPathForRoute } from '../i18n/routes';
-import { getMontrealToday, isTodayOrFutureInMontreal } from '../lib/montrealDate';
+import { getMontrealToday, isPastInMontreal, isTodayOrFutureInMontreal } from '../lib/montrealDate';
 import supabase from '../lib/supabase';
 import { NettoyoLogo } from './NettoyoLogo';
 
@@ -46,6 +46,12 @@ type CleanerBookingPreview = {
   scheduled_at: string | null;
 };
 
+type HistoryBookingPreview = {
+  id: string;
+  status: string;
+  scheduled_at: string | null;
+};
+
 function isAcceptedStatus(status: string) {
   return status === 'confirmed' || status === 'accepted';
 }
@@ -55,6 +61,7 @@ export function Navbar() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [upcomingBookingCount, setUpcomingBookingCount] = useState<number | null>(null);
   const [pendingBookingCount, setPendingBookingCount] = useState(0);
+  const [historyPendingCount, setHistoryPendingCount] = useState(0);
   const { language, setLanguage, route, navigateTo, t } = useLanguage();
   const { user, profile, signOut, isCleaner, isClient } = useAuth();
 
@@ -121,6 +128,69 @@ export function Navbar() {
     };
   }, [isCleaner, user?.id]);
 
+  useEffect(() => {
+    if (!user?.id || (!isCleaner() && !isClient())) {
+      setHistoryPendingCount(0);
+      return;
+    }
+
+    let active = true;
+    const loadHistoryPendingCount = async () => {
+      const roleKey = isCleaner() ? 'cleaner_id' : 'client_id';
+      const reviewTable = isCleaner() ? 'cleaner_client_reviews' : 'client_cleaner_reviews';
+
+      const bookingRes = await supabase
+        .from('bookings')
+        .select('id,status,scheduled_at')
+        .eq(roleKey, user.id)
+        .in('status', ['completed', 'confirmed', 'accepted']);
+
+      if (!active) return;
+      if (bookingRes.error) {
+        console.error('Navbar history pending bookings fetch error:', bookingRes.error);
+        setHistoryPendingCount(0);
+        return;
+      }
+
+      const montrealToday = getMontrealToday();
+      const pastIds = (((bookingRes.data as HistoryBookingPreview[] | null) ?? [])
+        .filter((row) => row.scheduled_at && isPastInMontreal(row.scheduled_at, montrealToday))
+        .map((row) => row.id));
+
+      if (pastIds.length === 0) {
+        setHistoryPendingCount(0);
+        return;
+      }
+
+      const reviewRes = await supabase
+        .from(reviewTable)
+        .select('booking_id')
+        .eq(roleKey, user.id)
+        .in('booking_id', pastIds);
+
+      if (!active) return;
+      if (reviewRes.error) {
+        console.error('Navbar history pending reviews fetch error:', reviewRes.error);
+        setHistoryPendingCount(pastIds.length);
+        return;
+      }
+
+      const reviewed = new Set((((reviewRes.data as Array<{ booking_id: string }> | null) ?? []).map((row) => row.booking_id)));
+      setHistoryPendingCount(pastIds.filter((id) => !reviewed.has(id)).length);
+    };
+
+    const onHistoryFollowupUpdated = () => {
+      void loadHistoryPendingCount();
+    };
+
+    void loadHistoryPendingCount();
+    window.addEventListener('history-followup-updated', onHistoryFollowupUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener('history-followup-updated', onHistoryFollowupUpdated);
+    };
+  }, [isCleaner, isClient, user?.id]);
+
   const goTo = (
     nextRoute:
       | typeof dashboardRoute
@@ -165,9 +235,19 @@ export function Navbar() {
             <a href={howItWorksPath} onClick={(event) => { event.preventDefault(); goTo('howItWorks'); }} className={howItWorksClass}>{t.nav.howItWorks}</a>
             <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={servicesClass}>{t.nav.services}</a>
             {isCleaner() ? (
-              <a href={cleanerHistoryPath} onClick={(event) => { event.preventDefault(); goTo('cleanerHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'cleanerHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>{cleanerNavText}</a>
+              <a href={cleanerHistoryPath} onClick={(event) => { event.preventDefault(); goTo('cleanerHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'cleanerHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>
+                <span className="inline-flex items-center">
+                  {cleanerNavText}
+                  {historyPendingCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">{historyPendingCount}</span> : null}
+                </span>
+              </a>
             ) : user && isClient() ? (
-              <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'clientHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>{clientNavText}</a>
+              <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'clientHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>
+                <span className="inline-flex items-center">
+                  {clientNavText}
+                  {historyPendingCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">{historyPendingCount}</span> : null}
+                </span>
+              </a>
             ) : (
               <a href={cleanerPath} className="font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.becomeCleaner}</a>
             )}
@@ -218,9 +298,19 @@ export function Navbar() {
             <a href={howItWorksPath} onClick={(event) => { event.preventDefault(); goTo('howItWorks'); }} className={`block ${route === 'howItWorks' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.howItWorks}</a>
             <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={`block ${route === 'services' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.services}</a>
             {isCleaner() ? (
-              <a href={cleanerHistoryPath} onClick={(event) => { event.preventDefault(); goTo('cleanerHistory'); }} className={`block font-medium ${route === 'cleanerHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>{cleanerNavText}</a>
+              <a href={cleanerHistoryPath} onClick={(event) => { event.preventDefault(); goTo('cleanerHistory'); }} className={`block font-medium ${route === 'cleanerHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>
+                <span className="inline-flex items-center">
+                  {cleanerNavText}
+                  {historyPendingCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">{historyPendingCount}</span> : null}
+                </span>
+              </a>
             ) : user && isClient() ? (
-              <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`block font-medium ${route === 'clientHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>{clientNavText}</a>
+              <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`block font-medium ${route === 'clientHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>
+                <span className="inline-flex items-center">
+                  {clientNavText}
+                  {historyPendingCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">{historyPendingCount}</span> : null}
+                </span>
+              </a>
             ) : (
               <a href={cleanerPath} className="block font-medium text-[#1A1A2E]">{t.nav.becomeCleaner}</a>
             )}
