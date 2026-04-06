@@ -8,6 +8,7 @@ type BookingRow = {
   service_type: string | null;
   client_id: string;
   cleaner_id: string | null;
+  spaces?: BookingSpace | BookingSpace[] | null;
 };
 
 type ProfileRow = {
@@ -17,6 +18,50 @@ type ProfileRow = {
   last_name: string | null;
 };
 
+type BookingSpace = {
+  city?: string | null;
+  postal_code?: string | null;
+  type?: string | null;
+} | null;
+
+type EmailTemplateInput = {
+  logoUrl: string;
+  bookingRef: string;
+  statusLabelFr: string;
+  statusLabelEn: string;
+  city: string;
+  postalCode: string;
+  propertyTypeFr: string;
+  propertyTypeEn: string;
+  reservationDateFr: string;
+  reservationDateEn: string;
+  reservationTimeFr: string;
+  reservationTimeEn: string;
+  serviceLabel: string;
+  cleanerMaskedName: string;
+  clientMaskedName: string;
+};
+
+type EmailTemplateOutput = {
+  subject: string;
+  text: string;
+  html: string;
+};
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getPrimarySpace(space: BookingRow['spaces']): BookingSpace {
+  if (Array.isArray(space)) return (space[0] ?? null) as BookingSpace;
+  return (space ?? null) as BookingSpace;
+}
+
 function maskEmail(email: string | null | undefined) {
   if (!email || !email.includes('@')) return null;
   const [name, domain] = email.split('@');
@@ -25,11 +70,222 @@ function maskEmail(email: string | null | undefined) {
   return `${prefix}***@${domain}`;
 }
 
-function displayName(firstName: string | null, lastName: string | null, fallback: string) {
+function toMaskedDisplayName(firstName: string | null, lastName: string | null, fallback: string) {
   const first = firstName?.trim() ?? '';
-  const lastInitial = lastName?.trim()?.[0] ? `${lastName.trim()[0]}.` : '';
-  const full = [first, lastInitial].filter(Boolean).join(' ').trim();
-  return full || fallback;
+  if (!first) return fallback;
+  const cleanFirst = `${first[0].toUpperCase()}${first.slice(1).toLowerCase()}`;
+  const lastInitial = lastName?.trim()?.[0]?.toUpperCase() ?? '';
+  return lastInitial ? `${cleanFirst}.${lastInitial}` : cleanFirst;
+}
+
+function serviceLabelFromRaw(value: string | null) {
+  if (!value?.trim()) return 'Service de nettoyage / Cleaning service';
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+function propertyTypePair(value: string | null | undefined) {
+  const type = (value ?? '').toLowerCase();
+  if (type === 'apartment') return { fr: 'Appartement', en: 'Apartment' };
+  if (type === 'house') return { fr: 'Maison', en: 'House' };
+  if (type === 'office') return { fr: 'Bureau', en: 'Office' };
+  return { fr: 'Autre', en: 'Other' };
+}
+
+function formatReservationDateTime(value: string | null) {
+  if (!value) {
+    return {
+      dateFr: 'A confirmer',
+      dateEn: 'To be confirmed',
+      timeFr: '--:--',
+      timeEn: '--:--'
+    };
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return {
+      dateFr: 'A confirmer',
+      dateEn: 'To be confirmed',
+      timeFr: '--:--',
+      timeEn: '--:--'
+    };
+  }
+  const dateFr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'America/Toronto', dateStyle: 'long' }).format(parsed);
+  const dateEn = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', dateStyle: 'long' }).format(parsed);
+  const timeFr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit' }).format(parsed);
+  const timeEn = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit' }).format(parsed);
+  return { dateFr, dateEn, timeFr, timeEn };
+}
+
+function resolveLogoUrl(req: any) {
+  const forced = process.env.EMAIL_LOGO_URL?.trim();
+  if (forced) return forced;
+  const host = (req.headers?.['x-forwarded-host'] as string | undefined) || (req.headers?.host as string | undefined);
+  const proto = (req.headers?.['x-forwarded-proto'] as string | undefined) || 'https';
+  if (host) return `${proto}://${host}/Nettoyo_logo_with_sparkles_and_bubbles.png`;
+  return 'https://via.placeholder.com/280x84.png?text=Nettoyo';
+}
+
+function summaryRowsFr(input: EmailTemplateInput) {
+  return [
+    ['Reference', input.bookingRef],
+    ['Ville', input.city],
+    ['Code postal', input.postalCode],
+    ['Type de propriete', input.propertyTypeFr],
+    ['Service', input.serviceLabel],
+    ['Date', input.reservationDateFr],
+    ['Heure', input.reservationTimeFr]
+  ] as Array<[string, string]>;
+}
+
+function summaryRowsEn(input: EmailTemplateInput) {
+  return [
+    ['Reference', input.bookingRef],
+    ['City', input.city],
+    ['Postal code', input.postalCode],
+    ['Property type', input.propertyTypeEn],
+    ['Service', input.serviceLabel],
+    ['Date', input.reservationDateEn],
+    ['Time', input.reservationTimeEn]
+  ] as Array<[string, string]>;
+}
+
+function rowsToHtml(rows: Array<[string, string]>) {
+  return rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:8px 0;color:#6B7280;font-size:13px;">${escapeHtml(label)}</td><td style="padding:8px 0;color:#111827;font-size:13px;font-weight:700;text-align:right;">${escapeHtml(value)}</td></tr>`
+    )
+    .join('');
+}
+
+function buildShell(params: {
+  logoUrl: string;
+  titleFr: string;
+  titleEn: string;
+  introFr: string;
+  introEn: string;
+  badgeFr?: string;
+  badgeEn?: string;
+  frRowsHtml: string;
+  enRowsHtml: string;
+}) {
+  const badgeBlock = params.badgeFr
+    ? `<div style="margin-top:10px;display:inline-block;padding:7px 12px;border-radius:999px;background:#E0F2FE;color:#0284C7;font-size:12px;font-weight:700;">${escapeHtml(
+        params.badgeFr
+      )}</div>`
+    : '';
+
+  const badgeEnBlock = params.badgeEn
+    ? `<div style="margin-top:10px;display:inline-block;padding:7px 12px;border-radius:999px;background:#E0F2FE;color:#0284C7;font-size:12px;font-weight:700;">${escapeHtml(
+        params.badgeEn
+      )}</div>`
+    : '';
+
+  return (
+    `<!doctype html><html><body style="margin:0;padding:24px;background:#F3F4F6;font-family:Arial,Helvetica,sans-serif;">` +
+    `<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">` +
+    `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#FFFFFF;border-radius:18px;overflow:hidden;box-shadow:0 8px 24px rgba(17,24,39,0.12);">` +
+    `<tr><td style="background:linear-gradient(120deg,#E0F2FE,#DCFCE7);padding:24px 24px 18px 24px;text-align:center;">` +
+    `<img src="${escapeHtml(params.logoUrl)}" alt="Nettoyo" style="display:block;margin:0 auto;max-width:220px;width:100%;height:auto;" />` +
+    `</td></tr>` +
+    `<tr><td style="padding:26px 24px 14px 24px;">` +
+    `<h1 style="margin:0 0 10px 0;font-size:24px;line-height:1.2;color:#1A1A2E;">${escapeHtml(params.titleFr)}</h1>` +
+    `<p style="margin:0;color:#374151;font-size:14px;line-height:1.6;">${escapeHtml(params.introFr)}</p>` +
+    `${badgeBlock}` +
+    `<div style="margin-top:16px;border:1px solid #E5E7EB;border-radius:14px;padding:14px 16px;background:#FAFAFA;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0">${params.frRowsHtml}</table></div>` +
+    `</td></tr>` +
+    `<tr><td style="padding:0 24px;"><div style="height:1px;background:#E5E7EB;"></div></td></tr>` +
+    `<tr><td style="padding:18px 24px 26px 24px;">` +
+    `<h2 style="margin:0 0 10px 0;font-size:18px;line-height:1.3;color:#1A1A2E;">${escapeHtml(params.titleEn)}</h2>` +
+    `<p style="margin:0;color:#374151;font-size:14px;line-height:1.6;">${escapeHtml(params.introEn)}</p>` +
+    `${badgeEnBlock}` +
+    `<div style="margin-top:16px;border:1px solid #E5E7EB;border-radius:14px;padding:14px 16px;background:#FAFAFA;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0">${params.enRowsHtml}</table></div>` +
+    `</td></tr>` +
+    `<tr><td style="padding:12px 24px 20px 24px;text-align:center;color:#6B7280;font-size:12px;">Nettoyo</td></tr>` +
+    `</table></td></tr></table></body></html>`
+  );
+}
+
+function buildCleanerRequestEmail(input: EmailTemplateInput): EmailTemplateOutput {
+  const subject = `Nouvelle demande recue (${input.bookingRef})`;
+  const text =
+    `FR\n` +
+    `Bonjour ${input.cleanerMaskedName},\n` +
+    `Une nouvelle demande de reservation a ete recue.\n` +
+    `Reference: ${input.bookingRef}\n` +
+    `Ville: ${input.city}\n` +
+    `Code postal: ${input.postalCode}\n` +
+    `Type de propriete: ${input.propertyTypeFr}\n` +
+    `Date: ${input.reservationDateFr}\n` +
+    `Heure: ${input.reservationTimeFr}\n\n` +
+    `EN\n` +
+    `Hello ${input.cleanerMaskedName},\n` +
+    `A new booking request has been received.\n` +
+    `Reference: ${input.bookingRef}\n` +
+    `City: ${input.city}\n` +
+    `Postal code: ${input.postalCode}\n` +
+    `Property type: ${input.propertyTypeEn}\n` +
+    `Date: ${input.reservationDateEn}\n` +
+    `Time: ${input.reservationTimeEn}\n`;
+
+  const html = buildShell({
+    logoUrl: input.logoUrl,
+    titleFr: 'Nouvelle demande de reservation',
+    titleEn: 'New booking request',
+    introFr: 'Une nouvelle demande vient d arriver sur votre compte Nettoyo.',
+    introEn: 'A new booking request has arrived in your Nettoyo account.',
+    frRowsHtml: rowsToHtml(summaryRowsFr(input)),
+    enRowsHtml: rowsToHtml(summaryRowsEn(input))
+  });
+
+  return { subject, text, html };
+}
+
+function buildClientPendingEmail(input: EmailTemplateInput): EmailTemplateOutput {
+  const subject = `Reservation envoyee (${input.bookingRef})`;
+  const text =
+    `FR\n` +
+    `Bonjour,\n` +
+    `Votre reservation a ete envoyee avec succes.\n` +
+    `Statut: ${input.statusLabelFr}\n` +
+    `Nettoyeur: ${input.cleanerMaskedName}\n` +
+    `Reference: ${input.bookingRef}\n` +
+    `Ville: ${input.city}\n` +
+    `Code postal: ${input.postalCode}\n` +
+    `Type de propriete: ${input.propertyTypeFr}\n` +
+    `Date: ${input.reservationDateFr}\n` +
+    `Heure: ${input.reservationTimeFr}\n\n` +
+    `EN\n` +
+    `Hello,\n` +
+    `Your booking request was sent successfully.\n` +
+    `Status: ${input.statusLabelEn}\n` +
+    `Cleaner: ${input.cleanerMaskedName}\n` +
+    `Reference: ${input.bookingRef}\n` +
+    `City: ${input.city}\n` +
+    `Postal code: ${input.postalCode}\n` +
+    `Property type: ${input.propertyTypeEn}\n` +
+    `Date: ${input.reservationDateEn}\n` +
+    `Time: ${input.reservationTimeEn}\n`;
+
+  const frRows = [...summaryRowsFr(input), ['Nettoyeur', input.cleanerMaskedName], ['Statut', input.statusLabelFr]] as Array<[string, string]>;
+  const enRows = [...summaryRowsEn(input), ['Cleaner', input.cleanerMaskedName], ['Status', input.statusLabelEn]] as Array<[string, string]>;
+  const html = buildShell({
+    logoUrl: input.logoUrl,
+    titleFr: 'Reservation envoyee',
+    titleEn: 'Booking request sent',
+    introFr: 'Votre demande a bien ete envoyee. Elle est en attente de confirmation par le nettoyeur.',
+    introEn: 'Your request was sent successfully. It is pending cleaner confirmation.',
+    badgeFr: input.statusLabelFr,
+    badgeEn: input.statusLabelEn,
+    frRowsHtml: rowsToHtml(frRows),
+    enRowsHtml: rowsToHtml(enRows)
+  });
+
+  return { subject, text, html };
 }
 
 export default async function handler(req: any, res: any) {
@@ -91,7 +347,7 @@ export default async function handler(req: any, res: any) {
 
   const bookingRes = await supabase
     .from('bookings')
-    .select('id,status,scheduled_at,service_type,client_id,cleaner_id')
+    .select('id,status,scheduled_at,service_type,client_id,cleaner_id,spaces(city,postal_code,type)')
     .eq('id', bookingId)
     .maybeSingle();
 
@@ -153,11 +409,35 @@ export default async function handler(req: any, res: any) {
     return res.status(422).json({ error: 'Missing cleaner or client email in profiles.' });
   }
 
-  const cleanerName = displayName(cleanerProfile?.first_name ?? null, cleanerProfile?.last_name ?? null, 'Cleaner');
-  const clientName = displayName(clientProfile?.first_name ?? null, clientProfile?.last_name ?? null, 'Client');
-  const scheduledLabel = booking.scheduled_at ? new Date(booking.scheduled_at).toLocaleString('fr-CA', { timeZone: 'America/Toronto' }) : 'Date a confirmer';
-  const serviceLabel = booking.service_type || 'Service de nettoyage';
+  const cleanerMaskedName = toMaskedDisplayName(cleanerProfile?.first_name ?? null, cleanerProfile?.last_name ?? null, 'Cleaner');
+  const clientMaskedName = toMaskedDisplayName(clientProfile?.first_name ?? null, clientProfile?.last_name ?? null, 'Client');
+  const serviceLabel = serviceLabelFromRaw(booking.service_type);
+  const space = getPrimarySpace(booking.spaces);
+  const propertyType = propertyTypePair(space?.type);
+  const schedule = formatReservationDateTime(booking.scheduled_at);
+  const city = space?.city?.trim() || '--';
+  const postalCode = space?.postal_code?.trim() || '--';
   const bookingRef = `BK-${booking.id.replace(/-/g, '').toUpperCase().slice(0, 6)}`;
+  const logoUrl = resolveLogoUrl(req);
+  const templateInput: EmailTemplateInput = {
+    logoUrl,
+    bookingRef,
+    statusLabelFr: 'En attente',
+    statusLabelEn: 'Pending',
+    city,
+    postalCode,
+    propertyTypeFr: propertyType.fr,
+    propertyTypeEn: propertyType.en,
+    reservationDateFr: schedule.dateFr,
+    reservationDateEn: schedule.dateEn,
+    reservationTimeFr: schedule.timeFr,
+    reservationTimeEn: schedule.timeEn,
+    serviceLabel,
+    cleanerMaskedName,
+    clientMaskedName
+  };
+  const cleanerEmailTemplate = buildCleanerRequestEmail(templateInput);
+  const clientEmailTemplate = buildClientPendingEmail(templateInput);
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -187,19 +467,9 @@ export default async function handler(req: any, res: any) {
     const cleanerSend = await transporter.sendMail({
       from: gmailUser,
       to: cleanerEmail,
-      subject: `Nouvelle demande de reservation (${bookingRef})`,
-      text:
-        `Bonjour ${cleanerName},\n\n` +
-        `Vous avez recu une nouvelle demande de reservation.\n` +
-        `Reference: ${bookingRef}\n` +
-        `Client: ${clientName}\n` +
-        `Service: ${serviceLabel}\n` +
-        `Date: ${scheduledLabel}\n` +
-        `Statut: En attente\n`,
-      html:
-        `<p>Bonjour ${cleanerName},</p>` +
-        `<p>Vous avez recu une nouvelle demande de reservation.</p>` +
-        `<ul><li><strong>Reference:</strong> ${bookingRef}</li><li><strong>Client:</strong> ${clientName}</li><li><strong>Service:</strong> ${serviceLabel}</li><li><strong>Date:</strong> ${scheduledLabel}</li><li><strong>Statut:</strong> En attente</li></ul>`
+      subject: cleanerEmailTemplate.subject,
+      text: cleanerEmailTemplate.text,
+      html: cleanerEmailTemplate.html
     });
     console.log('[EMAIL] SENT:', cleanerSend);
     console.log('[booking-event] send cleaner email success', { messageId: cleanerSend.messageId });
@@ -208,20 +478,9 @@ export default async function handler(req: any, res: any) {
     const clientSend = await transporter.sendMail({
       from: gmailUser,
       to: clientEmail,
-      subject: `Reservation envoyee (${bookingRef})`,
-      text:
-        `Bonjour ${clientName},\n\n` +
-        `Votre reservation a ete envoyee avec succes.\n` +
-        `Reference: ${bookingRef}\n` +
-        `Service: ${serviceLabel}\n` +
-        `Date: ${scheduledLabel}\n` +
-        `Statut actuel: En attente\n\n` +
-        `Vous recevrez un email une fois la demande confirmee.`,
-      html:
-        `<p>Bonjour ${clientName},</p>` +
-        `<p>Votre reservation a ete envoyee avec succes.</p>` +
-        `<ul><li><strong>Reference:</strong> ${bookingRef}</li><li><strong>Service:</strong> ${serviceLabel}</li><li><strong>Date:</strong> ${scheduledLabel}</li><li><strong>Statut actuel:</strong> En attente</li></ul>` +
-        `<p>Vous recevrez un email une fois la demande confirmee.</p>`
+      subject: clientEmailTemplate.subject,
+      text: clientEmailTemplate.text,
+      html: clientEmailTemplate.html
     });
     console.log('[EMAIL] SENT:', clientSend);
     console.log('[booking-event] send client email success', { messageId: clientSend.messageId });
