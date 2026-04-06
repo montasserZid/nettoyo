@@ -223,9 +223,38 @@ function bookingStatusTone(status: 'pending' | 'accepted') {
     : 'bg-[rgba(79,195,247,0.12)] text-[#0284C7]';
 }
 
+const triggerBookingNotificationEvent = async (
+  event: 'booking_confirmed',
+  bookingId: string,
+  accessToken: string | null
+) => {
+  try {
+    console.info('[booking-notify] cleaner trigger start', { event, bookingId });
+    const response = await fetch('/api/notifications/booking-event', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+      },
+      body: JSON.stringify({ event, bookingId })
+    });
+    console.info('[booking-notify] cleaner trigger response', {
+      event,
+      bookingId,
+      status: response.status,
+      ok: response.ok
+    });
+    if (!response.ok) {
+      console.error('[booking-notify] cleaner trigger failed', { event, bookingId, status: response.status });
+    }
+  } catch (error) {
+    console.error('[booking-notify] cleaner trigger request error', { event, bookingId, error });
+  }
+};
+
 export function CleanerReservationsPage() {
   const { language } = useLanguage();
-  const { user, isCleaner } = useAuth();
+  const { user, session, isCleaner } = useAuth();
   const content = contentByLanguage[language];
   const [bookings, setBookings] = useState<CleanerBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -297,17 +326,32 @@ export function CleanerReservationsPage() {
   const runAction = async (booking: CleanerBooking, nextStatus: 'confirmed' | 'cancelled') => {
     if (!user?.id) return;
     setActionBookingId(booking.id);
-    const { error } = await supabase
+    const updateRes = await supabase
       .from('bookings')
       .update({ status: nextStatus })
       .eq('id', booking.id)
-      .eq('cleaner_id', user.id);
+      .eq('cleaner_id', user.id)
+      .eq('status', 'pending')
+      .select('id,status')
+      .maybeSingle();
+    const error = updateRes.error;
 
     if (error) {
       console.error('Booking status update error:', error);
       setErrorMessage(content.actionError);
       setActionBookingId(null);
       return;
+    }
+
+    const updated = updateRes.data as { id: string; status: BookingStatus } | null;
+    if (!updated) {
+      await loadBookings(user.id);
+      setActionBookingId(null);
+      return;
+    }
+
+    if (nextStatus === 'confirmed') {
+      await triggerBookingNotificationEvent('booking_confirmed', booking.id, session?.access_token ?? null);
     }
 
     setBookings((current) =>

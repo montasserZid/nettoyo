@@ -48,6 +48,8 @@ type EmailTemplateOutput = {
   html: string;
 };
 
+type NotificationEvent = 'booking_created' | 'booking_confirmed';
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -288,6 +290,92 @@ function buildClientPendingEmail(input: EmailTemplateInput): EmailTemplateOutput
   return { subject, text, html };
 }
 
+function buildCleanerConfirmedEmail(input: EmailTemplateInput): EmailTemplateOutput {
+  const subject = `Reservation confirmee (${input.bookingRef})`;
+  const text =
+    `FR\n` +
+    `Bonjour ${input.cleanerMaskedName},\n` +
+    `Votre acceptation est enregistree.\n` +
+    `La reservation est maintenant confirmee.\n` +
+    `Reference: ${input.bookingRef}\n` +
+    `Client: ${input.clientMaskedName}\n` +
+    `Ville: ${input.city}\n` +
+    `Code postal: ${input.postalCode}\n` +
+    `Type de propriete: ${input.propertyTypeFr}\n` +
+    `Date: ${input.reservationDateFr}\n` +
+    `Heure: ${input.reservationTimeFr}\n\n` +
+    `EN\n` +
+    `Hello ${input.cleanerMaskedName},\n` +
+    `Your acceptance has been recorded.\n` +
+    `The booking is now confirmed.\n` +
+    `Reference: ${input.bookingRef}\n` +
+    `Client: ${input.clientMaskedName}\n` +
+    `City: ${input.city}\n` +
+    `Postal code: ${input.postalCode}\n` +
+    `Property type: ${input.propertyTypeEn}\n` +
+    `Date: ${input.reservationDateEn}\n` +
+    `Time: ${input.reservationTimeEn}\n`;
+
+  const frRows = [...summaryRowsFr(input), ['Client', input.clientMaskedName], ['Statut', input.statusLabelFr]] as Array<[string, string]>;
+  const enRows = [...summaryRowsEn(input), ['Client', input.clientMaskedName], ['Status', input.statusLabelEn]] as Array<[string, string]>;
+  const html = buildShell({
+    logoUrl: input.logoUrl,
+    titleFr: 'Reservation confirmee',
+    titleEn: 'Booking confirmed',
+    introFr: 'Votre acceptation est bien enregistree.',
+    introEn: 'Your acceptance has been successfully recorded.',
+    badgeFr: input.statusLabelFr,
+    badgeEn: input.statusLabelEn,
+    frRowsHtml: rowsToHtml(frRows),
+    enRowsHtml: rowsToHtml(enRows)
+  });
+
+  return { subject, text, html };
+}
+
+function buildClientConfirmedEmail(input: EmailTemplateInput): EmailTemplateOutput {
+  const subject = `Reservation confirmee (${input.bookingRef})`;
+  const text =
+    `FR\n` +
+    `Bonjour,\n` +
+    `Bonne nouvelle: votre reservation est maintenant confirmee.\n` +
+    `Nettoyeur: ${input.cleanerMaskedName}\n` +
+    `Reference: ${input.bookingRef}\n` +
+    `Statut: ${input.statusLabelFr}\n` +
+    `Ville: ${input.city}\n` +
+    `Code postal: ${input.postalCode}\n` +
+    `Type de propriete: ${input.propertyTypeFr}\n` +
+    `Date: ${input.reservationDateFr}\n` +
+    `Heure: ${input.reservationTimeFr}\n\n` +
+    `EN\n` +
+    `Hello,\n` +
+    `Good news: your booking is now confirmed.\n` +
+    `Cleaner: ${input.cleanerMaskedName}\n` +
+    `Reference: ${input.bookingRef}\n` +
+    `Status: ${input.statusLabelEn}\n` +
+    `City: ${input.city}\n` +
+    `Postal code: ${input.postalCode}\n` +
+    `Property type: ${input.propertyTypeEn}\n` +
+    `Date: ${input.reservationDateEn}\n` +
+    `Time: ${input.reservationTimeEn}\n`;
+
+  const frRows = [...summaryRowsFr(input), ['Nettoyeur', input.cleanerMaskedName], ['Statut', input.statusLabelFr]] as Array<[string, string]>;
+  const enRows = [...summaryRowsEn(input), ['Cleaner', input.cleanerMaskedName], ['Status', input.statusLabelEn]] as Array<[string, string]>;
+  const html = buildShell({
+    logoUrl: input.logoUrl,
+    titleFr: 'Reservation confirmee',
+    titleEn: 'Booking confirmed',
+    introFr: 'Votre demande a ete acceptee par le nettoyeur.',
+    introEn: 'Your request has been accepted by the cleaner.',
+    badgeFr: input.statusLabelFr,
+    badgeEn: input.statusLabelEn,
+    frRowsHtml: rowsToHtml(frRows),
+    enRowsHtml: rowsToHtml(enRows)
+  });
+
+  return { subject, text, html };
+}
+
 export default async function handler(req: any, res: any) {
   console.log('[EMAIL] Route hit');
   if (req.method !== 'POST') {
@@ -297,7 +385,10 @@ export default async function handler(req: any, res: any) {
   const startedAt = Date.now();
   const payload = req.body ?? {};
   console.log('[EMAIL] Body:', payload);
-  const event = typeof payload.event === 'string' ? payload.event : null;
+  const event =
+    payload.event === 'booking_created' || payload.event === 'booking_confirmed'
+      ? (payload.event as NotificationEvent)
+      : null;
   const bookingId = typeof payload.bookingId === 'string' ? payload.bookingId : null;
   console.log('[booking-event] request received', {
     method: req.method,
@@ -306,9 +397,9 @@ export default async function handler(req: any, res: any) {
     hasBody: Boolean(req.body)
   });
 
-  if (event !== 'booking_created' || !bookingId) {
+  if (!event || !bookingId) {
     console.error('[booking-event] invalid payload', payload);
-    return res.status(400).json({ error: 'Invalid payload. Expected event=booking_created and bookingId.' });
+    return res.status(400).json({ error: 'Invalid payload. Expected event=booking_created|booking_confirmed and bookingId.' });
   }
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -371,6 +462,14 @@ export default async function handler(req: any, res: any) {
     scheduledAt: booking.scheduled_at
   });
 
+  if (event === 'booking_confirmed' && booking.status !== 'confirmed') {
+    console.error('[booking-event] booking_confirmed event rejected because booking status is not confirmed', {
+      bookingId,
+      status: booking.status
+    });
+    return res.status(409).json({ error: 'Booking status is not confirmed.', status: booking.status });
+  }
+
   if (!booking.cleaner_id) {
     console.error('[booking-event] cleaner_id missing on booking', { bookingId });
     return res.status(422).json({ error: 'Booking is missing cleaner_id.' });
@@ -419,11 +518,12 @@ export default async function handler(req: any, res: any) {
   const postalCode = space?.postal_code?.trim() || '--';
   const bookingRef = `BK-${booking.id.replace(/-/g, '').toUpperCase().slice(0, 6)}`;
   const logoUrl = resolveLogoUrl(req);
+  const isConfirmedEvent = event === 'booking_confirmed';
   const templateInput: EmailTemplateInput = {
     logoUrl,
     bookingRef,
-    statusLabelFr: 'En attente',
-    statusLabelEn: 'Pending',
+    statusLabelFr: isConfirmedEvent ? 'Confirmee' : 'En attente',
+    statusLabelEn: isConfirmedEvent ? 'Confirmed' : 'Pending',
     city,
     postalCode,
     propertyTypeFr: propertyType.fr,
@@ -436,8 +536,12 @@ export default async function handler(req: any, res: any) {
     cleanerMaskedName,
     clientMaskedName
   };
-  const cleanerEmailTemplate = buildCleanerRequestEmail(templateInput);
-  const clientEmailTemplate = buildClientPendingEmail(templateInput);
+  const cleanerEmailTemplate = isConfirmedEvent
+    ? buildCleanerConfirmedEmail(templateInput)
+    : buildCleanerRequestEmail(templateInput);
+  const clientEmailTemplate = isConfirmedEvent
+    ? buildClientConfirmedEmail(templateInput)
+    : buildClientPendingEmail(templateInput);
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
