@@ -13,6 +13,7 @@ type CleanerProfileRecord = { id: string; description: string | null; hourly_rat
 type AreaSelection = { id: string; zone: string; name: string; lat: number; lng: number };
 type CleanerIdentity = { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
 type CleanerCandidate = { id: string; displayName: string; description: string; photoUrl: string | null; hourlyRate: number | null; services: ServiceId[]; serviceAreas: AreaSelection[]; availability: unknown; exceptions: unknown };
+type BookingInsertResult = { id: string; status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' };
 
 type ServiceFailure = { cleanerId: string; cleanerServices: ServiceId[]; selectedServices: ServiceId[] };
 type ZoneFailure = { cleanerId: string; selectedZone: string; selectedZoneNormalized: string; cleanerAreas: { zone: string; name: string }[] };
@@ -95,12 +96,32 @@ const toMinutes = (v: string) => { const m = v.trim().match(/^(\d{1,2}):(\d{2})(
 const isWithin = (t: string,s: string,e: string) => { const tt=toMinutes(t); const ss=toMinutes(s); const ee=toMinutes(e); if(tt===null||ss===null||ee===null) return true; if(ee<ss) return tt>=ss||tt<=ee; return tt>=ss&&tt<=ee; };
 const formatHourlyRate = (rate: number | null) => (typeof rate === 'number' && Number.isFinite(rate) ? `${rate}$/h` : '--');
 const formatDescriptionPreview = (description: string, max = 96) => { const text = description.trim(); return text.length <= max ? text : `${text.slice(0, max).trim()}...`; };
+const triggerBookingCreatedNotification = async (bookingId: string, accessToken: string | null) => {
+  try {
+    console.info('[booking-notify] trigger start', { bookingId });
+    const response = await fetch('/api/notifications/booking-event', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+      },
+      body: JSON.stringify({ event: 'booking_created', bookingId })
+    });
+    console.info('[booking-notify] trigger response', { bookingId, status: response.status, ok: response.ok });
+    if (!response.ok) {
+      console.error('Booking-created notification failed:', response.status, response.statusText);
+    }
+  } catch (error) {
+    console.error('Booking-created notification request error:', error);
+  }
+};
 
 export function ClientReservationPage() {
   const { language, navigateTo } = useLanguage();
-  const { user, isClient, loading: authLoading } = useAuth();
+  const { user, session, isClient, loading: authLoading } = useAuth();
   const t = labels[language];
   const addSpacePath = getPathForRoute(language, 'clientAddSpace');
+  const successPath = getPathForRoute(language, 'clientReservationSuccess');
 
   const [spaces, setSpaces] = useState<SpaceRecord[]>([]);
   const [cleaners, setCleaners] = useState<CleanerCandidate[]>([]);
@@ -246,13 +267,50 @@ export function ClientReservationPage() {
     if (!user?.id || !selectedSpace || !selectedDateValid || !selectedTimeValid || selectedServices.length === 0) return;
     setReservingId(cleaner.id);
     const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
-    let { error } = await supabase.from('bookings').insert([{ client_id: user.id, cleaner_id: cleaner.id, space_id: selectedSpace.id, service_type: selectedServices.join(','), scheduled_at: scheduledAt, estimated_hours: estimatedHours, status: 'pending' }]);
+    let insertRes = await supabase
+      .from('bookings')
+      .insert([
+        {
+          client_id: user.id,
+          cleaner_id: cleaner.id,
+          space_id: selectedSpace.id,
+          service_type: selectedServices.join(','),
+          scheduled_at: scheduledAt,
+          estimated_hours: estimatedHours,
+          status: 'pending'
+        }
+      ])
+      .select('id,status')
+      .single();
+    let error = insertRes.error;
     if (error && (error.code === '42703' || error.message?.toLowerCase().includes('cleaner_id') || error.message?.toLowerCase().includes('estimated_hours'))) {
-      const retry = await supabase.from('bookings').insert([{ client_id: user.id, cleaner_id: cleaner.id, space_id: selectedSpace.id, service_type: selectedServices.join(','), scheduled_at: scheduledAt, status: 'pending' }]);
-      error = retry.error;
+      insertRes = await supabase
+        .from('bookings')
+        .insert([
+          {
+            client_id: user.id,
+            cleaner_id: cleaner.id,
+            space_id: selectedSpace.id,
+            service_type: selectedServices.join(','),
+            scheduled_at: scheduledAt,
+            status: 'pending'
+          }
+        ])
+        .select('id,status')
+        .single();
+      error = insertRes.error;
     }
     setReservingId(null);
     if (error) { setErrorMessage(t.reserveError); return; }
+    const createdBooking = insertRes.data as BookingInsertResult | null;
+    if (createdBooking?.id) {
+      await triggerBookingCreatedNotification(createdBooking.id, session?.access_token ?? null);
+      const nextPath = `${successPath}?booking=${encodeURIComponent(createdBooking.id)}`;
+      window.history.pushState({}, '', nextPath);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      setBookingCleaner(null);
+      return;
+    }
     setToast(t.reserveSuccess);
     setBookingCleaner(null);
   };

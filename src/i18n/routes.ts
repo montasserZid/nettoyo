@@ -11,6 +11,7 @@ export type AppRoute =
   | 'clientAddSpace'
   | 'clientHistory'
   | 'clientReservation'
+  | 'clientReservationSuccess'
   | 'cleanerDashboard'
   | 'cleanerReservations'
   | 'cleanerHistory';
@@ -53,6 +54,11 @@ const localizedRouteSegments: Record<
     fr: 'dashboard/client/reservation',
     en: 'dashboard/client/reservation',
     es: 'dashboard/client/reserva'
+  },
+  clientReservationSuccess: {
+    fr: 'dashboard/client/reservation/succes',
+    en: 'dashboard/client/reservation/success',
+    es: 'dashboard/client/reserva/exito'
   }
 };
 
