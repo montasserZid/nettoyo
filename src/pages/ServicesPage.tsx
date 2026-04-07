@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import {
   Briefcase,
   Building2,
@@ -131,8 +131,9 @@ const businessIcons = [ShieldCheck, Briefcase, Sparkles];
 const pageContent: Record<Language, ServicePageContent> = {
   fr: {
     hero: {
-      title: 'Nos services de nettoyage',
-      tagline: "Trouvez le service qu'il vous faut, réservez en quelques minutes.",
+      title: 'Services de nettoyage disponibles sur Nettoyó',
+      tagline:
+        'Trouvez des nettoyeurs indépendants à Montréal, Laval, Longueuil, sur la Rive-Nord et la Rive-Sud, puis comparez prix et disponibilités.',
       servicePlaceholder: 'Type de service',
       cityPlaceholder: 'Votre ville',
       search: 'Rechercher'
@@ -148,174 +149,192 @@ const pageContent: Record<Language, ServicePageContent> = {
     },
     services: {
       home: {
-        name: 'Nettoyage domicile',
-        description: 'Un nettoyage complet de votre logement, pièce par pièce.',
-        includedLabel: 'Ce qui est inclus',
+        name: 'Nettoyage à domicile',
+        description:
+          'Service proposé par des nettoyeurs indépendants sur la plateforme pour l’entretien régulier de votre logement.',
+        includedLabel: 'Exemples de tâches proposées',
         included: [
-          'Aspiration et lavage des sols',
-          'Nettoyage des surfaces et meubles',
-          'Salle de bain et cuisine',
-          'Vider les poubelles'
+          'Sols, surfaces et poussière',
+          'Cuisine et salle de bain',
+          'Rangement léger selon accord',
+          'Intervention selon les préférences du nettoyeur'
         ],
-        price: 'À partir de $25/h',
-        duration: '2h – 4h',
-        badge: { label: 'Le plus populaire', tone: 'sky' }
+        price: 'Prix variable selon le nettoyeur',
+        duration: 'Durée estimée selon la demande',
+        badge: { label: 'Le plus recherché', tone: 'sky' }
       },
       deep: {
         name: 'Nettoyage en profondeur',
-        description: 'Un nettoyage intensif pour redonner un éclat neuf à votre logement.',
-        includedLabel: 'Ce qui est inclus',
+        description:
+          'Pour un besoin plus détaillé, comparez les profils qui offrent un nettoyage approfondi et leurs conditions.',
+        includedLabel: 'Exemples de tâches proposées',
         included: [
-          'Tout le nettoyage domicile inclus',
-          'Intérieur des placards',
-          'Derrière les appareils électroménagers',
-          'Joints et recoins'
+          'Nettoyage détaillé des zones critiques',
+          'Zones difficiles d’accès selon accord',
+          'Durée et périmètre définis avec le nettoyeur',
+          'Niveau de détail variable selon le profil'
         ],
-        price: 'À partir de $35/h',
-        duration: '4h – 8h'
+        price: 'Prix variable selon le nettoyeur',
+        duration: 'Souvent plus long qu’un entretien régulier'
       },
       office: {
-        name: 'Nettoyage bureau',
-        description: 'Des locaux professionnels propres et accueillants pour vos équipes.',
-        includedLabel: 'Ce qui est inclus',
+        name: 'Nettoyage de bureau',
+        description:
+          'Des nettoyeurs indépendants peuvent proposer des interventions pour bureaux et espaces professionnels.',
+        includedLabel: 'Exemples de tâches proposées',
         included: [
-          'Bureaux, postes de travail, salles de réunion',
-          'Cuisine et espaces communs',
-          'Sanitaires',
-          'Gestion des déchets'
+          'Postes de travail et espaces communs',
+          'Cuisine et sanitaires',
+          'Fréquence ponctuelle ou récurrente',
+          'Périmètre défini avec le nettoyeur'
         ],
-        price: 'Sur devis',
-        duration: 'Selon surface'
+        price: 'Prix variable selon le nettoyeur',
+        duration: 'Selon surface et fréquence'
       },
       move: {
-        name: 'Nettoyage déménagement',
-        description: 'Rendez votre logement impeccable avant de rendre les clés.',
-        includedLabel: 'Ce qui est inclus',
+        name: 'Nettoyage de déménagement',
+        description:
+          'Idéal avant ou après un déménagement, selon les prestations proposées par chaque nettoyeur.',
+        includedLabel: 'Exemples de tâches proposées',
         included: [
-          'Nettoyage complet de toutes les pièces',
-          'Intérieur frigo et four',
-          'Vitres et miroirs',
-          'Rapport de nettoyage fourni'
+          'Nettoyage général du logement',
+          'Électroménagers et vitres selon accord',
+          'Intervention adaptée à l’état des lieux',
+          'Services additionnels selon disponibilité'
         ],
-        price: 'À partir de $120',
-        duration: '4h – 6h'
+        price: 'Prix variable selon le nettoyeur',
+        duration: 'Selon taille du logement'
       },
       renovation: {
-        name: 'Post-rénovation',
-        description: 'Éliminons ensemble poussière, gravats et résidus de chantier.',
-        includedLabel: 'Ce qui est inclus',
+        name: 'Nettoyage post-rénovation',
+        description:
+          'Comparez les nettoyeurs qui acceptent les interventions après travaux et vérifiez leur expérience.',
+        includedLabel: 'Exemples de tâches proposées',
         included: [
-          'Dépoussiérage complet',
-          'Nettoyage des vitres et cadres',
-          'Élimination des résidus de peinture',
-          'Sols et surfaces après travaux'
+          'Poussière de chantier et surfaces',
+          'Nettoyage ciblé selon le type de travaux',
+          'Matériel et méthode selon le nettoyeur',
+          'Estimation personnalisée selon le besoin'
         ],
-        price: 'À partir de $45/h',
-        duration: '4h – 10h',
-        badge: { label: 'Nouveau', tone: 'coral' }
+        price: 'Prix variable selon le nettoyeur',
+        duration: 'Selon complexité des travaux',
+        badge: { label: 'Demande spécialisée', tone: 'coral' }
       },
       airbnb: {
         name: 'Remise en état Airbnb',
-        description: 'Entre chaque voyageur, un logement prêt à accueillir et qui brille.',
-        includedLabel: 'Ce qui est inclus',
+        description:
+          'Pour les locations courte durée, trouvez des nettoyeurs disponibles entre deux réservations.',
+        includedLabel: 'Exemples de tâches proposées',
         included: [
-          'Nettoyage complet et rapide',
-          'Changement du linge de lit',
-          'Réapprovisionnement des consommables',
-          'Photos de fin de prestation'
+          'Préparation du logement entre séjours',
+          'Linge et réapprovisionnement selon accord',
+          'Coordination horaire selon disponibilité',
+          'Choix du profil selon prix et avis'
         ],
-        price: 'À partir de $30',
-        duration: '1h – 3h',
-        badge: { label: 'Éco-friendly', tone: 'mint' }
+        price: 'Prix variable selon le nettoyeur',
+        duration: 'Selon rotation et taille du logement',
+        badge: { label: 'Très demandé', tone: 'mint' }
       }
     },
-    book: 'Réserver',
+    book: 'Voir les profils',
     pricing: {
-      title: 'Comment sont calculés nos tarifs ?',
+      title: 'Comment fonctionne la tarification',
       blocks: [
         {
-          title: 'Surface de votre logement',
-          description: 'Plus votre espace est grand, plus la durée est adaptée.'
+          title: 'Frais de plateforme',
+          description:
+            'Nettoyó facture un petit frais de plateforme par réservation (exemple : 5 $) pour faciliter la mise en relation.'
         },
         {
-          title: 'Type de service choisi',
-          description: 'Chaque service a son propre niveau de détail et de durée.'
+          title: 'Prix fixés par les nettoyeurs',
+          description:
+            'Chaque nettoyeur indépendant fixe ses propres tarifs. Comparez prix, disponibilité et avis avant de choisir.'
         },
         {
-          title: 'Options supplémentaires',
-          description: 'Ajoutez des extras selon vos besoins spécifiques.'
+          title: 'Paiement direct du service',
+          description:
+            'Le paiement de la prestation est réglé directement entre le client et le nettoyeur, en dehors de la plateforme.'
         }
       ]
     },
     addOns: {
-      title: 'Ajoutez des options à votre réservation',
+      title: 'Options possibles selon le nettoyeur',
       items: [
-        { id: 'fridge', label: 'Nettoyage du frigo', price: 15 },
-        { id: 'oven', label: 'Nettoyage du four', price: 15 },
-        { id: 'windows', label: 'Nettoyage des vitres', price: 20 },
-        { id: 'laundry', label: 'Lessive et repassage', price: 25 },
-        { id: 'eco', label: 'Produits éco-responsables', price: 10 },
-        { id: 'balcony', label: 'Nettoyage du balcon', price: 18 }
+        { id: 'fridge', label: 'Intérieur du frigo', price: 15 },
+        { id: 'oven', label: 'Intérieur du four', price: 15 },
+        { id: 'windows', label: 'Vitres intérieures', price: 20 },
+        { id: 'laundry', label: 'Lessive / pliage', price: 25 },
+        { id: 'eco', label: 'Produits écoresponsables', price: 10 },
+        { id: 'balcony', label: 'Balcon / terrasse', price: 18 }
       ],
-      totalLabel: (total) => `Options sélectionnées : $${total} supplémentaire`
+      totalLabel: (total) =>
+        `Exemple d’options sélectionnées : +$${total} (les prix finaux varient selon le nettoyeur)`
     },
     business: {
-      title: 'Vous êtes une entreprise ?',
-      subtitle: 'Des solutions sur-mesure pour bureaux, hôtels et propriétaires Airbnb.',
+      title: 'Vous gérez plusieurs logements ou locaux ?',
+      subtitle:
+        'Nettoyó vous aide à trouver des nettoyeurs indépendants selon vos besoins récurrents, sans imposer de prestataire unique.',
       bullets: [
-        'Contrats récurrents avec tarifs préférentiels',
-        'Facturation mensuelle simplifiée',
-        'Nettoyeurs dédiés et prioritaires'
+        'Comparez plusieurs profils pour un même besoin',
+        'Choisissez selon disponibilité, zone et prix',
+        'Coordonnez directement avec les nettoyeurs retenus'
       ],
-      cta: 'Demander un devis'
+      cta: 'Parler à notre équipe'
     },
     eco: {
-      title: 'Notre engagement écologique',
-      subtitle: "Parce qu'un espace propre ne devrait pas coûter cher à la planète.",
+      title: 'Choisissez aussi selon vos préférences',
+      subtitle:
+        'Certains nettoyeurs indiquent des pratiques écoresponsables dans leur profil. Vous pouvez comparer ces critères avant de réserver.',
       cards: [
         {
-          title: 'Produits certifiés',
-          description: 'Tous nos produits éco sont certifiés et biodégradables.'
+          title: 'Profils détaillés',
+          description: 'Consultez les méthodes, produits et préférences déclarés par chaque nettoyeur.'
         },
         {
-          title: 'Moins de déchets',
-          description: 'Nous utilisons des outils réutilisables et limitons le plastique.'
+          title: 'Comparaison transparente',
+          description: 'Comparez les options selon vos priorités : budget, horaire, zone et style de prestation.'
         },
         {
-          title: 'Nettoyeurs formés',
-          description: 'Nos nettoyeurs sont formés aux bonnes pratiques environnementales.'
+          title: 'Choix flexible',
+          description: 'Vous restez libre de changer de nettoyeur selon vos besoins à chaque réservation.'
         }
       ]
     },
     faq: {
-      title: 'Questions sur nos services',
+      title: 'Questions sur les services',
       items: [
         {
-          question: "Qu'est-ce qui est inclus dans chaque service ?",
-          answer: "Chaque service a une liste détaillée d'inclusions visible sur sa carte. Vous pouvez aussi ajouter des options supplémentaires lors de la réservation."
+          question: 'Nettoyó fournit-il directement le service de nettoyage ?',
+          answer:
+            'Non. Nettoyó facilite la mise en relation entre clients et nettoyeurs indépendants. Les prestations sont réalisées par ces professionnels.'
         },
         {
-          question: 'Combien de temps dure une prestation ?',
-          answer: 'La durée dépend de la taille de votre logement et du service choisi. Une estimation est indiquée sur chaque carte de service.'
+          question: 'Pourquoi les prix ne sont-ils pas fixes ?',
+          answer:
+            'Chaque nettoyeur fixe ses propres tarifs. Les prix peuvent varier selon la zone, la disponibilité, le type de service et l’expérience.'
         },
         {
-          question: 'Dois-je être présent pendant le nettoyage ?',
-          answer: "Non, vous n'avez pas besoin d'être présent. Vous pouvez laisser les instructions d'accès lors de la réservation."
+          question: 'Comment payer la réservation ?',
+          answer:
+            'Vous payez le frais de plateforme dans l’application. Le paiement du service se fait directement au nettoyeur hors plateforme.'
         },
         {
-          question: 'Les nettoyeurs apportent-ils leur matériel ?',
-          answer: "Oui, tous les nettoyeurs viennent avec leur propre matériel professionnel. Si vous souhaitez des produits éco-responsables, sélectionnez l'option lors de la réservation."
+          question: 'Dans quelles zones les services sont-ils disponibles ?',
+          answer:
+            'Les disponibilités dépendent des nettoyeurs actifs, notamment à Montréal, Laval, Longueuil, sur la Rive-Nord et la Rive-Sud.'
         },
         {
-          question: 'Puis-je modifier ou annuler ma réservation ?',
-          answer: 'Oui. Vous pouvez modifier ou annuler gratuitement jusqu’à 24 heures avant votre prestation depuis votre espace personnel.'
+          question: 'Comment choisir le bon nettoyeur ?',
+          answer:
+            'Comparez les profils selon les avis, le prix, la zone, les horaires et les types de services proposés.'
         }
       ]
     },
     finalCta: {
-      title: 'Quel service vous convient ?',
-      subtitle: 'Réservez en quelques minutes ou contactez-nous pour un devis personnalisé.',
-      primary: 'Réserver maintenant',
+      title: 'Trouvez le profil qui vous convient',
+      subtitle:
+        'Comparez les nettoyeurs indépendants, envoyez une demande et organisez votre prestation en toute transparence.',
+      primary: 'Commencer une demande',
       secondary: 'Nous contacter'
     }
   },
@@ -348,7 +367,7 @@ const pageContent: Record<Language, ServicePageContent> = {
           'Emptying bins'
         ],
         price: 'From $25/h',
-        duration: '2h – 4h',
+        duration: '2h â€“ 4h',
         badge: { label: 'Most popular', tone: 'sky' }
       },
       deep: {
@@ -362,7 +381,7 @@ const pageContent: Record<Language, ServicePageContent> = {
           'Grout and hard-to-reach spots'
         ],
         price: 'From $35/h',
-        duration: '4h – 8h'
+        duration: '4h â€“ 8h'
       },
       office: {
         name: 'Office Cleaning',
@@ -388,7 +407,7 @@ const pageContent: Record<Language, ServicePageContent> = {
           'Cleaning report provided'
         ],
         price: 'From $120',
-        duration: '4h – 6h'
+        duration: '4h â€“ 6h'
       },
       renovation: {
         name: 'Post-renovation',
@@ -401,7 +420,7 @@ const pageContent: Record<Language, ServicePageContent> = {
           'Floors and surfaces after works'
         ],
         price: 'From $45/h',
-        duration: '4h – 10h',
+        duration: '4h â€“ 10h',
         badge: { label: 'New', tone: 'coral' }
       },
       airbnb: {
@@ -415,7 +434,7 @@ const pageContent: Record<Language, ServicePageContent> = {
           'End-of-service photos'
         ],
         price: 'From $30',
-        duration: '1h – 3h',
+        duration: '1h â€“ 3h',
         badge: { label: 'Eco-friendly', tone: 'mint' }
       }
     },
@@ -523,54 +542,54 @@ const pageContent: Record<Language, ServicePageContent> = {
       deep: 'Limpieza profunda',
       office: 'Oficina',
       move: 'Mudanza',
-      renovation: 'Post-renovación',
+      renovation: 'Post-renovaciÃ³n',
       airbnb: 'Airbnb'
     },
     services: {
       home: {
         name: 'Limpieza del hogar',
-        description: 'Una limpieza completa de tu hogar, habitación por habitación.',
-        includedLabel: 'Qué incluye',
+        description: 'Una limpieza completa de tu hogar, habitaciÃ³n por habitaciÃ³n.',
+        includedLabel: 'QuÃ© incluye',
         included: [
           'Aspirado y fregado de suelos',
           'Limpieza de superficies y muebles',
-          'Baño y cocina',
+          'BaÃ±o y cocina',
           'Vaciado de papeleras'
         ],
         price: 'Desde $25/h',
-        duration: '2h – 4h',
-        badge: { label: 'Más popular', tone: 'sky' }
+        duration: '2h â€“ 4h',
+        badge: { label: 'MÃ¡s popular', tone: 'sky' }
       },
       deep: {
         name: 'Limpieza profunda',
         description: 'Una limpieza intensiva para devolver tu hogar a su mejor estado.',
-        includedLabel: 'Qué incluye',
+        includedLabel: 'QuÃ© incluye',
         included: [
           'Todo lo de Limpieza del hogar',
           'Interior de armarios',
-          'Detrás de electrodomésticos',
-          'Juntas y rincones difíciles'
+          'DetrÃ¡s de electrodomÃ©sticos',
+          'Juntas y rincones difÃ­ciles'
         ],
         price: 'Desde $35/h',
-        duration: '4h – 8h'
+        duration: '4h â€“ 8h'
       },
       office: {
         name: 'Limpieza de oficina',
         description: 'Espacios profesionales limpios y acogedores para tu equipo.',
-        includedLabel: 'Qué incluye',
+        includedLabel: 'QuÃ© incluye',
         included: [
           'Escritorios, puestos, salas de reuniones',
           'Cocina y zonas comunes',
-          'Baños',
-          'Gestión de residuos'
+          'BaÃ±os',
+          'GestiÃ³n de residuos'
         ],
         price: 'Presupuesto',
-        duration: 'Según superficie'
+        duration: 'SegÃºn superficie'
       },
       move: {
         name: 'Limpieza de mudanza',
         description: 'Deja tu hogar impecable antes de entregar las llaves.',
-        includedLabel: 'Qué incluye',
+        includedLabel: 'QuÃ© incluye',
         included: [
           'Limpieza completa de todas las habitaciones',
           'Interior de nevera y horno',
@@ -578,92 +597,92 @@ const pageContent: Record<Language, ServicePageContent> = {
           'Informe de limpieza incluido'
         ],
         price: 'Desde $120',
-        duration: '4h – 6h'
+        duration: '4h â€“ 6h'
       },
       renovation: {
-        name: 'Post-renovación',
+        name: 'Post-renovaciÃ³n',
         description: 'Eliminemos juntos polvo, escombros y residuos de obra.',
-        includedLabel: 'Qué incluye',
+        includedLabel: 'QuÃ© incluye',
         included: [
           'Desempolvado y aspirado completo',
           'Limpieza de ventanas y marcos',
-          'Eliminación de residuos de pintura',
+          'EliminaciÃ³n de residuos de pintura',
           'Suelos y superficies tras obras'
         ],
         price: 'Desde $45/h',
-        duration: '4h – 10h',
+        duration: '4h â€“ 10h',
         badge: { label: 'Nuevo', tone: 'coral' }
       },
       airbnb: {
-        name: 'Rotación Airbnb',
-        description: 'Entre cada huésped, un hogar listo y reluciente.',
-        includedLabel: 'Qué incluye',
+        name: 'RotaciÃ³n Airbnb',
+        description: 'Entre cada huÃ©sped, un hogar listo y reluciente.',
+        includedLabel: 'QuÃ© incluye',
         included: [
-          'Limpieza completa y rápida',
+          'Limpieza completa y rÃ¡pida',
           'Cambio de ropa de cama',
-          'Reposición de consumibles',
+          'ReposiciÃ³n de consumibles',
           'Fotos al final del servicio'
         ],
         price: 'Desde $30',
-        duration: '1h – 3h',
+        duration: '1h â€“ 3h',
         badge: { label: 'Eco-friendly', tone: 'mint' }
       }
     },
     book: 'Reservar',
     pricing: {
-      title: '¿Cómo calculamos nuestros precios?',
+      title: 'Â¿CÃ³mo calculamos nuestros precios?',
       blocks: [
         {
-          title: 'Tamaño de tu espacio',
-          description: 'Cuanto más grande es tu espacio, más tiempo asignamos.'
+          title: 'TamaÃ±o de tu espacio',
+          description: 'Cuanto mÃ¡s grande es tu espacio, mÃ¡s tiempo asignamos.'
         },
         {
           title: 'Tipo de servicio elegido',
-          description: 'Cada servicio tiene su propio nivel de detalle y duración.'
+          description: 'Cada servicio tiene su propio nivel de detalle y duraciÃ³n.'
         },
         {
           title: 'Opciones adicionales',
-          description: 'Añade extras según tus necesidades específicas.'
+          description: 'AÃ±ade extras segÃºn tus necesidades especÃ­ficas.'
         }
       ]
     },
     addOns: {
-      title: 'Añade opciones a tu reserva',
+      title: 'AÃ±ade opciones a tu reserva',
       items: [
         { id: 'fridge', label: 'Limpieza de nevera', price: 15 },
         { id: 'oven', label: 'Limpieza del horno', price: 15 },
         { id: 'windows', label: 'Limpieza de ventanas', price: 20 },
-        { id: 'laundry', label: 'Lavandería y planchado', price: 25 },
-        { id: 'eco', label: 'Productos ecológicos', price: 10 },
-        { id: 'balcony', label: 'Limpieza del balcón', price: 18 }
+        { id: 'laundry', label: 'LavanderÃ­a y planchado', price: 25 },
+        { id: 'eco', label: 'Productos ecolÃ³gicos', price: 10 },
+        { id: 'balcony', label: 'Limpieza del balcÃ³n', price: 18 }
       ],
       totalLabel: (total) => `Opciones seleccionadas: $${total} adicional`
     },
     business: {
-      title: '¿Eres una empresa?',
+      title: 'Â¿Eres una empresa?',
       subtitle: 'Soluciones a medida para oficinas, hoteles y anfitriones de Airbnb.',
       bullets: [
         'Contratos recurrentes con tarifas preferenciales',
-        'Facturación mensual simplificada',
+        'FacturaciÃ³n mensual simplificada',
         'Limpiadores dedicados y prioritarios'
       ],
       cta: 'Solicitar presupuesto'
     },
     eco: {
-      title: 'Nuestro compromiso ecológico',
-      subtitle: 'Porque un espacio limpio no debería costarle nada al planeta.',
+      title: 'Nuestro compromiso ecolÃ³gico',
+      subtitle: 'Porque un espacio limpio no deberÃ­a costarle nada al planeta.',
       cards: [
         {
           title: 'Productos certificados',
-          description: 'Todos nuestros productos eco están certificados y son biodegradables.'
+          description: 'Todos nuestros productos eco estÃ¡n certificados y son biodegradables.'
         },
         {
           title: 'Menos residuos',
-          description: 'Usamos herramientas reutilizables y minimizamos el plástico.'
+          description: 'Usamos herramientas reutilizables y minimizamos el plÃ¡stico.'
         },
         {
           title: 'Limpiadores formados',
-          description: 'Nuestros limpiadores están formados en buenas prácticas medioambientales.'
+          description: 'Nuestros limpiadores estÃ¡n formados en buenas prÃ¡cticas medioambientales.'
         }
       ]
     },
@@ -671,32 +690,32 @@ const pageContent: Record<Language, ServicePageContent> = {
       title: 'Preguntas sobre nuestros servicios',
       items: [
         {
-          question: '¿Qué incluye cada servicio?',
-          answer: 'Cada servicio tiene una lista detallada de inclusiones visible en su tarjeta. También puedes añadir opciones extra durante la reserva.'
+          question: 'Â¿QuÃ© incluye cada servicio?',
+          answer: 'Cada servicio tiene una lista detallada de inclusiones visible en su tarjeta. TambiÃ©n puedes aÃ±adir opciones extra durante la reserva.'
         },
         {
-          question: '¿Cuánto dura una sesión de limpieza?',
-          answer: 'La duración depende del tamaño de tu hogar y del servicio elegido. Se muestra una estimación en cada tarjeta de servicio.'
+          question: 'Â¿CuÃ¡nto dura una sesiÃ³n de limpieza?',
+          answer: 'La duraciÃ³n depende del tamaÃ±o de tu hogar y del servicio elegido. Se muestra una estimaciÃ³n en cada tarjeta de servicio.'
         },
         {
-          question: '¿Debo estar en casa durante la limpieza?',
+          question: 'Â¿Debo estar en casa durante la limpieza?',
           answer: 'No, no necesitas estar presente. Puedes dejar las instrucciones de acceso durante la reserva.'
         },
         {
-          question: '¿Los limpiadores traen su propio equipo?',
-          answer: 'Sí, todos los limpiadores vienen con su propio equipo profesional. Si deseas productos ecológicos, selecciona la opción durante la reserva.'
+          question: 'Â¿Los limpiadores traen su propio equipo?',
+          answer: 'SÃ­, todos los limpiadores vienen con su propio equipo profesional. Si deseas productos ecolÃ³gicos, selecciona la opciÃ³n durante la reserva.'
         },
         {
-          question: '¿Puedo modificar o cancelar mi reserva?',
-          answer: 'Sí. Puedes modificar o cancelar gratis hasta 24 horas antes de tu sesión desde tu panel personal.'
+          question: 'Â¿Puedo modificar o cancelar mi reserva?',
+          answer: 'SÃ­. Puedes modificar o cancelar gratis hasta 24 horas antes de tu sesiÃ³n desde tu panel personal.'
         }
       ]
     },
     finalCta: {
-      title: '¿Qué servicio te conviene?',
-      subtitle: 'Reserva en pocos minutos o contáctanos para un presupuesto personalizado.',
+      title: 'Â¿QuÃ© servicio te conviene?',
+      subtitle: 'Reserva en pocos minutos o contÃ¡ctanos para un presupuesto personalizado.',
       primary: 'Reservar ahora',
-      secondary: 'Contáctanos'
+      secondary: 'ContÃ¡ctanos'
     }
   },
 };
@@ -821,7 +840,7 @@ export function ServicesPage() {
                 {selectedFilter === 'all' ? content.hero.title : content.filters[selectedFilter]}
               </h2>
               <p className="mt-2 text-sm text-[#6B7280]">
-                {city.trim() ? `${filteredServices.length} services • ${city}` : `${filteredServices.length} services`}
+                {city.trim() ? `${filteredServices.length} services â€¢ ${city}` : `${filteredServices.length} services`}
               </p>
             </div>
           </div>

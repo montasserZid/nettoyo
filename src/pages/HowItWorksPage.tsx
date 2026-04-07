@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import {
   BadgeCheck,
   Bell,
@@ -62,8 +62,9 @@ const pageContent: Record<
   fr: {
     hero: {
       title: 'Comment ça marche ?',
-      tagline: 'Simple, rapide et fiable — en trois étapes.',
-      cta: 'Réserver un nettoyeur'
+      tagline:
+        "Nettoyó est une marketplace qui vous met en relation avec des nettoyeurs indépendants à Montréal, Laval, Longueuil, sur la Rive-Nord et la Rive-Sud.",
+      cta: 'Envoyer une demande'
     },
     tabs: {
       client: 'Je suis un client',
@@ -71,132 +72,157 @@ const pageContent: Record<
     },
     clientSteps: [
       {
-        title: 'Décrivez votre espace',
-        description: 'Indiquez le type de logement, la superficie et vos besoins spécifiques.'
+        title: 'Décrivez votre besoin',
+        description:
+          'Précisez le type de logement, la zone et le service recherché pour recevoir des options pertinentes.'
       },
       {
-        title: 'Choisissez un nettoyeur',
-        description: 'Parcourez les profils vérifiés, les avis et les tarifs. Choisissez celui qui vous convient.'
+        title: 'Comparez les nettoyeurs disponibles',
+        description:
+          'Consultez profils, avis, disponibilités et prix définis par chaque nettoyeur indépendant.'
       },
       {
-        title: 'Réservez un créneau',
-        description: "Sélectionnez la date et l'heure qui vous arrangent. Confirmation instantanée."
+        title: 'Envoyez votre demande',
+        description:
+          "Sélectionnez une date puis envoyez une demande de réservation. Le nettoyeur accepte ou refuse selon ses disponibilités."
       },
       {
-        title: "Profitez d'un espace impeccable",
-        description: "Votre nettoyeur arrive à l'heure. Vous rentrez dans un espace parfaitement propre."
+        title: 'Connectez-vous directement',
+        description:
+          "Une fois la demande acceptée, vous coordonnez les détails directement avec le nettoyeur. Le paiement du service se fait hors plateforme."
       }
     ],
     cleanerSteps: [
       {
         title: 'Créez votre profil',
-        description: "Ajoutez vos compétences, votre expérience et une photo. Vérification d'identité rapide."
+        description:
+          "Présentez votre expérience, vos services et vos zones d'intervention pour être visible auprès des clients."
       },
       {
-        title: 'Définissez vos disponibilités',
-        description: "Choisissez vos jours, vos horaires et votre zone d'intervention. Vous êtes libre."
+        title: 'Définissez vos services',
+        description:
+          'Fixez vos propres prix, vos disponibilités et les secteurs où vous souhaitez intervenir.'
       },
       {
-        title: 'Recevez des réservations',
-        description: 'Les clients vous contactent directement. Acceptez les missions qui vous correspondent.'
+        title: 'Recevez des demandes',
+        description:
+          'Les clients vous envoient des demandes de réservation. Vous choisissez uniquement les missions que vous voulez accepter.'
       },
       {
-        title: 'Soyez payé rapidement',
-        description: 'Paiement sécurisé après chaque mission. Retirez vos gains à tout moment.'
+        title: 'Soyez payé directement par vos clients',
+        description:
+          "Après chaque prestation, vous êtes payé directement par le client selon l'entente convenue entre vous."
       }
     ],
-    trustTitle: 'Pourquoi faire confiance à Nettoyó ?',
+    trustTitle: 'Pourquoi utiliser Nettoyó ?',
     trustCards: [
       {
-        title: 'Nettoyeurs vérifiés',
-        description: "Chaque nettoyeur passe une vérification d'identité et un contrôle des antécédents avant d'être accepté."
+        title: 'Profils vérifiés',
+        description:
+          "Les nettoyeurs présents sur la plateforme passent une vérification de profil avant d'être visibles."
       },
       {
-        title: 'Paiement sécurisé',
-        description: "Vos informations bancaires sont protégées. Vous ne payez qu'une fois la mission confirmée."
+        title: 'Transparence des informations',
+        description:
+          'Disponibilités, zones, prix et avis sont visibles pour vous aider à comparer avant de réserver.'
       },
       {
-        title: 'Satisfaction garantie',
-        description: "Pas satisfait ? Nous revenons gratuitement sous 24 heures ou vous êtes remboursé."
+        title: 'Avis de la communauté',
+        description:
+          "Les retours d'autres utilisateurs vous aident à choisir un nettoyeur adapté à vos attentes."
       },
       {
-        title: 'Couverture assurance',
-        description: 'Chaque intervention est couverte par notre assurance responsabilité civile professionnelle.'
+        title: 'Matching local et flexible',
+        description:
+          'Trouvez des nettoyeurs indépendants près de chez vous, avec des horaires et des conditions qui vous conviennent.'
       }
     ],
-    pricingTitle: 'Une tarification simple et transparente',
+    pricingTitle: 'Comment fonctionne la tarification',
     pricingCards: [
       {
-        title: 'Aucun frais caché',
-        description: 'Le prix affiché est le prix final. Pas de mauvaises surprises.'
+        title: 'Frais de plateforme',
+        description:
+          "Nettoyó facture un petit frais de plateforme par réservation (exemple : 5 $) pour l'utilisation du service."
       },
       {
-        title: 'Payez uniquement ce que vous réservez',
-        description: "Pas d'abonnement. Pas d'engagement. Payez à la mission."
+        title: 'Prix du nettoyeur',
+        description:
+          'Chaque nettoyeur indépendant fixe ses propres tarifs. Les prix peuvent varier selon le profil, la zone et la demande.'
       },
       {
-        title: 'Annulation gratuite',
-        description: "Annulez jusqu'à 24h avant votre réservation sans aucun frais."
+        title: 'Paiement du service',
+        description:
+          'Le paiement de la prestation est réglé directement entre le client et le nettoyeur, hors plateforme.'
       }
     ],
     faqTitle: 'Questions fréquentes',
     faqItems: [
       {
-        question: 'Comment sont sélectionnés les nettoyeurs ?',
-        answer: "Chaque nettoyeur passe une vérification d'identité, un contrôle des antécédents et une évaluation de ses compétences avant d'être accepté sur la plateforme."
+        question: 'Nettoyó emploie-t-il les nettoyeurs ?',
+        answer:
+          'Non. Les nettoyeurs sont des professionnels indépendants qui utilisent la marketplace pour trouver des clients.'
       },
       {
-        question: 'Que se passe-t-il si je ne suis pas satisfait ?',
-        answer: 'Contactez-nous dans les 24 heures suivant votre nettoyage. Nous organisons une intervention gratuite ou vous remboursons intégralement.'
+        question: 'Qui fixe le prix du service ?',
+        answer:
+          'Le nettoyeur fixe son propre prix. Vous pouvez comparer plusieurs profils avant d’envoyer votre demande.'
       },
       {
-        question: 'Puis-je garder le même nettoyeur à chaque fois ?',
-        answer: 'Oui. Vous pouvez marquer un nettoyeur comme favori et le réserver directement pour vos prochaines interventions.'
+        question: 'Comment se passe le paiement ?',
+        answer:
+          "Le frais de plateforme est payé dans l'application. Le paiement du service est effectué directement au nettoyeur en dehors de la plateforme."
       },
       {
-        question: "Quels produits d'entretien sont utilisés ?",
-        answer: "Les nettoyeurs apportent leur propre matériel professionnel. Vous pouvez aussi demander l'utilisation de produits écologiques."
+        question: 'Dans quelles zones puis-je trouver un nettoyeur ?',
+        answer:
+          'Vous pouvez trouver des nettoyeurs à Montréal, Laval, Longueuil, sur la Rive-Nord et la Rive-Sud selon les disponibilités.'
       },
       {
         question: 'Comment devenir nettoyeur sur Nettoyó ?',
-        answer: "Créez un compte, complétez votre profil, passez la vérification d'identité et commencez à recevoir des demandes de clients près de chez vous."
+        answer:
+          'Créez votre profil, définissez vos services et disponibilités, puis acceptez les demandes qui vous intéressent.'
       }
     ],
-    testimonialsTitle: 'Ils adorent Nettoyó',
+    testimonialsTitle: 'Retours de la communauté',
     clients: [
       {
-        name: 'Marie L.',
-        location: 'Paris',
-        quote: "J'utilise Nettoyó chaque semaine. Mon appartement n'a jamais été aussi propre et je n'ai jamais eu le moindre problème."
+        name: 'Nadia T.',
+        location: 'Montréal',
+        quote:
+          'J’ai pu comparer plusieurs profils avant de réserver. Le fonctionnement est clair et je choisis le nettoyeur qui me convient.'
       },
       {
-        name: 'Thomas B.',
-        location: 'Lyon',
-        quote: "Réservation en deux minutes, nettoyeur ponctuel et professionnel. Exactement ce dont j'avais besoin."
+        name: 'Marc D.',
+        location: 'Laval',
+        quote:
+          'La demande a été acceptée rapidement et la communication directe avec le nettoyeur a simplifié toute l’organisation.'
       },
       {
-        name: 'Sofia R.',
-        location: 'Bordeaux',
-        quote: "Le service après-vente est excellent. J'ai eu un petit souci une fois et ils ont tout réglé en moins d'une heure."
+        name: 'Lina P.',
+        location: 'Longueuil',
+        quote:
+          'Les prix varient selon les profils, ce qui me permet de comparer et de réserver selon mon budget.'
       }
     ],
-    cleanerBadge: 'Nettoyeur certifié',
+    cleanerBadge: 'Nettoyeur indépendant',
     cleaner: {
-      name: 'Karim D.',
-      location: 'Marseille',
-      quote: "Depuis que j'ai rejoint Nettoyó, j'ai un revenu stable et des clients réguliers. La plateforme est simple et les paiements sont toujours à l'heure."
+      name: 'Olivier R.',
+      location: 'Rive-Sud',
+      quote:
+        'Je gère mon planning, mes tarifs et les demandes que j’accepte. La plateforme me met en relation avec des clients locaux.'
     },
     finalCta: {
       title: 'Prêt à commencer ?',
-      subtitle: "Rejoignez des milliers de clients satisfaits — ou proposez vos services dès aujourd'hui.",
-      primary: 'Réserver un nettoyeur',
-      secondary: 'Devenir nettoyeur'
+      subtitle:
+        "Que vous soyez client ou nettoyeur indépendant, Nettoyó facilite la mise en relation locale de façon transparente.",
+      primary: 'Créer une demande',
+      secondary: 'Créer mon profil nettoyeur'
     }
   },
   en: {
     hero: {
       title: 'How does it work?',
-      tagline: 'Simple, fast and reliable — in three steps.',
+      tagline: 'Simple, fast and reliable â€” in three steps.',
       cta: 'Book a cleaner'
     },
     tabs: {
@@ -239,7 +265,7 @@ const pageContent: Record<
         description: 'Secure payment after every job. Withdraw your earnings anytime.'
       }
     ],
-    trustTitle: 'Why trust Nettoyó?',
+    trustTitle: 'Why trust NettoyÃ³?',
     trustCards: [
       {
         title: 'Verified cleaners',
@@ -292,16 +318,16 @@ const pageContent: Record<
         answer: 'Cleaners bring their own professional equipment. You can also request the use of eco-friendly products.'
       },
       {
-        question: 'How do I become a cleaner on Nettoyó?',
+        question: 'How do I become a cleaner on NettoyÃ³?',
         answer: 'Create an account, complete your profile, pass the identity verification and start receiving requests from nearby clients.'
       }
     ],
-    testimonialsTitle: 'They love Nettoyó',
+    testimonialsTitle: 'They love NettoyÃ³',
     clients: [
       {
         name: 'Marie L.',
         location: 'Paris',
-        quote: 'I use Nettoyó every week. My apartment has never been so clean and I have never had the slightest issue.'
+        quote: 'I use NettoyÃ³ every week. My apartment has never been so clean and I have never had the slightest issue.'
       },
       {
         name: 'Thomas B.',
@@ -318,19 +344,19 @@ const pageContent: Record<
     cleaner: {
       name: 'Karim D.',
       location: 'Marseille',
-      quote: 'Since joining Nettoyó, I have a stable income and regular clients. The platform is simple and payments are always on time.'
+      quote: 'Since joining NettoyÃ³, I have a stable income and regular clients. The platform is simple and payments are always on time.'
     },
     finalCta: {
       title: 'Ready to get started?',
-      subtitle: 'Join thousands of happy clients — or offer your services starting today.',
+      subtitle: 'Join thousands of happy clients â€” or offer your services starting today.',
       primary: 'Book a cleaner',
       secondary: 'Become a cleaner'
     }
   },
   es: {
     hero: {
-      title: '¿Cómo funciona?',
-      tagline: 'Simple, rápido y confiable — en tres pasos.',
+      title: 'Â¿CÃ³mo funciona?',
+      tagline: 'Simple, rÃ¡pido y confiable â€” en tres pasos.',
       cta: 'Reservar un limpiador'
     },
     tabs: {
@@ -340,15 +366,15 @@ const pageContent: Record<
     clientSteps: [
       {
         title: 'Describe tu espacio',
-        description: 'Indica el tipo de vivienda, el tamaño y tus necesidades específicas.'
+        description: 'Indica el tipo de vivienda, el tamaÃ±o y tus necesidades especÃ­ficas.'
       },
       {
         title: 'Elige un limpiador',
-        description: 'Explora perfiles verificados, reseñas y tarifas. Elige el que más te convenga.'
+        description: 'Explora perfiles verificados, reseÃ±as y tarifas. Elige el que mÃ¡s te convenga.'
       },
       {
         title: 'Reserva un horario',
-        description: 'Selecciona la fecha y hora que te convenga. Confirmación instantánea.'
+        description: 'Selecciona la fecha y hora que te convenga. ConfirmaciÃ³n instantÃ¡nea.'
       },
       {
         title: 'Disfruta de un espacio impecable',
@@ -358,38 +384,38 @@ const pageContent: Record<
     cleanerSteps: [
       {
         title: 'Crea tu perfil',
-        description: 'Añade tus habilidades, experiencia y una foto. Verificación de identidad rápida.'
+        description: 'AÃ±ade tus habilidades, experiencia y una foto. VerificaciÃ³n de identidad rÃ¡pida.'
       },
       {
         title: 'Define tu disponibilidad',
-        description: 'Elige tus días, horarios y zona de trabajo. Tú tienes el control.'
+        description: 'Elige tus dÃ­as, horarios y zona de trabajo. TÃº tienes el control.'
       },
       {
         title: 'Recibe reservas',
         description: 'Los clientes te contactan directamente. Acepta los trabajos que te convengan.'
       },
       {
-        title: 'Cobra rápido',
-        description: 'Pago seguro después de cada trabajo. Retira tus ganancias cuando quieras.'
+        title: 'Cobra rÃ¡pido',
+        description: 'Pago seguro despuÃ©s de cada trabajo. Retira tus ganancias cuando quieras.'
       }
     ],
-    trustTitle: '¿Por qué confiar en Nettoyó?',
+    trustTitle: 'Â¿Por quÃ© confiar en NettoyÃ³?',
     trustCards: [
       {
         title: 'Limpiadores verificados',
-        description: 'Cada limpiador pasa una verificación de identidad y un control de antecedentes antes de ser aceptado.'
+        description: 'Cada limpiador pasa una verificaciÃ³n de identidad y un control de antecedentes antes de ser aceptado.'
       },
       {
         title: 'Pago seguro',
-        description: 'Tus datos bancarios están protegidos. Solo pagas una vez confirmado el trabajo.'
+        description: 'Tus datos bancarios estÃ¡n protegidos. Solo pagas una vez confirmado el trabajo.'
       },
       {
-        title: 'Satisfacción garantizada',
-        description: '¿No estás satisfecho? Volvemos gratis en 24 horas o te reembolsamos.'
+        title: 'SatisfacciÃ³n garantizada',
+        description: 'Â¿No estÃ¡s satisfecho? Volvemos gratis en 24 horas o te reembolsamos.'
       },
       {
         title: 'Cobertura de seguro',
-        description: 'Cada sesión de limpieza está cubierta por nuestro seguro de responsabilidad profesional.'
+        description: 'Cada sesiÃ³n de limpieza estÃ¡ cubierta por nuestro seguro de responsabilidad profesional.'
       }
     ],
     pricingTitle: 'Precios simples y transparentes',
@@ -400,42 +426,42 @@ const pageContent: Record<
       },
       {
         title: 'Paga solo lo que reservas',
-        description: 'Sin suscripción. Sin compromiso. Paga por trabajo.'
+        description: 'Sin suscripciÃ³n. Sin compromiso. Paga por trabajo.'
       },
       {
-        title: 'Cancelación gratuita',
-        description: 'Cancela hasta 24 horas antes de tu reserva sin ningún cargo.'
+        title: 'CancelaciÃ³n gratuita',
+        description: 'Cancela hasta 24 horas antes de tu reserva sin ningÃºn cargo.'
       }
     ],
     faqTitle: 'Preguntas frecuentes',
     faqItems: [
       {
-        question: '¿Cómo se seleccionan los limpiadores?',
-        answer: 'Cada limpiador pasa una verificación de identidad, un control de antecedentes y una evaluación de habilidades antes de ser aceptado en la plataforma.'
+        question: 'Â¿CÃ³mo se seleccionan los limpiadores?',
+        answer: 'Cada limpiador pasa una verificaciÃ³n de identidad, un control de antecedentes y una evaluaciÃ³n de habilidades antes de ser aceptado en la plataforma.'
       },
       {
-        question: '¿Qué pasa si no estoy satisfecho?',
-        answer: 'Contáctanos dentro de las 24 horas posteriores a tu limpieza. Organizaremos una visita gratuita o te reembolsaremos completamente.'
+        question: 'Â¿QuÃ© pasa si no estoy satisfecho?',
+        answer: 'ContÃ¡ctanos dentro de las 24 horas posteriores a tu limpieza. Organizaremos una visita gratuita o te reembolsaremos completamente.'
       },
       {
-        question: '¿Puedo tener siempre el mismo limpiador?',
-        answer: 'Sí. Puedes marcar un limpiador como favorito y reservarlo directamente para tus próximas sesiones de limpieza.'
+        question: 'Â¿Puedo tener siempre el mismo limpiador?',
+        answer: 'SÃ­. Puedes marcar un limpiador como favorito y reservarlo directamente para tus prÃ³ximas sesiones de limpieza.'
       },
       {
-        question: '¿Qué productos de limpieza se usan?',
-        answer: 'Los limpiadores traen su propio equipo profesional. También puedes solicitar el uso de productos ecológicos.'
+        question: 'Â¿QuÃ© productos de limpieza se usan?',
+        answer: 'Los limpiadores traen su propio equipo profesional. TambiÃ©n puedes solicitar el uso de productos ecolÃ³gicos.'
       },
       {
-        question: '¿Cómo me convierto en limpiador en Nettoyó?',
-        answer: 'Crea una cuenta, completa tu perfil, pasa la verificación de identidad y empieza a recibir solicitudes de clientes cercanos.'
+        question: 'Â¿CÃ³mo me convierto en limpiador en NettoyÃ³?',
+        answer: 'Crea una cuenta, completa tu perfil, pasa la verificaciÃ³n de identidad y empieza a recibir solicitudes de clientes cercanos.'
       }
     ],
-    testimonialsTitle: 'Ellos aman Nettoyó',
+    testimonialsTitle: 'Ellos aman NettoyÃ³',
     clients: [
       {
         name: 'Marie L.',
         location: 'Paris',
-        quote: 'Uso Nettoyó cada semana. Mi apartamento nunca ha estado tan limpio y nunca he tenido el menor problema.'
+        quote: 'Uso NettoyÃ³ cada semana. Mi apartamento nunca ha estado tan limpio y nunca he tenido el menor problema.'
       },
       {
         name: 'Thomas B.',
@@ -445,18 +471,18 @@ const pageContent: Record<
       {
         name: 'Sofia R.',
         location: 'Bordeaux',
-        quote: 'El servicio al cliente es excelente. Tuve un pequeño problema una vez y lo resolvieron todo en menos de una hora.'
+        quote: 'El servicio al cliente es excelente. Tuve un pequeÃ±o problema una vez y lo resolvieron todo en menos de una hora.'
       }
     ],
     cleanerBadge: 'Limpiador certificado',
     cleaner: {
       name: 'Karim D.',
       location: 'Marseille',
-      quote: 'Desde que me uní a Nettoyó, tengo ingresos estables y clientes regulares. La plataforma es sencilla y los pagos siempre llegan a tiempo.'
+      quote: 'Desde que me unÃ­ a NettoyÃ³, tengo ingresos estables y clientes regulares. La plataforma es sencilla y los pagos siempre llegan a tiempo.'
     },
     finalCta: {
-      title: '¿Listo para empezar?',
-      subtitle: 'Únete a miles de clientes satisfechos — o empieza a ofrecer tus servicios hoy.',
+      title: 'Â¿Listo para empezar?',
+      subtitle: 'Ãšnete a miles de clientes satisfechos â€” o empieza a ofrecer tus servicios hoy.',
       primary: 'Reservar un limpiador',
       secondary: 'Convertirse en limpiador'
     }
