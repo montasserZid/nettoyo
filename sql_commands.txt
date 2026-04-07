@@ -402,3 +402,23 @@ ALTER TABLE public.cleaner_client_reviews
 ALTER TABLE public.client_cleaner_reviews
   ADD COLUMN IF NOT EXISTS confirmation_response TEXT
   CHECK (confirmation_response IN ('yes', 'no'));
+
+-- =========================================
+-- 13) Client cancellation policy (>=24h)
+-- =========================================
+
+DROP POLICY IF EXISTS "Clients can cancel own bookings" ON public.bookings;
+CREATE POLICY "Clients can cancel own bookings"
+  ON public.bookings
+  FOR UPDATE
+  TO authenticated
+  USING (
+    auth.uid() = client_id
+    AND status IN ('pending', 'confirmed')
+    AND scheduled_at IS NOT NULL
+    AND scheduled_at >= now() + interval '24 hours'
+  )
+  WITH CHECK (
+    auth.uid() = client_id
+    AND status = 'cancelled'
+  );

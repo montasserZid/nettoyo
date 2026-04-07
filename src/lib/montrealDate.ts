@@ -53,3 +53,39 @@ export function daysSinceMontrealDate(value: Date | string, montrealToday = getM
   if (!Number.isFinite(diff)) return null;
   return Math.floor(diff / (24 * 60 * 60 * 1000));
 }
+
+function toValidDate(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+}
+
+export function hoursUntil(value: Date | string, now = new Date()) {
+  const target = toValidDate(value);
+  if (!target) {
+    return null;
+  }
+  const diffMs = target.getTime() - now.getTime();
+  if (!Number.isFinite(diffMs)) {
+    return null;
+  }
+  return diffMs / (60 * 60 * 1000);
+}
+
+export function hasAtLeastHoursUntil(value: Date | string, minimumHours: number, now = new Date()) {
+  const hours = hoursUntil(value, now);
+  if (hours === null) {
+    return false;
+  }
+  return hours >= minimumHours;
+}
+
+export function isWithinHoursBefore(value: Date | string, hoursWindow: number, now = new Date()) {
+  const hours = hoursUntil(value, now);
+  if (hours === null) {
+    return false;
+  }
+  return hours >= 0 && hours <= hoursWindow;
+}

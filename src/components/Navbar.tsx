@@ -39,6 +39,11 @@ const clientNavLabels = {
   en: 'History',
   es: 'Historial'
 } as const;
+const clientReservationsLabels = {
+  fr: 'Mes reservations',
+  en: 'My bookings',
+  es: 'Mis reservas'
+} as const;
 
 type CleanerBookingPreview = {
   id: string;
@@ -71,6 +76,7 @@ export function Navbar() {
   const loginPath = getPathForRoute(language, 'login');
   const cleanerPath = getLocalizedSectionPath(language, 'become-cleaner');
   const cleanerHistoryPath = getPathForRoute(language, 'cleanerHistory');
+  const clientReservationsPath = getPathForRoute(language, 'clientReservations');
   const clientHistoryPath = getPathForRoute(language, 'clientHistory');
   const dashboardRoute = isCleaner() ? 'cleanerDashboard' : 'clientDashboard';
   const dashboardPath = getPathForRoute(language, dashboardRoute);
@@ -80,6 +86,7 @@ export function Navbar() {
   const reservationLabels = reservationCtaLabels[language];
   const cleanerNavText = cleanerNavLabels[language];
   const clientNavText = clientNavLabels[language];
+  const clientReservationsText = clientReservationsLabels[language];
 
   const initials = useMemo(() => {
     const first = profile?.first_name?.[0] ?? user?.email?.[0] ?? 'N';
@@ -123,8 +130,26 @@ export function Navbar() {
     };
 
     void loadCleanerBookingStats();
+
+    const channel = supabase
+      .channel(`navbar-cleaner-bookings-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+          filter: `cleaner_id=eq.${user.id}`
+        },
+        () => {
+          void loadCleanerBookingStats();
+        }
+      )
+      .subscribe();
+
     return () => {
       active = false;
+      void supabase.removeChannel(channel);
     };
   }, [isCleaner, user?.id]);
 
@@ -198,6 +223,7 @@ export function Navbar() {
       | 'services'
       | 'login'
       | 'clientReservation'
+      | 'clientReservations'
       | 'clientHistory'
       | 'cleanerReservations'
       | 'cleanerHistory'
@@ -242,12 +268,17 @@ export function Navbar() {
                 </span>
               </a>
             ) : user && isClient() ? (
-              <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'clientHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>
-                <span className="inline-flex items-center">
-                  {clientNavText}
-                  {historyPendingCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">{historyPendingCount}</span> : null}
-                </span>
-              </a>
+              <>
+                <a href={clientReservationsPath} onClick={(event) => { event.preventDefault(); goTo('clientReservations'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'clientReservations' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>
+                  {clientReservationsText}
+                </a>
+                <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`font-medium transition-colors hover:text-[#4FC3F7] ${route === 'clientHistory' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E]'}`}>
+                  <span className="inline-flex items-center">
+                    {clientNavText}
+                    {historyPendingCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">{historyPendingCount}</span> : null}
+                  </span>
+                </a>
+              </>
             ) : (
               <a href={cleanerPath} className="font-medium text-[#1A1A2E] transition-colors hover:text-[#4FC3F7]">{t.nav.becomeCleaner}</a>
             )}
@@ -305,12 +336,17 @@ export function Navbar() {
                 </span>
               </a>
             ) : user && isClient() ? (
-              <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`block font-medium ${route === 'clientHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>
-                <span className="inline-flex items-center">
-                  {clientNavText}
-                  {historyPendingCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">{historyPendingCount}</span> : null}
-                </span>
-              </a>
+              <>
+                <a href={clientReservationsPath} onClick={(event) => { event.preventDefault(); goTo('clientReservations'); }} className={`block font-medium ${route === 'clientReservations' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>
+                  {clientReservationsText}
+                </a>
+                <a href={clientHistoryPath} onClick={(event) => { event.preventDefault(); goTo('clientHistory'); }} className={`block font-medium ${route === 'clientHistory' ? 'text-[#4FC3F7]' : 'text-[#1A1A2E]'}`}>
+                  <span className="inline-flex items-center">
+                    {clientNavText}
+                    {historyPendingCount > 0 ? <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-bold text-white">{historyPendingCount}</span> : null}
+                  </span>
+                </a>
+              </>
             ) : (
               <a href={cleanerPath} className="block font-medium text-[#1A1A2E]">{t.nav.becomeCleaner}</a>
             )}

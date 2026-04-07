@@ -315,6 +315,32 @@ export function CleanerReservationsPage() {
     };
   }, [isCleaner, user?.id]);
 
+  useEffect(() => {
+    if (!user?.id || !isCleaner()) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`cleaner-reservations-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+          filter: `cleaner_id=eq.${user.id}`
+        },
+        () => {
+          void loadBookings(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isCleaner, user?.id]);
+
   const montrealToday = useMemo(() => getMontrealToday(), []);
   const upcoming = useMemo(
     () => bookings.filter((booking) => booking.scheduled_at && isTodayOrFutureInMontreal(booking.scheduled_at, montrealToday)),

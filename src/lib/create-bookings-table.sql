@@ -28,6 +28,12 @@ CREATE POLICY "Clients can create own bookings"
   TO authenticated
   WITH CHECK (auth.uid() = client_id);
 
+CREATE POLICY "Clients can cancel own bookings"
+  ON public.bookings FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = client_id AND status IN ('pending', 'confirmed'))
+  WITH CHECK (auth.uid() = client_id AND status = 'cancelled');
+
 CREATE POLICY "Cleaners can view assigned bookings"
   ON public.bookings FOR SELECT
   TO authenticated
