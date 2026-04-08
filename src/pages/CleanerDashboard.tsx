@@ -96,6 +96,7 @@ const contentByLanguage = {
     photoTapHint: 'Appuyez sur la photo pour ajouter ou modifier.',
     phoneTitle: 'Numero de telephone',
     phoneHelp: 'Requis pour finaliser votre profil nettoyeur.',
+    phoneEdit: 'Modifier',
     phonePlaceholder: '+1 514 555 1234',
     phoneInvalid: 'Format requis: +1 suivi de 10 chiffres.',
     phoneRequired: 'Ajoutez un numero de telephone valide pour enregistrer votre profil.',
@@ -213,6 +214,7 @@ const contentByLanguage = {
     photoTapHint: 'Tap the photo to add or update it.',
     phoneTitle: 'Phone number',
     phoneHelp: 'Required to complete your cleaner profile.',
+    phoneEdit: 'Edit',
     phonePlaceholder: '+1 514 555 1234',
     phoneInvalid: 'Required format: +1 followed by 10 digits.',
     phoneRequired: 'Add a valid phone number to save your profile.',
@@ -330,6 +332,7 @@ const contentByLanguage = {
     photoTapHint: 'Toca la foto para agregarla o cambiarla.',
     phoneTitle: 'Numero de telefono',
     phoneHelp: 'Obligatorio para completar tu perfil de limpiador.',
+    phoneEdit: 'Editar',
     phonePlaceholder: '+1 514 555 1234',
     phoneInvalid: 'Formato requerido: +1 seguido de 10 digitos.',
     phoneRequired: 'Agrega un numero de telefono valido para guardar tu perfil.',
@@ -615,12 +618,14 @@ export function CleanerDashboardPage() {
   const serviceLabels = serviceLabelByLanguage[language];
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const phoneInputRef = useRef<HTMLInputElement | null>(null);
   const homeAddressRef = useRef<HTMLDivElement | null>(null);
   const autocompleteAbortRef = useRef<AbortController | null>(null);
 
   const [description, setDescription] = useState('');
   const [phoneValue, setPhoneValue] = useState('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneEditing, setPhoneEditing] = useState(false);
   const [hourlyRateInput, setHourlyRateInput] = useState('');
   const [selectedServices, setSelectedServices] = useState<CleanerServiceId[]>([]);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
@@ -683,6 +688,7 @@ export function CleanerDashboardPage() {
         setDescription('');
         setPhoneValue(profile?.phone ?? '');
         setPhoneError(null);
+        setPhoneEditing(false);
         setHourlyRateInput('');
         setSelectedServices([]);
         setPhotoDataUrl(profile?.avatar_url ?? null);
@@ -734,6 +740,7 @@ export function CleanerDashboardPage() {
       setDescription(normalized.description);
       setPhoneValue(profile?.phone ?? '');
       setPhoneError(null);
+      setPhoneEditing(false);
       setHourlyRateInput(normalized.hourlyRate !== null ? String(normalized.hourlyRate) : '');
       setSelectedServices(normalized.services);
       setPhotoDataUrl(normalized.photoDataUrl);
@@ -1075,6 +1082,7 @@ export function CleanerDashboardPage() {
     }
     const normalizedPhone = normalizeNorthAmericanPhone(phoneValue);
     if (!normalizedPhone) {
+      setPhoneEditing(true);
       setPhoneError(content.phoneInvalid);
       setErrorMessage(content.phoneRequired);
       return;
@@ -1196,6 +1204,7 @@ export function CleanerDashboardPage() {
     } else {
       updateProfile({ avatar_url: payload.photoDataUrl ?? null, phone: normalizedPhone });
       setPhoneValue(normalizedPhone);
+      setPhoneEditing(false);
     }
 
     const previousPhotoPath = extractSpacePhotoPath(previousPhotoUrl);
@@ -1375,16 +1384,32 @@ export function CleanerDashboardPage() {
                 </div>
 
                 <div className="mt-5 rounded-xl border border-[#E5E7EB] bg-white p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">{content.phoneTitle}</p>
-                  <p className="mt-1 text-xs text-[#6B7280] sm:text-sm">{content.phoneHelp}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">{content.phoneTitle}</p>
+                      <p className="mt-1 text-xs text-[#6B7280] sm:text-sm">{content.phoneHelp}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhoneEditing(true);
+                        window.setTimeout(() => phoneInputRef.current?.focus(), 0);
+                      }}
+                      className="inline-flex h-8 items-center rounded-full border border-[#E5E7EB] px-3 text-xs font-semibold text-[#1A1A2E] transition-colors hover:bg-[#F7F7F7]"
+                    >
+                      {content.phoneEdit}
+                    </button>
+                  </div>
                   <div className="mt-3 flex items-center gap-2">
                     <input
+                      ref={phoneInputRef}
                       type="tel"
                       value={phoneValue}
                       onChange={(event) => {
                         setPhoneValue(event.target.value);
                         if (phoneError) setPhoneError(null);
                       }}
+                      disabled={!phoneEditing}
                       placeholder={content.phonePlaceholder}
                       className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold text-[#1A1A2E] outline-none transition-all ${
                         phoneError

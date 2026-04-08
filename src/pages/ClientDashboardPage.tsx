@@ -250,6 +250,7 @@ const contentByLanguage = {
     phone: {
       title: 'Numero de telephone',
       subtitle: "Obligatoire avant d'ajouter votre premier espace.",
+      edit: 'Modifier',
       placeholder: '+1 514 555 1234',
       save: 'Enregistrer',
       saving: 'Enregistrement...',
@@ -410,6 +411,7 @@ const contentByLanguage = {
     phone: {
       title: 'Phone number',
       subtitle: 'Required before adding your first space.',
+      edit: 'Edit',
       placeholder: '+1 514 555 1234',
       save: 'Save',
       saving: 'Saving...',
@@ -560,6 +562,7 @@ const contentByLanguage = {
     phone: {
       title: 'Numero de telefono',
       subtitle: 'Obligatorio antes de agregar tu primer espacio.',
+      edit: 'Editar',
       placeholder: '+1 514 555 1234',
       save: 'Guardar',
       saving: 'Guardando...',
@@ -850,11 +853,13 @@ export function ClientDashboardPage() {
   const [phoneValue, setPhoneValue] = useState('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneEditing, setPhoneEditing] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
 
   useEffect(() => {
     setPhoneValue(profile?.phone ?? '');
+    setPhoneEditing(false);
   }, [profile?.phone]);
 
   const fetchSpaces = async () => {
@@ -1059,6 +1064,7 @@ export function ClientDashboardPage() {
     }
     setPhoneError(null);
     setPhoneValue(normalized);
+    setPhoneEditing(false);
     updateProfile({ phone: normalized });
     setToast(content.phone.saved);
     window.setTimeout(() => setToast(null), 2200);
@@ -1067,6 +1073,7 @@ export function ClientDashboardPage() {
   const goToAddSpace = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (requiresPhoneBeforeFirstSpace && !hasValidPhone) {
+      setPhoneEditing(true);
       setPhoneError(content.phone.requiredForFirstSpace);
       phoneInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       phoneInputRef.current?.focus();
@@ -1145,6 +1152,16 @@ export function ClientDashboardPage() {
               <h2 className="text-lg font-bold text-[#1A1A2E]">{content.phone.title}</h2>
               <p className="mt-1 text-sm text-[#6B7280]">{content.phone.subtitle}</p>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPhoneEditing(true);
+                window.setTimeout(() => phoneInputRef.current?.focus(), 0);
+              }}
+              className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-semibold text-[#1A1A2E] transition-colors hover:bg-[#F7F7F7]"
+            >
+              {content.phone.edit}
+            </button>
             {requiresPhoneBeforeFirstSpace && !hasValidPhone ? (
               <p className="text-xs font-semibold text-[#B45309]">{content.phone.requiredForFirstSpace}</p>
             ) : null}
@@ -1158,6 +1175,7 @@ export function ClientDashboardPage() {
                 setPhoneValue(event.target.value);
                 if (phoneError) setPhoneError(null);
               }}
+              disabled={!phoneEditing}
               placeholder={content.phone.placeholder}
               className={`w-full rounded-xl border px-4 py-3 text-sm text-[#1A1A2E] outline-none ${
                 phoneError ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB] focus:border-[#4FC3F7]'
@@ -1165,7 +1183,7 @@ export function ClientDashboardPage() {
             />
             <button
               type="button"
-              disabled={phoneSaving}
+              disabled={phoneSaving || !phoneEditing}
               onClick={() => void savePhone()}
               className="inline-flex min-w-[130px] items-center justify-center rounded-full bg-[#4FC3F7] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
             >

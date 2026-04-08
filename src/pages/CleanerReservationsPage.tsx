@@ -2,7 +2,8 @@ import { CalendarDays, Clock3, Loader2, MessageSquare, Phone, X } from 'lucide-r
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
-import { expirePendingBookingsByActor, shouldShowBookingContact } from '../lib/bookingLifecycle';
+import { expirePendingBookingsByActor, shouldShowBookingContact, shouldShowBookingFullAddress } from '../lib/bookingLifecycle';
+import { getLocalizedRoomText, normalizeRoomItems } from '../lib/roomDisplay';
 import supabase from '../lib/supabase';
 
 type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' | 'expired';
@@ -10,7 +11,9 @@ type BookingSpace = {
   name?: string | null;
   address?: string | null;
   city?: string | null;
+  province?: string | null;
   postal_code?: string | null;
+  floor?: string | null;
   rooms?: unknown;
   notes?: string | null;
 } | null;
@@ -68,6 +71,8 @@ const contentByLanguage = {
     contactAvailable: 'Coordonnées disponibles',
     contactRuleSoon: 'Les coordonnées seront disponibles 24 h avant la réservation.',
     noPhone: 'Téléphone non disponible',
+    contactModalTitle: 'Contact du client',
+    addressRuleSoon: "L'adresse complete sera disponible 24 h avant la reservation.",
     actionError: "Impossible de mettre à jour la réservation pour l'instant.",
     confirmTitle: 'Confirmation',
     confirmMessage: 'Êtes-vous sûr ?',
@@ -106,6 +111,8 @@ const contentByLanguage = {
     contactAvailable: 'Contact details available',
     contactRuleSoon: 'Contact details will be available 24h before booking.',
     noPhone: 'Phone unavailable',
+    contactModalTitle: 'Client contact',
+    addressRuleSoon: 'The full address will be available 24h before booking.',
     actionError: 'Unable to update booking right now.',
     confirmTitle: 'Confirmation',
     confirmMessage: 'Are you sure?',
@@ -143,6 +150,8 @@ const contentByLanguage = {
     contactAvailable: 'Contacto disponible',
     contactRuleSoon: 'Los datos estaran disponibles 24h antes de la reserva.',
     noPhone: 'Telefono no disponible',
+    contactModalTitle: 'Contacto del cliente',
+    addressRuleSoon: 'La direccion completa estara disponible 24h antes de la reserva.',
     actionError: 'No se pudo actualizar la reserva.',
     confirmTitle: 'Confirmacion',
     confirmMessage: 'Estas seguro?',
@@ -153,33 +162,6 @@ const contentByLanguage = {
     loading: 'Cargando reservas...',
     estimatedHours: 'Estimacion',
     hoursSuffix: 'h'
-  }
-} as const;
-
-const roomLabels = {
-  fr: {
-    bedrooms: 'Chambres',
-    bathrooms: 'Salles de bain',
-    livingRooms: 'Salons',
-    kitchens: 'Cuisines',
-    offices: 'Bureaux',
-    other: 'Autres'
-  },
-  en: {
-    bedrooms: 'Bedrooms',
-    bathrooms: 'Bathrooms',
-    livingRooms: 'Living rooms',
-    kitchens: 'Kitchens',
-    offices: 'Offices',
-    other: 'Other'
-  },
-  es: {
-    bedrooms: 'Dormitorios',
-    bathrooms: 'Banos',
-    livingRooms: 'Salas',
-    kitchens: 'Cocinas',
-    offices: 'Oficinas',
-    other: 'Otros'
   }
 } as const;
 
@@ -205,14 +187,17 @@ function formatMontrealDateTime(value: string | null, language: 'fr' | 'en' | 'e
 }
 
 function formatApproxAddress(space: BookingSpace) {
-  const city = space?.city?.trim() || 'Montreal';
+  const city = space?.city?.trim() || '';
   const postal = space?.postal_code?.replace(/\s+/g, '').toUpperCase() || '';
   const postalPreview = postal ? `${postal.slice(0, 3)}...` : '';
-  return [city, postalPreview].filter(Boolean).join(', ');
+  const value = [city, postalPreview].filter(Boolean).join(', ');
+  return value || '--';
 }
 
 function formatDetailedAddress(space: BookingSpace) {
-  const chunks = [space?.address, space?.city, space?.postal_code].filter((item) => Boolean(item && String(item).trim()));
+  const floor = space?.floor?.trim();
+  const floorChunk = floor ? `Unité ${floor}` : null;
+  const chunks = [space?.address, floorChunk, space?.city, space?.province, space?.postal_code].filter((item) => Boolean(item && String(item).trim()));
   return chunks.length > 0 ? chunks.join(', ') : formatApproxAddress(space);
 }
 
@@ -226,17 +211,6 @@ function buildMaskedName(firstName?: string | null, lastName?: string | null) {
   if (!first) return 'Client';
   const initial = lastName?.trim()?.[0]?.toUpperCase() ?? '';
   return initial ? `${first} ${initial}.` : first;
-}
-
-function normalizeRooms(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return [] as Array<{ key: string; count: number }>;
-  return Object.entries(value as Record<string, unknown>)
-    .map(([key, raw]) => ({ key, count: typeof raw === 'number' ? raw : Number(raw) }))
-    .filter((item) => Number.isFinite(item.count) && item.count > 0);
-}
-
-function getRoomLabel(key: string, language: 'fr' | 'en' | 'es') {
-  return (roomLabels[language] as Record<string, string>)[key] ?? key;
 }
 
 function bookingStatusTone(status: 'pending' | 'accepted') {
@@ -282,6 +256,8 @@ export function CleanerReservationsPage() {
   const [clientContacts, setClientContacts] = useState<Record<string, ClientContact>>({});
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<CleanerBooking | null>(null);
+  const [contactBooking, setContactBooking] = useState<CleanerBooking | null>(null);
+  const [spaceDetailsByBookingId, setSpaceDetailsByBookingId] = useState<Record<string, BookingSpace>>({});
   const [confirmAction, setConfirmAction] = useState<{ booking: CleanerBooking; nextStatus: 'confirmed' | 'cancelled' } | null>(null);
   const [actionBookingId, setActionBookingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -329,7 +305,7 @@ export function CleanerReservationsPage() {
   const loadBookings = async (cleanerId: string) => {
     const { data, error } = await supabase
       .from('bookings')
-      .select('id,status,service_type,estimated_hours,scheduled_at,created_at,space_id,client_id,spaces(address,city,postal_code,rooms,notes,name)')
+      .select('id,status,service_type,estimated_hours,scheduled_at,created_at,space_id,client_id,spaces(address,city,province,postal_code,floor,rooms,notes,name)')
       .eq('cleaner_id', cleanerId)
       .in('status', ['pending', 'confirmed', 'accepted'])
       .order('scheduled_at', { ascending: true });
@@ -338,6 +314,7 @@ export function CleanerReservationsPage() {
       console.error('Cleaner reservations fetch error:', error);
       setBookings([]);
       setClientContacts({});
+      setSpaceDetailsByBookingId({});
       setLoading(false);
       return;
     }
@@ -380,6 +357,11 @@ export function CleanerReservationsPage() {
     } else {
       setClientContacts({});
     }
+
+    setSpaceDetailsByBookingId((current) => {
+      const allowedIds = new Set(activeRows.map((row) => row.id));
+      return Object.fromEntries(Object.entries(current).filter(([bookingId]) => allowedIds.has(bookingId)));
+    });
     setLoading(false);
   };
 
@@ -495,6 +477,7 @@ export function CleanerReservationsPage() {
   if (!isCleaner()) return null;
 
   const canShowContact = (booking: CleanerBooking) => shouldShowBookingContact(booking.scheduled_at);
+  const canShowFullAddress = (booking: CleanerBooking) => shouldShowBookingFullAddress(booking.scheduled_at);
 
   const renderPendingCard = (booking: CleanerBooking) => {
     const space = getPrimarySpace(booking.spaces);
@@ -559,7 +542,7 @@ export function CleanerReservationsPage() {
       <article key={booking.id} className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-[0_10px_24px_rgba(17,24,39,0.05)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-[#1A1A2E]">{formatDetailedAddress(space)}</p>
+            <p className="truncate text-sm font-bold text-[#1A1A2E]">{formatApproxAddress(space)}</p>
             <p className="mt-1 text-xs font-semibold text-[#0284C7]">{getServiceLabel(booking.service_type, language)}</p>
           </div>
           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${bookingStatusTone('accepted')}`}>
@@ -583,34 +566,33 @@ export function CleanerReservationsPage() {
           >
             {content.details}
           </button>
-          {contactVisible && client?.phone ? (
-            <a
-              href={`tel:${client.phone}`}
-              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#A8E6CF] px-3 py-2 text-xs font-semibold text-[#1A1A2E] transition-colors hover:bg-[#97d9be]"
-            >
-              <Phone size={12} />
-              {content.contact}
-            </a>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setToast(contactVisible ? content.noPhone : content.contactRuleSoon)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#F1F5F9] px-3 py-2 text-xs font-semibold text-[#475569] transition-colors hover:bg-[#E2E8F0]"
-            >
-              <Phone size={12} />
-              {content.contactSoon}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setContactBooking(booking)}
+            className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
+              contactVisible && client?.phone
+                ? 'bg-[#A8E6CF] text-[#1A1A2E] hover:bg-[#97d9be]'
+                : 'bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]'
+            }`}
+          >
+            <Phone size={12} />
+            {content.contact}
+          </button>
         </div>
       </article>
     );
   };
 
   const selectedSpace = getPrimarySpace(selectedBooking?.spaces ?? null);
-  const selectedRooms = normalizeRooms(selectedSpace?.rooms);
+  const selectedSpaceOverride = selectedBooking ? spaceDetailsByBookingId[selectedBooking.id] : null;
+  const selectedSpaceDetails: BookingSpace = selectedSpaceOverride ? { ...(selectedSpace ?? {}), ...selectedSpaceOverride } : selectedSpace;
+  const selectedRooms = normalizeRoomItems(selectedSpaceDetails?.rooms);
   const selectedIsPending = selectedBooking?.status === 'pending';
   const selectedClient = selectedBooking ? clientContacts[selectedBooking.client_id] : undefined;
   const selectedContactVisible = selectedBooking ? canShowContact(selectedBooking) : false;
+  const selectedFullAddressVisible = selectedBooking && !selectedIsPending ? canShowFullAddress(selectedBooking) : false;
+  const selectedContact = contactBooking ? clientContacts[contactBooking.client_id] : undefined;
+  const selectedContactVisibleFromModal = contactBooking ? canShowContact(contactBooking) : false;
 
   useEffect(() => {
     const targetRef = entryView === 'accepted' ? acceptedSectionRef : pendingSectionRef;
@@ -618,6 +600,53 @@ export function CleanerReservationsPage() {
       targetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
   }, [entryView]);
+
+  useEffect(() => {
+    if (!selectedBooking || selectedIsPending || !selectedFullAddressVisible) {
+      return;
+    }
+
+    const currentSpace = getPrimarySpace(selectedBooking.spaces);
+    if (currentSpace?.address?.trim()) {
+      return;
+    }
+
+    let active = true;
+    const loadFullSpace = async () => {
+      const { data, error } = await supabase
+        .from('spaces')
+        .select('address,city,province,postal_code,floor')
+        .eq('id', selectedBooking.space_id)
+        .maybeSingle();
+
+      if (!active || error) {
+        if (error) {
+          console.error('Cleaner reservations space fallback fetch error:', error);
+        }
+        return;
+      }
+
+      const row = data as { address: string | null; city: string | null; province: string | null; postal_code: string | null; floor: string | null } | null;
+      if (!row) return;
+
+      setSpaceDetailsByBookingId((current) => ({
+        ...current,
+        [selectedBooking.id]: {
+          ...(current[selectedBooking.id] ?? {}),
+          address: row.address,
+          city: row.city,
+          province: row.province,
+          postal_code: row.postal_code,
+          floor: row.floor
+        }
+      }));
+    };
+
+    void loadFullSpace();
+    return () => {
+      active = false;
+    };
+  }, [selectedBooking, selectedFullAddressVisible, selectedIsPending]);
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7] px-4 py-8 sm:px-6 lg:px-8">
@@ -695,13 +724,19 @@ export function CleanerReservationsPage() {
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-[#E5E7EB] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{content.placeDetails}</p>
-                <p className="mt-2 text-sm font-semibold text-[#1A1A2E]">{formatDetailedAddress(selectedSpace)}</p>
+                {selectedIsPending || selectedFullAddressVisible ? (
+                  <p className="mt-2 text-sm font-semibold text-[#1A1A2E]">{formatDetailedAddress(selectedSpaceDetails)}</p>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm font-semibold text-[#1A1A2E]">{formatApproxAddress(selectedSpaceDetails)}</p>
+                    <p className="mt-2 text-sm font-semibold text-[#6B7280]">{content.addressRuleSoon}</p>
+                  </>
+                )}
                 {selectedRooms.length > 0 ? (
                   <div className="mt-3 space-y-1">
                     {selectedRooms.map((item) => (
                       <div key={item.key} className="flex items-center justify-between text-sm text-[#4B5563]">
-                        <span>{getRoomLabel(item.key, language)}</span>
-                        <span className="font-semibold text-[#1A1A2E]">{item.count}</span>
+                        <span>{getLocalizedRoomText(item.key, item.count, language)}</span>
                       </div>
                     ))}
                   </div>
@@ -779,6 +814,56 @@ export function CleanerReservationsPage() {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {contactBooking ? (
+        <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-[#1A1A2E]">{content.contactModalTitle}</h3>
+                <p className="mt-1 text-sm text-[#4B5563]">{formatMontrealDateTime(contactBooking.scheduled_at, language)}</p>
+              </div>
+              <button type="button" onClick={() => setContactBooking(null)} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F7F7F7]">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-[#E5E7EB] bg-[#FAFBFC] p-4">
+              {selectedContactVisibleFromModal ? (
+                selectedContact?.phone ? (
+                  <a
+                    href={`tel:${selectedContact.phone}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#A8E6CF] px-4 py-2 text-sm font-semibold text-[#1A1A2E] hover:bg-[#97d9be]"
+                  >
+                    <Phone size={16} />
+                    {selectedContact.phone}
+                  </a>
+                ) : (
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#F1F5F9] px-4 py-2 text-sm font-semibold text-[#475569]">
+                    <Phone size={16} />
+                    {content.noPhone}
+                  </div>
+                )
+              ) : (
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#F1F5F9] px-4 py-2 text-sm font-semibold text-[#475569]">
+                  <Phone size={16} />
+                  {content.contactRuleSoon}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setContactBooking(null)}
+                className="rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280] hover:bg-[#F9FAFB]"
+              >
+                {content.close}
+              </button>
             </div>
           </div>
         </div>

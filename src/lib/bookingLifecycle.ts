@@ -1,5 +1,5 @@
 import supabase from './supabase';
-import { isPendingBookingExpired } from './montrealDate';
+import { isPendingBookingExpired, isWithinHoursBeforeMontreal } from './montrealDate';
 
 type BookingForExpiry = {
   id: string;
@@ -9,11 +9,12 @@ type BookingForExpiry = {
 
 export function shouldShowBookingContact(scheduledAt: string | null, now = new Date()) {
   if (!scheduledAt) return false;
-  const scheduledDate = new Date(scheduledAt);
-  if (Number.isNaN(scheduledDate.getTime())) return false;
-  const diffMs = scheduledDate.getTime() - now.getTime();
-  const twentyFourHoursMs = 24 * 60 * 60 * 1000;
-  return diffMs >= 0 && diffMs <= twentyFourHoursMs;
+  return isWithinHoursBeforeMontreal(scheduledAt, 24, now);
+}
+
+export function shouldShowBookingFullAddress(scheduledAt: string | null, now = new Date()) {
+  if (!scheduledAt) return false;
+  return isWithinHoursBeforeMontreal(scheduledAt, 24, now);
 }
 
 export function getExpirablePendingBookingIds(rows: BookingForExpiry[], now = new Date()) {

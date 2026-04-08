@@ -1,4 +1,4 @@
-ï»¿import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
+import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -41,10 +41,11 @@ const contentByLanguage = {
     title: 'Historique',
     subtitle: 'Retrouvez vos nettoyages passes et laissez un avis simple pour chaque nettoyeur.',
     empty: 'Aucun nettoyage passe pour le moment.',
-    details: 'Details',
+    details: 'Détails',
     leaveReview: 'Laisser un avis',
     viewReview: 'Voir votre avis',
     serviceDate: 'Date de service',
+    serviceTime: 'Heure',
     serviceType: 'Service',
     propertyType: 'Type de propriete',
     cleaner: 'Nettoyeur',
@@ -72,6 +73,7 @@ const contentByLanguage = {
     leaveReview: 'Leave review',
     viewReview: 'View your review',
     serviceDate: 'Service date',
+    serviceTime: 'Time',
     serviceType: 'Service',
     propertyType: 'Property type',
     cleaner: 'Cleaner',
@@ -99,6 +101,7 @@ const contentByLanguage = {
     leaveReview: 'Dejar resena',
     viewReview: 'Ver tu resena',
     serviceDate: 'Fecha de servicio',
+    serviceTime: 'Hora',
     serviceType: 'Servicio',
     propertyType: 'Tipo de propiedad',
     cleaner: 'Limpiador',
@@ -153,8 +156,19 @@ function formatMontrealDate(value: string | null, language: 'fr' | 'en' | 'es') 
   if (Number.isNaN(date.getTime())) return '--';
   const locale = language === 'fr' ? 'fr-CA' : language === 'es' ? 'es-CA' : 'en-CA';
   return new Intl.DateTimeFormat(locale, {
-    timeZone: 'America/Toronto',
+    timeZone: 'America/Montreal',
     dateStyle: 'medium'
+  }).format(date);
+}
+
+function formatMontrealTime(value: string | null, language: 'fr' | 'en' | 'es') {
+  if (!value) return '--';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--';
+  const locale = language === 'fr' ? 'fr-CA' : language === 'es' ? 'es-CA' : 'en-CA';
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: 'America/Montreal',
+    timeStyle: 'short'
   }).format(date);
 }
 
@@ -430,10 +444,24 @@ export function ClientHistoryPage() {
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-[#E5E7EB] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{content.placeDetails}</p>
+                <div className="mt-2 space-y-1.5 text-sm">
+                  <p className="text-[#4B5563]">
+                    <span className="font-semibold text-[#1A1A2E]">{content.serviceType}: </span>
+                    {formatService(selectedBooking.service_type, language)}
+                  </p>
+                  <p className="text-[#4B5563]">
+                    <span className="font-semibold text-[#1A1A2E]">{content.serviceDate}: </span>
+                    {formatMontrealDate(selectedBooking.scheduled_at, language)}
+                  </p>
+                  <p className="text-[#4B5563]">
+                    <span className="font-semibold text-[#1A1A2E]">{content.serviceTime}: </span>
+                    {formatMontrealTime(selectedBooking.scheduled_at, language)}
+                  </p>
+                </div>
                 {canShowSensitiveDetails(selectedBooking.scheduled_at, montrealToday) ? (
-                  <p className="mt-2 text-sm font-semibold text-[#1A1A2E]">{formatAddress(getPrimarySpace(selectedBooking.spaces))}</p>
+                  <p className="mt-3 text-sm font-semibold text-[#1A1A2E]">{formatAddress(getPrimarySpace(selectedBooking.spaces))}</p>
                 ) : (
-                  <p className="mt-2 text-sm font-semibold text-[#6B7280]">{content.addressHidden}</p>
+                  <p className="mt-3 text-sm font-semibold text-[#6B7280]">{content.addressHidden}</p>
                 )}
                 <p className="mt-3 text-sm text-[#4B5563]">{formatPropertyType(getPrimarySpace(selectedBooking.spaces)?.type, language)}</p>
               </div>
@@ -542,4 +570,6 @@ export function ClientHistoryPage() {
     </div>
   );
 }
+
+
 

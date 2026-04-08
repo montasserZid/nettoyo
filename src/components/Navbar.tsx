@@ -44,6 +44,12 @@ const clientReservationsLabels = {
   es: 'Mis reservas'
 } as const;
 
+const homeNavLabels = {
+  fr: 'Accueil',
+  en: 'Home',
+  es: 'Inicio'
+} as const;
+
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -59,6 +65,7 @@ export function Navbar() {
   const cleanerHistoryPath = getPathForRoute(language, 'cleanerHistory');
   const clientReservationsPath = getPathForRoute(language, 'clientReservations');
   const clientHistoryPath = getPathForRoute(language, 'clientHistory');
+  const homePath = getPathForRoute(language, 'home');
   const dashboardRoute = isCleaner() ? 'cleanerDashboard' : 'clientDashboard';
   const dashboardPath = getPathForRoute(language, dashboardRoute);
   const reservationRoute = user ? (isCleaner() ? 'cleanerReservations' : 'clientReservation') : 'login';
@@ -68,6 +75,7 @@ export function Navbar() {
   const cleanerNavText = cleanerNavLabels[language];
   const clientNavText = clientNavLabels[language];
   const clientReservationsText = clientReservationsLabels[language];
+  const homeNavText = homeNavLabels[language];
 
   const initials = useMemo(() => {
     const first = profile?.first_name?.[0] ?? user?.email?.[0] ?? 'N';
@@ -81,6 +89,7 @@ export function Navbar() {
       | 'howItWorks'
       | 'services'
       | 'login'
+      | 'home'
       | 'clientReservation'
       | 'clientReservations'
       | 'clientHistory'
@@ -112,11 +121,12 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
-          <a href="/" className="flex items-center overflow-visible py-2">
+          <a href={homePath} className="flex items-center overflow-visible py-2" onClick={(event) => { event.preventDefault(); goTo('home'); }}>
             <NettoyoLogo className="h-14" />
           </a>
 
           <div className="hidden items-center space-x-8 md:flex">
+            <a href={homePath} onClick={(event) => { event.preventDefault(); goTo('home'); }} className={route === 'home' ? 'text-[#4FC3F7] font-semibold' : 'text-[#1A1A2E] font-medium hover:text-[#4FC3F7] transition-colors'}>{homeNavText}</a>
             <a href={howItWorksPath} onClick={(event) => { event.preventDefault(); goTo('howItWorks'); }} className={howItWorksClass}>{t.nav.howItWorks}</a>
             <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={servicesClass}>{t.nav.services}</a>
             {isCleaner() ? (
@@ -185,6 +195,7 @@ export function Navbar() {
       {mobileMenuOpen ? (
         <div className="border-t border-[#E5E7EB] bg-white md:hidden">
           <div className="space-y-4 px-4 py-4">
+            <a href={homePath} onClick={(event) => { event.preventDefault(); goTo('home'); }} className={`block ${route === 'home' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{homeNavText}</a>
             <a href={howItWorksPath} onClick={(event) => { event.preventDefault(); goTo('howItWorks'); }} className={`block ${route === 'howItWorks' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.howItWorks}</a>
             <a href={servicesPath} onClick={(event) => { event.preventDefault(); goTo('services'); }} className={`block ${route === 'services' ? 'font-semibold text-[#4FC3F7]' : 'font-medium text-[#1A1A2E]'}`}>{t.nav.services}</a>
             {isCleaner() ? (
@@ -232,3 +243,5 @@ export function Navbar() {
     </nav>
   );
 }
+
+
