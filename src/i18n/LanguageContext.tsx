@@ -53,6 +53,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const navigateTo = (nextRoute: AppRoute) => {
     setRoute(nextRoute);
     window.history.pushState({}, '', getPathForRoute(language, nextRoute));
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   };
 
   return (

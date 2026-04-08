@@ -12,7 +12,8 @@ CREATE TABLE public.profiles (
     CHECK (phone IS NULL OR phone ~ '^\+1[0-9]{10}$'),
   avatar_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  welcome_email_sent_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Enable Row Level Security

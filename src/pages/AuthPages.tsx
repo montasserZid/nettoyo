@@ -58,6 +58,29 @@ type AuthApi = {
 
 const auth = supabase.auth as unknown as AuthApi;
 
+const triggerWelcomeEmail = async (userId: string, accessToken: string | null) => {
+  try {
+    const response = await fetch('/api/notifications/welcome-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+      },
+      body: JSON.stringify({ userId })
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.warn('[welcome-email] route returned 404. This is expected when running Vite dev (npm run dev) without Vercel runtime.');
+      } else {
+        console.error('[welcome-email] trigger failed', { userId, status: response.status });
+      }
+    }
+  } catch (error) {
+    console.error('[welcome-email] request error', { userId, error });
+  }
+};
+
 type LoginContent = {
   title: string;
   subtitle: string;
@@ -327,12 +350,6 @@ export function LoginPage() {
     <div className="flex flex-1 items-center justify-center bg-[#F7F7F7] px-4 py-10 sm:px-6 lg:px-8">
       <AuthCard>
         <div className="flex flex-col items-center text-center"><div className="overflow-visible px-6 pt-2"><NettoyoLogo className="h-16 sm:h-18" /></div><h1 className="mt-5 text-3xl font-bold text-[#1A1A2E]">{content.title}</h1><p className="mt-2 text-[#6B7280]">{content.subtitle}</p></div>
-        <div className="mt-8 space-y-3">
-          <SocialButton label={loadingMode === 'google' ? content.googleLoading : content.google} icon={loadingMode === 'google' ? <Spinner /> : <GoogleIcon />} onClick={handleGoogleLogin} disabled={loadingMode !== null} />
-          <SocialButton label={content.facebook} icon={<FacebookIcon />} />
-          <SocialButton label={content.apple} icon={<AppleIcon />} />
-        </div>
-        <div className="mt-8"><Divider label={content.divider} /></div>
         <form className="mt-8 space-y-4" onSubmit={(event) => { event.preventDefault(); void handlePasswordLogin(); }}>
           <InputField icon={<Mail size={18} />} placeholder={content.emailPlaceholder} value={email} onChange={(event) => setEmail(event.target.value)} />
           <InputField icon={<Lock size={18} />} placeholder={content.passwordPlaceholder} type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} rightSlot={<button type="button" onClick={() => setShowPassword((value) => !value)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>} />
@@ -340,6 +357,12 @@ export function LoginPage() {
           <AuthFeedback message={errorMessage} tone="error" />
           <button type="submit" disabled={loadingMode !== null} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3.5 font-bold text-white shadow-[0_14px_28px_rgba(79,195,247,0.28)] transition-all hover:bg-[#3FAAD4] hover:shadow-[0_18px_30px_rgba(79,195,247,0.34)] disabled:cursor-not-allowed disabled:opacity-70">{loadingMode === 'password' ? <Spinner /> : null}{loadingMode === 'password' ? content.submitLoading : content.submit}</button>
         </form>
+        <div className="mt-8"><Divider label={content.divider} /></div>
+        <div className="mt-8 space-y-3">
+          <SocialButton label={loadingMode === 'google' ? content.googleLoading : content.google} icon={loadingMode === 'google' ? <Spinner /> : <GoogleIcon />} onClick={handleGoogleLogin} disabled={loadingMode !== null} />
+          <SocialButton label={content.facebook} icon={<FacebookIcon />} />
+          <SocialButton label={content.apple} icon={<AppleIcon />} />
+        </div>
         <div className="my-8 h-px bg-[#E5E7EB]" />
         <div className="text-center"><p className="text-[#6B7280]">{content.noAccount}</p><a href={signupPath} className="mt-4 inline-flex w-full items-center justify-center rounded-full border-[1.5px] border-[#4FC3F7] bg-white px-6 py-3.5 font-bold text-[#4FC3F7] transition-colors hover:bg-[rgba(79,195,247,0.05)]">{content.createAccount}</a></div>
       </AuthCard>
@@ -353,7 +376,7 @@ function RoleCard({ title, description, tone, selected, faded, buttonLabel, icon
 }
 
 export function SignupPage() {
-  const { language } = useLanguage();
+  const { language, navigateTo } = useLanguage();
   const content = signupContent[language];
   const loginPath = getPathForRoute(language, 'login');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -405,7 +428,47 @@ export function SignupPage() {
       if (profileError) {
         console.error('signup profile sync error:', profileError);
       }
+
+      void triggerWelcomeEmail(data.user.id, data.session?.access_token ?? null);
     }
+    const resolveDestination = async (
+      userId: string,
+      userEmail?: string | null,
+      userMetadata?: Record<string, unknown> | null
+    ) => {
+      const profile = await fetchProfile({
+        id: userId,
+        email: userEmail ?? null,
+        user_metadata: userMetadata ?? null
+      });
+      return profile.role === 'nettoyeur' ? 'cleanerDashboard' : 'clientDashboard';
+    };
+
+    if (data.session?.user?.id) {
+      const destination = await resolveDestination(
+        data.session.user.id,
+        data.session.user.email,
+        data.session.user.user_metadata as Record<string, unknown> | null
+      );
+      setLoading(false);
+      navigateTo(destination);
+      return;
+    }
+
+    if (data.user?.id) {
+      const signInResult = await auth.signInWithPassword({ email, password });
+      if (!signInResult.error && signInResult.data.user?.id) {
+        const destination = await resolveDestination(
+          signInResult.data.user.id,
+          signInResult.data.user.email,
+          signInResult.data.user.user_metadata as Record<string, unknown> | null
+        );
+        setLoading(false);
+        navigateTo(destination);
+        return;
+      }
+    }
+
     setSuccessMessage(content.success); setLoading(false);
   };
 
