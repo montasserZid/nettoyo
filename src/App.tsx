@@ -2,6 +2,7 @@ import { LanguageProvider } from './i18n/LanguageContext';
 import { Navbar } from './components/Navbar';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { Footer } from './components/Footer';
+import { FloatingReserveCTA } from './components/FloatingReserveCTA';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
@@ -95,6 +96,7 @@ function AppContent() {
       ) : (
         <HomePage />
       )}
+      <FloatingReserveCTA />
       <MobileBottomNav />
       <Footer />
     </div>
