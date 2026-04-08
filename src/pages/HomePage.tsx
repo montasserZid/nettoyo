@@ -1,11 +1,6 @@
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
-// ─── Inline SVG icons ────────────────────────────────────────────────────────
-const IconShield = () => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-  </svg>
-);
 const IconZap = () => (
   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -41,7 +36,6 @@ const IconOffice = () => (
   </svg>
 );
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 interface ServiceCard {
   icon: React.ReactNode;
   title: string;
@@ -49,60 +43,60 @@ interface ServiceCard {
   tag?: string;
 }
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-const SERVICES: ServiceCard[] = [
-  { icon: <IconHome />, title: 'Résidentiel', desc: 'Appartement, maison — entretien régulier ou ponctuel.' },
-  { icon: <IconSpark />, title: 'Grand ménage', desc: 'Nettoyage en profondeur de A à Z.', tag: 'Populaire' },
-  { icon: <IconBox />, title: 'Déménagement', desc: 'Entrée ou sortie — laissez l\'espace impeccable.' },
-  { icon: <IconOffice />, title: 'Bureau', desc: 'Espaces de travail propres et accueillants.' },
-];
-
-const STEPS = [
-  { num: '01', title: 'Choisissez votre service', desc: 'Résidentiel, grand ménage, déménagement…' },
-  { num: '02', title: 'Réservez en quelques clics', desc: 'Date, heure, adresse — en moins de 2 minutes.' },
-  { num: '03', title: 'Un nettoyeur accepte', desc: 'Confirmé, vérifié, et prêt à intervenir.' },
-];
-
-const TRUST = [
-  { icon: <IconShield />, title: 'Professionnels vérifiés', desc: 'Chaque nettoyeur est validé avant d\'accéder à la plateforme.' },
-  { icon: <IconZap />,    title: 'Réservation rapide',     desc: 'Réservez en moins de 2 minutes, 24h/24.' },
-  { icon: <IconStar />,   title: 'Fiable & transparent',  desc: 'Avis clients réels. Pas de mauvaises surprises.' },
-];
-
-// ─── Component ────────────────────────────────────────────────────────────────
 export function HomePage() {
-  const { setRoute } = useLanguage();
+  const { t, navigateTo } = useLanguage();
+  const { user, isClient } = useAuth();
 
-  const goToReservation = () => setRoute('clientReservation');
-  const goToSignup      = () => setRoute('signup');
+  const goToReservation = () => {
+    if (user && isClient()) {
+      navigateTo('clientReservation');
+      return;
+    }
+    navigateTo('login');
+  };
+  const goToSignup = () => navigateTo('signup');
+
+  const services: ServiceCard[] = [
+    { icon: <IconHome />, title: t.home.servicesSection.residentialTitle, desc: t.home.servicesSection.residentialDesc },
+    { icon: <IconSpark />, title: t.home.servicesSection.deepTitle, desc: t.home.servicesSection.deepDesc, tag: t.home.servicesSection.deepTag },
+    { icon: <IconBox />, title: t.home.servicesSection.movingTitle, desc: t.home.servicesSection.movingDesc },
+    { icon: <IconOffice />, title: t.home.servicesSection.officeTitle, desc: t.home.servicesSection.officeDesc }
+  ];
+
+  const steps = [
+    { num: '01', title: t.home.steps.step1Title, desc: t.home.steps.step1Desc },
+    { num: '02', title: t.home.steps.step2Title, desc: t.home.steps.step2Desc },
+    { num: '03', title: t.home.steps.step3Title, desc: t.home.steps.step3Desc }
+  ];
+
+  const trust = [
+    { icon: <IconZap />, title: t.home.trust.fastTitle, desc: t.home.trust.fastDesc },
+    { icon: <IconStar />, title: t.home.trust.transparentTitle, desc: t.home.trust.transparentDesc }
+  ];
 
   return (
     <main style={{ fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", color: '#1A1A2E', overflowX: 'hidden' }}>
-
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section style={{
         position: 'relative',
         background: 'linear-gradient(135deg, #f0fbff 0%, #e8faf3 55%, #f8fffc 100%)',
         padding: 'clamp(72px, 12vw, 120px) 24px clamp(80px, 14vw, 140px)',
         textAlign: 'center',
-        overflow: 'hidden',
+        overflow: 'hidden'
       }}>
-        {/* decorative blobs */}
         <div style={{
           position: 'absolute', top: '-80px', right: '-80px', width: '380px', height: '380px',
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(79,195,247,0.18) 0%, transparent 70%)',
-          pointerEvents: 'none',
+          pointerEvents: 'none'
         }} />
         <div style={{
           position: 'absolute', bottom: '-60px', left: '-60px', width: '300px', height: '300px',
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(168,230,207,0.22) 0%, transparent 70%)',
-          pointerEvents: 'none',
+          pointerEvents: 'none'
         }} />
 
         <div style={{ position: 'relative', maxWidth: '680px', margin: '0 auto' }}>
-          {/* pill badge */}
           <span style={{
             display: 'inline-block',
             background: 'rgba(79,195,247,0.12)',
@@ -114,9 +108,9 @@ export function HomePage() {
             padding: '6px 16px',
             borderRadius: '100px',
             marginBottom: '28px',
-            border: '1px solid rgba(79,195,247,0.25)',
+            border: '1px solid rgba(79,195,247,0.25)'
           }}>
-            Montréal & environs
+            {t.home.hero.badge}
           </span>
 
           <h1 style={{
@@ -125,15 +119,15 @@ export function HomePage() {
             lineHeight: 1.1,
             letterSpacing: '-0.02em',
             marginBottom: '20px',
-            color: '#0D1117',
+            color: '#0D1117'
           }}>
-            Un logement propre,{' '}
+            {t.home.hero.titlePrefix}{' '}
             <span style={{
               background: 'linear-gradient(90deg, #4FC3F7, #29B6F6)',
               WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              WebkitTextFillColor: 'transparent'
             }}>
-              sans effort.
+              {t.home.hero.titleHighlight}
             </span>
           </h1>
 
@@ -142,14 +136,13 @@ export function HomePage() {
             color: '#4A5568',
             lineHeight: 1.65,
             marginBottom: '40px',
-            maxWidth: '520px',
+            maxWidth: '560px',
             marginLeft: 'auto',
-            marginRight: 'auto',
+            marginRight: 'auto'
           }}>
-            Trouvez un nettoyeur de confiance à Montréal. Réservez en 2 minutes, confirmé rapidement.
+            {t.home.hero.subtitle}
           </p>
 
-          {/* CTA cluster */}
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={goToReservation}
@@ -164,18 +157,18 @@ export function HomePage() {
                 cursor: 'pointer',
                 boxShadow: '0 8px 32px rgba(79,195,247,0.45)',
                 transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                letterSpacing: '0.01em',
+                letterSpacing: '0.01em'
               }}
-              onMouseEnter={e => {
+              onMouseEnter={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
                 (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 12px 40px rgba(79,195,247,0.55)';
               }}
-              onMouseLeave={e => {
+              onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
                 (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 32px rgba(79,195,247,0.45)';
               }}
             >
-              Réserver maintenant →
+              {t.home.hero.primaryCta}
             </button>
             <button
               onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
@@ -188,64 +181,52 @@ export function HomePage() {
                 borderRadius: '14px',
                 border: '1.5px solid rgba(26,26,46,0.15)',
                 cursor: 'pointer',
-                transition: 'border-color 0.15s ease',
+                transition: 'border-color 0.15s ease'
               }}
-              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.borderColor = '#4FC3F7'}
-              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(26,26,46,0.15)'}
+              onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.borderColor = '#4FC3F7'}
+              onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(26,26,46,0.15)'}
             >
-              Comment ça marche
+              {t.home.hero.secondaryCta}
             </button>
           </div>
 
-          {/* Social proof strip */}
-          <div style={{
-            display: 'flex', gap: '24px', justifyContent: 'center', marginTop: '40px',
-            fontSize: '13px', color: '#718096', flexWrap: 'wrap',
-          }}>
-            {[['⭐', '4.9 / 5 en moyenne'], ['✓', 'Nettoyeurs vérifiés'], ['⚡', 'Réponse sous 1h']].map(([icon, text]) => (
-              <span key={text} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>{icon}</span><span style={{ fontWeight: 500 }}>{text}</span>
-              </span>
-            ))}
-          </div>
         </div>
       </section>
 
-      {/* ── TRUST SIGNALS ────────────────────────────────────────────────── */}
       <section style={{
         background: '#fff',
-        padding: 'clamp(60px, 8vw, 96px) 24px',
+        padding: 'clamp(60px, 8vw, 96px) 24px'
       }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <h2 style={{
             textAlign: 'center', fontSize: 'clamp(22px, 3.5vw, 34px)',
-            fontWeight: 700, marginBottom: '12px', letterSpacing: '-0.015em',
+            fontWeight: 700, marginBottom: '12px', letterSpacing: '-0.015em'
           }}>
-            Pourquoi choisir Nettoyó ?
+            {t.home.trust.title}
           </h2>
           <p style={{ textAlign: 'center', color: '#718096', marginBottom: '52px', fontSize: '16px' }}>
-            La qualité d'un service premium, sans la complexité.
+            {t.home.trust.subtitle}
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '24px',
+            gap: '24px'
           }}>
-            {TRUST.map(({ icon, title, desc }) => (
+            {trust.map(({ icon, title, desc }) => (
               <div key={title} style={{
                 background: '#FAFAFA',
                 border: '1px solid #F0F0F0',
                 borderRadius: '20px',
                 padding: '32px 28px',
-                transition: 'box-shadow 0.2s ease',
+                transition: 'box-shadow 0.2s ease'
               }}
-                onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 32px rgba(79,195,247,0.12)'}
-                onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'}
+                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 32px rgba(79,195,247,0.12)'}
+                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'}
               >
                 <div style={{
                   color: '#4FC3F7', marginBottom: '16px',
                   background: 'rgba(79,195,247,0.1)', display: 'inline-flex',
-                  padding: '10px', borderRadius: '12px',
+                  padding: '10px', borderRadius: '12px'
                 }}>{icon}</div>
                 <h3 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '8px' }}>{title}</h3>
                 <p style={{ color: '#718096', fontSize: '15px', lineHeight: 1.6 }}>{desc}</p>
@@ -255,43 +236,33 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ─────────────────────────────────────────────────── */}
       <section id="how-it-works" style={{
         background: 'linear-gradient(135deg, #f0fbff 0%, #edf9f4 100%)',
-        padding: 'clamp(60px, 8vw, 96px) 24px',
+        padding: 'clamp(60px, 8vw, 96px) 24px'
       }}>
         <div style={{ maxWidth: '860px', margin: '0 auto' }}>
           <h2 style={{
             textAlign: 'center', fontSize: 'clamp(22px, 3.5vw, 34px)',
-            fontWeight: 700, marginBottom: '12px', letterSpacing: '-0.015em',
+            fontWeight: 700, marginBottom: '12px', letterSpacing: '-0.015em'
           }}>
-            Réservez en 3 étapes
+            {t.home.steps.title}
           </h2>
           <p style={{ textAlign: 'center', color: '#718096', marginBottom: '56px', fontSize: '16px' }}>
-            Simple, rapide, sans friction.
+            {t.home.steps.subtitle}
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '20px',
+            gap: '20px'
           }}>
-            {STEPS.map(({ num, title, desc }, i) => (
+            {steps.map(({ num, title, desc }) => (
               <div key={num} style={{ position: 'relative', textAlign: 'center', padding: '36px 24px' }}>
-                {/* connector line (desktop) */}
-                {i < STEPS.length - 1 && (
-                  <div style={{
-                    position: 'absolute', top: '52px', right: '-10px',
-                    width: '20px', height: '2px',
-                    background: 'rgba(79,195,247,0.3)',
-                    display: 'none',  // shown via media query would need CSS-in-JS; omit for simplicity
-                  }} />
-                )}
                 <div style={{
                   width: '64px', height: '64px', borderRadius: '50%',
                   background: 'linear-gradient(135deg, #4FC3F7, #A8E6CF)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 20px',
-                  boxShadow: '0 8px 24px rgba(79,195,247,0.3)',
+                  boxShadow: '0 8px 24px rgba(79,195,247,0.3)'
                 }}>
                   <span style={{ color: '#fff', fontWeight: 800, fontSize: '20px' }}>{num}</span>
                 </div>
@@ -314,38 +285,37 @@ export function HomePage() {
                 border: 'none',
                 cursor: 'pointer',
                 boxShadow: '0 6px 24px rgba(79,195,247,0.4)',
-                transition: 'transform 0.15s ease',
+                transition: 'transform 0.15s ease'
               }}
-              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'}
-              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'}
+              onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'}
+              onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'}
             >
-              Réserver maintenant →
+              {t.home.steps.cta}
             </button>
           </div>
         </div>
       </section>
 
-      {/* ── SERVICES ─────────────────────────────────────────────────────── */}
       <section style={{
         background: '#fff',
-        padding: 'clamp(60px, 8vw, 96px) 24px',
+        padding: 'clamp(60px, 8vw, 96px) 24px'
       }}>
         <div style={{ maxWidth: '960px', margin: '0 auto' }}>
           <h2 style={{
             textAlign: 'center', fontSize: 'clamp(22px, 3.5vw, 34px)',
-            fontWeight: 700, marginBottom: '12px', letterSpacing: '-0.015em',
+            fontWeight: 700, marginBottom: '12px', letterSpacing: '-0.015em'
           }}>
-            Nos services
+            {t.home.servicesSection.title}
           </h2>
           <p style={{ textAlign: 'center', color: '#718096', marginBottom: '52px', fontSize: '16px' }}>
-            Peu importe le type de nettoyage, on a ce qu'il vous faut.
+            {t.home.servicesSection.subtitle}
           </p>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-            gap: '20px',
+            gap: '20px'
           }}>
-            {SERVICES.map(({ icon, title, desc, tag }) => (
+            {services.map(({ icon, title, desc, tag }) => (
               <button
                 key={title}
                 onClick={goToReservation}
@@ -357,15 +327,15 @@ export function HomePage() {
                   cursor: 'pointer',
                   textAlign: 'left',
                   position: 'relative',
-                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease',
+                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease'
                 }}
-                onMouseEnter={e => {
+                onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLButtonElement;
                   el.style.borderColor = '#4FC3F7';
                   el.style.boxShadow = '0 8px 32px rgba(79,195,247,0.12)';
                   el.style.transform = 'translateY(-3px)';
                 }}
-                onMouseLeave={e => {
+                onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLButtonElement;
                   el.style.borderColor = '#EAEAEA';
                   el.style.boxShadow = 'none';
@@ -379,7 +349,7 @@ export function HomePage() {
                     color: '#2E7D52',
                     fontSize: '11px', fontWeight: 700,
                     padding: '3px 10px', borderRadius: '100px',
-                    letterSpacing: '0.04em', textTransform: 'uppercase',
+                    letterSpacing: '0.04em', textTransform: 'uppercase'
                   }}>{tag}</span>
                 )}
                 <div style={{ color: '#4FC3F7', marginBottom: '16px' }}>{icon}</div>
@@ -391,32 +361,31 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── SECOND CTA BAND ──────────────────────────────────────────────── */}
       <section style={{
         background: 'linear-gradient(135deg, #1A1A2E 0%, #0D1117 100%)',
         padding: 'clamp(64px, 10vw, 112px) 24px',
         textAlign: 'center',
         position: 'relative',
-        overflow: 'hidden',
+        overflow: 'hidden'
       }}>
         <div style={{
           position: 'absolute', top: '-120px', left: '50%', transform: 'translateX(-50%)',
           width: '600px', height: '400px', borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(79,195,247,0.1) 0%, transparent 60%)',
-          pointerEvents: 'none',
+          pointerEvents: 'none'
         }} />
-        <div style={{ position: 'relative', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ position: 'relative', maxWidth: '620px', margin: '0 auto' }}>
           <h2 style={{
             fontSize: 'clamp(26px, 4.5vw, 46px)',
             fontWeight: 800, color: '#fff',
             lineHeight: 1.15, letterSpacing: '-0.02em',
-            marginBottom: '16px',
+            marginBottom: '16px'
           }}>
-            Votre maison propre,{' '}
-            <span style={{ color: '#4FC3F7' }}>aujourd'hui.</span>
+            {t.home.finalCta.titlePrefix}{' '}
+            <span style={{ color: '#4FC3F7' }}>{t.home.finalCta.titleHighlight}</span>
           </h2>
           <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '17px', marginBottom: '40px', lineHeight: 1.6 }}>
-            Rejoignez des centaines de clients satisfaits à Montréal.
+            {t.home.finalCta.subtitle}
           </p>
           <button
             onClick={goToReservation}
@@ -430,38 +399,37 @@ export function HomePage() {
               border: 'none',
               cursor: 'pointer',
               boxShadow: '0 8px 40px rgba(79,195,247,0.35)',
-              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+              transition: 'transform 0.15s ease, box-shadow 0.15s ease'
             }}
-            onMouseEnter={e => {
+            onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
               (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 14px 48px rgba(79,195,247,0.5)';
             }}
-            onMouseLeave={e => {
+            onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
               (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 40px rgba(79,195,247,0.35)';
             }}
           >
-            Réserver maintenant →
+            {t.home.finalCta.cta}
           </button>
         </div>
       </section>
 
-      {/* ── CLEANER CTA (secondary) ───────────────────────────────────────── */}
       <section style={{
         background: '#FAFAFA',
         padding: 'clamp(48px, 6vw, 72px) 24px',
         borderTop: '1px solid #F0F0F0',
-        textAlign: 'center',
+        textAlign: 'center'
       }}>
-        <div style={{ maxWidth: '560px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '580px', margin: '0 auto' }}>
           <p style={{ color: '#4FC3F7', fontWeight: 600, fontSize: '13px', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
-            Vous êtes nettoyeur ?
+            {t.home.cleanerCta.eyebrow}
           </p>
           <h3 style={{ fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 700, marginBottom: '12px', letterSpacing: '-0.01em' }}>
-            Rejoignez notre réseau de professionnels
+            {t.home.cleanerCta.title}
           </h3>
           <p style={{ color: '#718096', fontSize: '15px', marginBottom: '28px', lineHeight: 1.65 }}>
-            Recevez des demandes de clients près de chez vous. Gérez votre agenda librement.
+            {t.home.cleanerCta.subtitle}
           </p>
           <button
             onClick={goToSignup}
@@ -474,24 +442,23 @@ export function HomePage() {
               borderRadius: '12px',
               border: '1.5px solid rgba(26,26,46,0.2)',
               cursor: 'pointer',
-              transition: 'border-color 0.15s ease, background 0.15s ease',
+              transition: 'border-color 0.15s ease, background 0.15s ease'
             }}
-            onMouseEnter={e => {
+            onMouseEnter={(e) => {
               const el = e.currentTarget as HTMLButtonElement;
               el.style.borderColor = '#4FC3F7';
               el.style.background = 'rgba(79,195,247,0.05)';
             }}
-            onMouseLeave={e => {
+            onMouseLeave={(e) => {
               const el = e.currentTarget as HTMLButtonElement;
               el.style.borderColor = 'rgba(26,26,46,0.2)';
               el.style.background = 'transparent';
             }}
           >
-            Devenir nettoyeur →
+            {t.home.cleanerCta.cta}
           </button>
         </div>
       </section>
-
     </main>
   );
 }
