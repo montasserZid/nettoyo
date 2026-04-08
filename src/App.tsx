@@ -1,5 +1,6 @@
 import { LanguageProvider } from './i18n/LanguageContext';
 import { Navbar } from './components/Navbar';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { Footer } from './components/Footer';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
@@ -43,7 +44,7 @@ function AppContent() {
   }, [route]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
       <Navbar />
       {route === 'howItWorks' ? (
         <HowItWorksPage />
@@ -94,6 +95,7 @@ function AppContent() {
       ) : (
         <HomePage />
       )}
+      <MobileBottomNav />
       <Footer />
     </div>
   );

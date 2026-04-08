@@ -8,6 +8,8 @@ CREATE TABLE public.profiles (
   first_name TEXT,
   last_name TEXT,
   city TEXT,
+  phone TEXT
+    CHECK (phone IS NULL OR phone ~ '^\+1[0-9]{10}$'),
   avatar_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -91,7 +93,7 @@ CREATE TABLE public.bookings (
     ON DELETE CASCADE NOT NULL,
   status TEXT DEFAULT 'pending'
     CHECK (status IN
-      ('pending','confirmed','completed','cancelled')),
+      ('pending','confirmed','completed','cancelled','expired')),
   service_type TEXT,
   scheduled_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -108,3 +110,9 @@ CREATE POLICY "Clients can cancel own bookings"
   TO authenticated
   USING (auth.uid() = client_id AND status IN ('pending', 'confirmed'))
   WITH CHECK (auth.uid() = client_id AND status = 'cancelled');
+
+CREATE POLICY "Clients can expire own pending bookings"
+  ON public.bookings FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = client_id AND status = 'pending')
+  WITH CHECK (auth.uid() = client_id AND status = 'expired');

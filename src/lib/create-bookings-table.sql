@@ -10,7 +10,7 @@ CREATE TABLE public.bookings (
   space_id UUID REFERENCES public.spaces(id)
     ON DELETE CASCADE NOT NULL,
   status TEXT DEFAULT 'pending'
-    CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+    CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled', 'expired')),
   service_type TEXT,
   cleaner_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   scheduled_at TIMESTAMP WITH TIME ZONE,
@@ -34,6 +34,12 @@ CREATE POLICY "Clients can cancel own bookings"
   USING (auth.uid() = client_id AND status IN ('pending', 'confirmed'))
   WITH CHECK (auth.uid() = client_id AND status = 'cancelled');
 
+CREATE POLICY "Clients can expire own pending bookings"
+  ON public.bookings FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = client_id AND status = 'pending')
+  WITH CHECK (auth.uid() = client_id AND status = 'expired');
+
 CREATE POLICY "Cleaners can view assigned bookings"
   ON public.bookings FOR SELECT
   TO authenticated
@@ -44,6 +50,12 @@ CREATE POLICY "Cleaners can update own pending bookings"
   TO authenticated
   USING (auth.uid() = cleaner_id AND status = 'pending')
   WITH CHECK (auth.uid() = cleaner_id AND status IN ('confirmed', 'cancelled'));
+
+CREATE POLICY "Cleaners can expire own pending bookings"
+  ON public.bookings FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = cleaner_id AND status = 'pending')
+  WITH CHECK (auth.uid() = cleaner_id AND status = 'expired');
 
 CREATE INDEX bookings_client_id_idx
   ON public.bookings(client_id);

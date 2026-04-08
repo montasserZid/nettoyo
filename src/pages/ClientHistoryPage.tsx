@@ -1,11 +1,11 @@
-import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
+﻿import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { daysSinceMontrealDate, getMontrealToday, isPastInMontreal } from '../lib/montrealDate';
 import supabase from '../lib/supabase';
 
-type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted';
+type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' | 'expired';
 type BookingSpace = {
   name?: string | null;
   type?: string | null;
@@ -542,3 +542,4 @@ export function ClientHistoryPage() {
     </div>
   );
 }
+

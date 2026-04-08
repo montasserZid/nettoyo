@@ -115,10 +115,10 @@ function formatReservationDateTime(value: string | null) {
       timeEn: '--:--'
     };
   }
-  const dateFr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'America/Toronto', dateStyle: 'long' }).format(parsed);
-  const dateEn = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', dateStyle: 'long' }).format(parsed);
-  const timeFr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit' }).format(parsed);
-  const timeEn = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit' }).format(parsed);
+  const dateFr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'America/Montreal', dateStyle: 'long' }).format(parsed);
+  const dateEn = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Montreal', dateStyle: 'long' }).format(parsed);
+  const timeFr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'America/Montreal', hour: '2-digit', minute: '2-digit' }).format(parsed);
+  const timeEn = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Montreal', hour: '2-digit', minute: '2-digit' }).format(parsed);
   return { dateFr, dateEn, timeFr, timeEn };
 }
 

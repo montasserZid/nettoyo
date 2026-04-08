@@ -1,11 +1,11 @@
-import { CheckCircle2, Home, Loader2 } from 'lucide-react';
+﻿import { CheckCircle2, Home, Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
 import supabase from '../lib/supabase';
 
-type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted';
+type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' | 'expired';
 type BookingSummary = {
   id: string;
   status: BookingStatus;
@@ -182,3 +182,4 @@ export function ClientReservationSuccessPage() {
     </div>
   );
 }
+

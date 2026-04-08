@@ -2,10 +2,10 @@ import { CalendarDays, Loader2, Mail, MessageSquare, Phone, X } from 'lucide-rea
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
-import { getMontrealToday, isTodayOrFutureInMontreal, isWithinHoursBefore } from '../lib/montrealDate';
+import { expirePendingBookingsByActor, shouldShowBookingContact } from '../lib/bookingLifecycle';
 import supabase from '../lib/supabase';
 
-type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted';
+type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' | 'expired';
 type BookingSpace = {
   type?: string | null;
   address?: string | null;
@@ -25,6 +25,7 @@ type ClientReservationBooking = {
 type CleanerContact = {
   name: string;
   email: string | null;
+  phone: string | null;
 };
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -62,7 +63,8 @@ const contentByLanguage = {
     contactCta: 'Contacter le nettoyeur',
     contactRuleSoon: 'Les coordonnees seront affichees 24 heures avant le nettoyage.',
     contactRuleNow: 'Contact disponible (fenetre de 24h avant la prestation).',
-    contactUnavailable: 'Coordonnees temporairement indisponibles.'
+    contactUnavailable: 'Coordonnees temporairement indisponibles.',
+    noPhone: 'Telephone non disponible.'
   },
   en: {
     title: 'My bookings',
@@ -96,7 +98,8 @@ const contentByLanguage = {
     contactCta: 'Contact cleaner',
     contactRuleSoon: 'Contact details will be displayed 24 hours before cleaning.',
     contactRuleNow: 'Contact available (within 24 hours before service).',
-    contactUnavailable: 'Contact details are temporarily unavailable.'
+    contactUnavailable: 'Contact details are temporarily unavailable.',
+    noPhone: 'Phone number unavailable.'
   },
   es: {
     title: 'Mis reservas',
@@ -130,7 +133,8 @@ const contentByLanguage = {
     contactCta: 'Contactar al limpiador',
     contactRuleSoon: 'La informacion de contacto se mostrara 24 horas antes de la limpieza.',
     contactRuleNow: 'Contacto disponible (dentro de las 24 horas previas al servicio).',
-    contactUnavailable: 'La informacion de contacto no esta disponible temporalmente.'
+    contactUnavailable: 'La informacion de contacto no esta disponible temporalmente.',
+    noPhone: 'Telefono no disponible.'
   }
 } as const;
 
@@ -161,7 +165,7 @@ function formatMontrealDateTime(value: string | null, language: 'fr' | 'en' | 'e
   if (Number.isNaN(date.getTime())) return '--';
   const locale = language === 'fr' ? 'fr-CA' : language === 'es' ? 'es-CA' : 'en-CA';
   return new Intl.DateTimeFormat(locale, {
-    timeZone: 'America/Toronto',
+    timeZone: 'America/Montreal',
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(date);
@@ -278,9 +282,16 @@ export function ClientReservationsPage() {
       return;
     }
 
-    const montrealToday = getMontrealToday();
-    const activeRows = rows.filter((row) => row.scheduled_at && isTodayOrFutureInMontreal(row.scheduled_at, montrealToday));
-    setBookings(activeRows);
+    const now = new Date();
+    const expiredIds = await expirePendingBookingsByActor('client_id', clientId, rows);
+    const activeRows = rows.filter((row) => {
+      if (!row.scheduled_at) return false;
+      if (expiredIds.includes(row.id)) return false;
+      const scheduled = new Date(row.scheduled_at);
+      if (Number.isNaN(scheduled.getTime())) return false;
+      return scheduled.getTime() >= now.getTime();
+    });
+    setBookings(activeRows.filter((row) => row.status === 'pending' || row.status === 'confirmed'));
 
     const cleanerIds = Array.from(new Set(activeRows.map((row) => row.cleaner_id).filter((value): value is string => Boolean(value))));
     if (cleanerIds.length === 0) {
@@ -291,7 +302,7 @@ export function ClientReservationsPage() {
 
     const cleanerRes = await supabase
       .from('profiles')
-      .select('id,first_name,last_name,email')
+      .select('id,first_name,last_name,email,phone')
       .in('id', cleanerIds);
 
     if (cleanerRes.error) {
@@ -301,11 +312,12 @@ export function ClientReservationsPage() {
       return;
     }
 
-    const map = ((cleanerRes.data as Array<{ id: string; first_name: string | null; last_name: string | null; email: string | null }> | null) ?? []).reduce<Record<string, CleanerContact>>(
+    const map = ((cleanerRes.data as Array<{ id: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null }> | null) ?? []).reduce<Record<string, CleanerContact>>(
       (acc, item) => {
         acc[item.id] = {
           name: buildMaskedName(item.first_name, item.last_name),
-          email: item.email?.trim() || null
+          email: item.email?.trim() || null,
+          phone: item.phone?.trim() || null
         };
         return acc;
       },
@@ -373,7 +385,7 @@ export function ClientReservationsPage() {
     const diffMs = scheduledMs === null ? null : scheduledMs - nowMs;
     const diffHours = diffMs === null ? null : diffMs / (60 * 60 * 1000);
     const montrealNow = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Toronto',
+      timeZone: 'America/Montreal',
       dateStyle: 'short',
       timeStyle: 'medium'
     }).format(now);
@@ -392,10 +404,7 @@ export function ClientReservationsPage() {
 
   const canCancelBooking = (booking: ClientReservationBooking) => getCancellationDiagnostics(booking).canCancel;
 
-  const canShowContact = (booking: ClientReservationBooking) => {
-    if (!booking.scheduled_at) return false;
-    return isWithinHoursBefore(booking.scheduled_at, 24);
-  };
+  const canShowContact = (booking: ClientReservationBooking) => shouldShowBookingContact(booking.scheduled_at);
 
   const runCancel = async (booking: ClientReservationBooking) => {
     const cancelDiag = getCancellationDiagnostics(booking);
@@ -446,11 +455,20 @@ export function ClientReservationsPage() {
   const selectedContactVisible = selectedBooking ? canShowContact(selectedBooking) : false;
   const selectedCancelAllowed = selectedBooking ? canCancelBooking(selectedBooking) : false;
 
+  useEffect(() => {
+    const hasOpenModal = Boolean(selectedBooking || confirmCancelBooking);
+    if (!hasOpenModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [confirmCancelBooking, selectedBooking]);
+
   if (!isClient()) return null;
 
   const renderCard = (booking: ClientReservationBooking, status: 'pending' | 'confirmed') => {
     const space = getPrimarySpace(booking.spaces);
-    const cleaner = booking.cleaner_id ? cleanerContacts[booking.cleaner_id] : undefined;
     const contactVisible = canShowContact(booking);
     const cancelAllowed = canCancelBooking(booking);
 
@@ -472,12 +490,6 @@ export function ClientReservationsPage() {
           {formatMontrealDateTime(booking.scheduled_at, language)}
         </div>
 
-        <div className="mt-3 grid gap-1 text-xs text-[#6B7280]">
-          <p>{content.reference}: {toBookingReference(booking.id)}</p>
-          <p>{content.cleaner}: {cleaner?.name || 'Nettoyo'}</p>
-          {typeof booking.estimated_hours === 'number' ? <p>{content.estimate}: {booking.estimated_hours}h</p> : null}
-        </div>
-
         {contactVisible ? (
           <p className="mt-3 rounded-xl bg-[rgba(168,230,207,0.24)] px-3 py-2 text-xs font-medium text-[#166534]">{content.contactRuleNow}</p>
         ) : (
@@ -488,13 +500,21 @@ export function ClientReservationsPage() {
           <p className="mt-2 text-xs font-medium text-[#B45309]">{content.cancelNotAllowed}</p>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => setSelectedBooking(booking)}
             className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] px-3 py-2 text-xs font-semibold text-[#1A1A2E]"
           >
             {content.details}
+          </button>
+          <button
+            type="button"
+            disabled={!contactVisible}
+            onClick={() => setSelectedBooking(booking)}
+            className="inline-flex items-center justify-center rounded-full border border-[#A7F3D0] px-3 py-2 text-xs font-semibold text-[#166534] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {content.contactCta}
           </button>
           <button
             type="button"
@@ -603,14 +623,25 @@ export function ClientReservationsPage() {
               <div className="mt-4 rounded-xl bg-[#F8FCFF] px-3 py-2">
                 <p className="text-sm font-semibold text-[#1A1A2E]">{selectedContactVisible ? content.contactRuleNow : content.contactRuleSoon}</p>
                 {selectedContactVisible ? (
-                  selectedCleaner?.email ? (
-                    <a href={`mailto:${selectedCleaner.email}`} className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#A8E6CF] px-3 py-2 text-xs font-semibold text-[#1A1A2E]">
-                      <Mail size={12} />
-                      {selectedCleaner.email}
-                    </a>
-                  ) : (
-                    <p className="mt-2 text-xs text-[#6B7280]">{content.contactUnavailable}</p>
-                  )
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedCleaner?.phone ? (
+                      <a href={`tel:${selectedCleaner.phone}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#A8E6CF] px-3 py-2 text-xs font-semibold text-[#1A1A2E]">
+                        <Phone size={12} />
+                        {selectedCleaner.phone}
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F1F5F9] px-3 py-2 text-xs font-semibold text-[#475569]">
+                        <Phone size={12} />
+                        {content.noPhone}
+                      </span>
+                    )}
+                    {selectedCleaner?.email ? (
+                      <a href={`mailto:${selectedCleaner.email}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#E0F2FE] px-3 py-2 text-xs font-semibold text-[#0C4A6E]">
+                        <Mail size={12} />
+                        {selectedCleaner.email}
+                      </a>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -631,14 +662,33 @@ export function ClientReservationsPage() {
               >
                 {actionBookingId === selectedBooking.id ? <Loader2 size={14} className="animate-spin" /> : content.cancel}
               </button>
-              {selectedContactVisible && selectedCleaner?.email ? (
-                <a
-                  href={`mailto:${selectedCleaner.email}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#A8E6CF] px-4 py-2 text-sm font-semibold text-[#1A1A2E]"
-                >
-                  <Phone size={14} />
-                  {content.contactCta}
-                </a>
+              {selectedContactVisible ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedCleaner?.phone ? (
+                    <a
+                      href={`tel:${selectedCleaner.phone}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#A8E6CF] px-4 py-2 text-sm font-semibold text-[#1A1A2E]"
+                    >
+                      <Phone size={14} />
+                      {content.contactCta}
+                    </a>
+                  ) : null}
+                  {selectedCleaner?.email ? (
+                    <a
+                      href={`mailto:${selectedCleaner.email}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#E0F2FE] px-4 py-2 text-sm font-semibold text-[#0C4A6E]"
+                    >
+                      <Mail size={14} />
+                      {selectedCleaner.email}
+                    </a>
+                  ) : null}
+                  {!selectedCleaner?.phone && !selectedCleaner?.email ? (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-[#F1F5F9] px-4 py-2 text-sm font-semibold text-[#475569]">
+                      <MessageSquare size={14} />
+                      {content.contactUnavailable}
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-[#F1F5F9] px-4 py-2 text-sm font-semibold text-[#475569]">
                   <MessageSquare size={14} />

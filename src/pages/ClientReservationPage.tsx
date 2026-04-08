@@ -1,9 +1,16 @@
-import { Calendar, Clock3, Home, Loader2, MapPin, Search, Sparkles, User, X } from 'lucide-react';
+﻿import { Calendar, Clock3, Home, Loader2, MapPin, Search, Sparkles, User, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
+import {
+  combineMontrealDateTimeToUtc,
+  getMinimumSameDayBookingTime,
+  getMontrealToday,
+  hasMinimumLeadHoursFromMontrealDateTime,
+  isDateTodayInMontreal
+} from '../lib/montrealDate';
 import { deriveZoneFromCityName } from '../lib/zoneMapping';
 import supabase from '../lib/supabase';
 
@@ -13,7 +20,7 @@ type CleanerProfileRecord = { id: string; description: string | null; hourly_rat
 type AreaSelection = { id: string; zone: string; name: string; lat: number; lng: number };
 type CleanerIdentity = { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
 type CleanerCandidate = { id: string; displayName: string; description: string; photoUrl: string | null; hourlyRate: number | null; services: ServiceId[]; serviceAreas: AreaSelection[]; availability: unknown; exceptions: unknown };
-type BookingInsertResult = { id: string; status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' };
+type BookingInsertResult = { id: string; status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' | 'expired' };
 
 type ServiceFailure = { cleanerId: string; cleanerServices: ServiceId[]; selectedServices: ServiceId[] };
 type ZoneFailure = { cleanerId: string; selectedZone: string; selectedZoneNormalized: string; cleanerAreas: { zone: string; name: string }[] };
@@ -36,6 +43,7 @@ const labels = {
     modalServices: 'Services', modalZones: 'Zones', close: 'Fermer',
     reserveSuccess: 'Reservation creee.', reserveError: 'Impossible de reserver pour le moment.', loading: 'Chargement...',
     timeRequired: 'Veuillez choisir une heure.', timeInvalid: 'Format d heure invalide.',
+    sameDayLeadError: "Pour aujourd'hui, choisissez une heure au moins 2h plus tard (heure de Montreal).",
     hourlyRate: 'Taux horaire', bookingFlowTitle: 'Estimation du menage', bookingStep1Title: 'Combien d heures pensez-vous que le menage prendra ?', bookingStep1Hint: 'Estimations a titre indicatif',
     bookingGuideSmall: 'Petit appartement / condo (1-2 chambres): 2-3 heures', bookingGuideMedium: 'Maison moyenne (3-4 chambres): 4-6 heures', bookingGuideLarge: 'Grande maison / menage en profondeur: 6-10+ heures', bookingGuideMove: 'Menage de demenagement: 7-10+ heures',
     bookingAdjustDisclaimer: 'Cette estimation n est pas finale. Vous pourrez ajuster avec le nettoyeur selon le travail reel.', bookingHoursLabel: 'Heures estimees',
@@ -54,6 +62,7 @@ const labels = {
     modalServices: 'Services', modalZones: 'Zones', close: 'Close',
     reserveSuccess: 'Booking created.', reserveError: 'Unable to book right now.', loading: 'Loading...',
     timeRequired: 'Please choose a time.', timeInvalid: 'Invalid time format.',
+    sameDayLeadError: 'For same-day bookings, choose a time at least 2 hours later (Montreal time).',
     hourlyRate: 'Hourly rate', bookingFlowTitle: 'Cleaning estimate', bookingStep1Title: 'How many hours do you think the cleaning will take?', bookingStep1Hint: 'Guidance only',
     bookingGuideSmall: 'Small apartment / condo (1-2 bed): 2-3 hours', bookingGuideMedium: 'Average home (3-4 bed): 4-6 hours', bookingGuideLarge: 'Large home / deep clean: 6-10+ hours', bookingGuideMove: 'Move-in / move-out clean: 7-10+ hours',
     bookingAdjustDisclaimer: 'This estimate is not final. You can adjust with the cleaner based on actual work.', bookingHoursLabel: 'Estimated hours',
@@ -72,6 +81,7 @@ const labels = {
     modalServices: 'Servicios', modalZones: 'Zonas', close: 'Cerrar',
     reserveSuccess: 'Reserva creada.', reserveError: 'No se pudo reservar.', loading: 'Cargando...',
     timeRequired: 'Selecciona una hora.', timeInvalid: 'Formato de hora invalido.',
+    sameDayLeadError: 'Para reservas del mismo dia, elige una hora al menos 2h mas tarde (hora de Montreal).',
     hourlyRate: 'Tarifa por hora', bookingFlowTitle: 'Estimacion de limpieza', bookingStep1Title: 'Cuantas horas crees que tomara la limpieza?', bookingStep1Hint: 'Estimaciones orientativas',
     bookingGuideSmall: 'Apartamento pequeno / condo (1-2 hab): 2-3 horas', bookingGuideMedium: 'Casa media (3-4 hab): 4-6 horas', bookingGuideLarge: 'Casa grande / limpieza profunda: 6-10+ horas', bookingGuideMove: 'Limpieza de mudanza: 7-10+ horas',
     bookingAdjustDisclaimer: 'Esta estimacion no es final. Podras ajustarla con el limpiador segun el trabajo real.', bookingHoursLabel: 'Horas estimadas',
@@ -91,7 +101,6 @@ const weekday = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday
 const normalizeMatch = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const serviceAliasMap: Record<string, ServiceId> = { domicile: 'domicile', home: 'domicile', domicilio: 'domicile', 'deep cleaning': 'deep_cleaning', deep_cleaning: 'deep_cleaning', profondeur: 'deep_cleaning', profunda: 'deep_cleaning', office: 'office', bureau: 'office', oficina: 'office', moving: 'moving', demenagement: 'moving', mudanza: 'moving', post_renovation: 'post_renovation', 'post renovation': 'post_renovation', airbnb: 'airbnb' };
 const normalizeServiceId = (value: string): ServiceId | null => serviceAliasMap[normalizeMatch(value)] ?? null;
-const toLocalDateInputValue = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; };
 const toMinutes = (v: string) => { const m = v.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/); if (!m) return null; const rawHour = Number(m[1]); const minute = Number(m[2]); const second = m[3] ? Number(m[3]) : 0; const meridiem = m[4]?.toUpperCase() as 'AM' | 'PM' | undefined; if (Number.isNaN(rawHour) || Number.isNaN(minute) || Number.isNaN(second) || minute > 59 || second > 59) return null; if (meridiem) { if (rawHour < 1 || rawHour > 12) return null; const hour24 = meridiem === 'PM' ? (rawHour % 12) + 12 : rawHour % 12; return hour24 * 60 + minute; } if (rawHour < 0 || rawHour > 23) return null; return rawHour * 60 + minute; };
 const isWithin = (t: string,s: string,e: string) => { const tt=toMinutes(t); const ss=toMinutes(s); const ee=toMinutes(e); if(tt===null||ss===null||ee===null) return true; if(ee<ss) return tt>=ss||tt<=ee; return tt>=ss&&tt<=ee; };
 const formatHourlyRate = (rate: number | null) => (typeof rate === 'number' && Number.isFinite(rate) ? `${rate}$/h` : '--');
@@ -130,14 +139,14 @@ export function ClientReservationPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState('');
   const [selectedServices, setSelectedServices] = useState<ServiceId[]>([]);
-  const [selectedDate, setSelectedDate] = useState(toLocalDateInputValue);
+  const [selectedDate, setSelectedDate] = useState(getMontrealToday);
   const [selectedTime, setSelectedTime] = useState('06:00');
   const [modalCleaner, setModalCleaner] = useState<CleanerCandidate | null>(null);
   const [bookingCleaner, setBookingCleaner] = useState<CleanerCandidate | null>(null);
   const [bookingStep, setBookingStep] = useState<1 | 2>(1);
   const [estimatedHours, setEstimatedHours] = useState<number>(3);
   const [reservingId, setReservingId] = useState<string | null>(null);
-  const [minBookDate] = useState(toLocalDateInputValue);
+  const minBookDate = useMemo(() => getMontrealToday(), []);
 
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(null), 2400); return () => window.clearTimeout(timer); }, [toast]);
 
@@ -197,9 +206,29 @@ export function ClientReservationPage() {
   const selectedDateValid = useMemo(() => /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) && selectedDate >= minBookDate, [minBookDate, selectedDate]);
   const selectedTimeMinutes = useMemo(() => (selectedTime ? toMinutes(selectedTime) : null), [selectedTime]);
   const selectedTimeValid = selectedTimeMinutes !== null;
+  const isSameDaySelected = useMemo(() => isDateTodayInMontreal(selectedDate), [selectedDate]);
+  const sameDayMinTime = useMemo(
+    () => (isSameDaySelected ? getMinimumSameDayBookingTime(2, 30) : null),
+    [isSameDaySelected]
+  );
+  const sameDayMinTimeMinutes = useMemo(() => (sameDayMinTime ? toMinutes(sameDayMinTime) : null), [sameDayMinTime]);
+  const sameDayLeadValid = useMemo(() => {
+    if (!isSameDaySelected) return true;
+    if (!sameDayMinTime || sameDayMinTimeMinutes === null || selectedTimeMinutes === null) return false;
+    return selectedTimeMinutes >= sameDayMinTimeMinutes;
+  }, [isSameDaySelected, sameDayMinTime, sameDayMinTimeMinutes, selectedTimeMinutes]);
   const dateValidationMessage = selectedDate.length === 0 ? t.dateRequired : (selectedDateValid ? null : t.dateInvalid);
-  const timeValidationMessage = selectedTime.length === 0 ? (selectedDate ? t.timeRequired : null) : (selectedTimeValid ? null : t.timeInvalid);
-  const ready = Boolean(selectedSpace && selectedServices.length > 0 && selectedDateValid && selectedTimeValid);
+  const timeValidationMessage = selectedTime.length === 0
+    ? (selectedDate ? t.timeRequired : null)
+    : (selectedTimeValid ? (sameDayLeadValid ? null : t.sameDayLeadError) : t.timeInvalid);
+  const ready = Boolean(selectedSpace && selectedServices.length > 0 && selectedDateValid && selectedTimeValid && sameDayLeadValid);
+
+  useEffect(() => {
+    if (!sameDayMinTime || sameDayMinTimeMinutes === null || selectedTimeMinutes === null) return;
+    if (selectedTimeMinutes < sameDayMinTimeMinutes) {
+      setSelectedTime(sameDayMinTime);
+    }
+  }, [sameDayMinTime, sameDayMinTimeMinutes, selectedTimeMinutes]);
 
   const matchingPipeline = useMemo<MatchingPipeline>(() => {
     const raw = cleaners;
@@ -227,8 +256,8 @@ export function ClientReservationPage() {
     const afterAvailability = afterZone.filter((cleaner) => {
       const weekly = cleaner.availability as Record<string, { enabled: boolean; start: string; end: string }> | null;
       if (!weekly || typeof weekly !== 'object') return true;
-      const dt = new Date(`${selectedDate}T${selectedTime}:00`);
-      if (Number.isNaN(dt.getTime())) { availabilityFailures.push({ cleanerId: cleaner.id, selectedDate, selectedTime, weekday: null, dayAvailability: null, reason: 'invalid_datetime' }); return false; }
+      const dt = combineMontrealDateTimeToUtc(selectedDate, selectedTime);
+      if (!dt) { availabilityFailures.push({ cleanerId: cleaner.id, selectedDate, selectedTime, weekday: null, dayAvailability: null, reason: 'invalid_datetime' }); return false; }
       const weekdayKey = weekday[dt.getDay()];
       const day = weekly[weekdayKey];
       if (!day?.enabled) { availabilityFailures.push({ cleanerId: cleaner.id, selectedDate, selectedTime, weekday: weekdayKey, dayAvailability: day ?? null, reason: 'day_disabled' }); return false; }
@@ -265,8 +294,17 @@ export function ClientReservationPage() {
 
   const reserve = async (cleaner: CleanerCandidate) => {
     if (!user?.id || !selectedSpace || !selectedDateValid || !selectedTimeValid || selectedServices.length === 0) return;
+    if (!hasMinimumLeadHoursFromMontrealDateTime(selectedDate, selectedTime, 2)) {
+      setErrorMessage(t.sameDayLeadError);
+      return;
+    }
+    const scheduledDate = combineMontrealDateTimeToUtc(selectedDate, selectedTime);
+    if (!scheduledDate) {
+      setErrorMessage(t.timeInvalid);
+      return;
+    }
     setReservingId(cleaner.id);
-    const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
+    const scheduledAt = scheduledDate.toISOString();
     let insertRes = await supabase
       .from('bookings')
       .insert([
@@ -340,3 +378,4 @@ export function ClientReservationPage() {
     </div>
   );
 }
+

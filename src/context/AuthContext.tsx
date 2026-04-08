@@ -16,6 +16,7 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   city: string | null;
+  phone: string | null;
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
@@ -73,6 +74,7 @@ export async function fetchProfile(input: string | ProfileSource) {
     first_name: metadataFirstName,
     last_name: metadataLastName,
     city: metadataCity,
+    phone: null,
     avatar_url: null,
     created_at: now,
     updated_at: now

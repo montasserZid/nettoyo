@@ -1,4 +1,4 @@
-import type { ChangeEvent, ReactNode, RefObject } from 'react';
+import type { ChangeEvent, MouseEvent, ReactNode, RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bath, BedDouble, Briefcase, Building2, Camera, ChefHat, ChevronLeft, ChevronRight, Grid2x2 as Grid2X2, Home, Loader2, Lock, MapPin, Monitor, Pencil, Plus, Search, Shirt, Sofa, Star, Trash2, Warehouse, WashingMachine, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -13,7 +13,7 @@ import supabase from '../lib/supabase';
 
 type SpaceType = 'apartment' | 'house' | 'office' | 'other';
 type FormatSystem = 'quebec' | 'international';
-type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
+type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'expired';
 type RoomKey =
   | 'bedroom'
   | 'living_room'
@@ -204,6 +204,17 @@ function formatDate(language: 'fr' | 'en' | 'es', value?: string | null) {
   }).format(new Date(value));
 }
 
+function normalizeNorthAmericanPhone(raw: string) {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+1${digits.slice(1)}`;
+  }
+  return null;
+}
+
 function getEditSpacePath(language: 'fr' | 'en' | 'es', spaceId: string) {
   if (language === 'fr') {
     return `/fr/dashboard/client/modifier-espace/${spaceId}`;
@@ -245,6 +256,16 @@ function getSpaceDisplayName(booking: BookingRecord) {
 const contentByLanguage = {
   fr: {
     header: { greeting: 'Bonjour', badge: 'Client vérifié', editProfile: 'Modifier le profil' },
+    phone: {
+      title: 'Numero de telephone',
+      subtitle: "Obligatoire avant d'ajouter votre premier espace.",
+      placeholder: '+1 514 555 1234',
+      save: 'Enregistrer',
+      saving: 'Enregistrement...',
+      invalid: 'Format requis: +1 suivi de 10 chiffres.',
+      requiredForFirstSpace: "Ajoutez un numero valide pour continuer vers votre premier espace.",
+      saved: 'Numero enregistre.'
+    },
     stats: {
       spaces: 'Espaces enregistrés',
       bookings: 'Nettoyages effectués',
@@ -297,7 +318,8 @@ const contentByLanguage = {
         addressSelectRequired: 'Veuillez selectionner une adresse proposee ou passer en mode manuel.',
         upload: "Impossible d'envoyer la photo pour le moment.",
         generic: "Impossible d'enregistrer cet espace pour le moment.",
-        profileMissing: 'Impossible de sauvegarder sans profil client actif.'
+        profileMissing: 'Impossible de sauvegarder sans profil client actif.',
+        phoneRequiredFirstSpace: 'Ajoutez un numero de telephone valide dans le tableau de bord avant de creer votre premier espace.'
       },
       stepTitles: [
         "Type d'espace",
@@ -386,6 +408,16 @@ const contentByLanguage = {
   },
   en: {
     header: { greeting: 'Hello', badge: 'Verified client', editProfile: 'Edit profile' },
+    phone: {
+      title: 'Phone number',
+      subtitle: 'Required before adding your first space.',
+      placeholder: '+1 514 555 1234',
+      save: 'Save',
+      saving: 'Saving...',
+      invalid: 'Required format: +1 followed by 10 digits.',
+      requiredForFirstSpace: 'Add a valid phone number before continuing to your first space.',
+      saved: 'Phone number saved.'
+    },
     stats: {
       spaces: 'Registered spaces',
       bookings: 'Cleanings completed',
@@ -438,7 +470,8 @@ const contentByLanguage = {
         addressSelectRequired: 'Please select one suggested address or switch to manual mode.',
         upload: 'Unable to upload the photo right now.',
         generic: 'Unable to save this space right now.',
-        profileMissing: 'Unable to save without an active client profile.'
+        profileMissing: 'Unable to save without an active client profile.',
+        phoneRequiredFirstSpace: 'Add a valid phone number in your dashboard before creating your first space.'
       },
       stepTitles: ['Space type', 'Format and size', 'Room details', 'Space information'],
       typeStep: {
@@ -517,6 +550,16 @@ const contentByLanguage = {
   },
   es: {
     header: { greeting: 'Hola', badge: 'Cliente verificado', editProfile: 'Editar perfil' },
+    phone: {
+      title: 'Numero de telefono',
+      subtitle: 'Obligatorio antes de agregar tu primer espacio.',
+      placeholder: '+1 514 555 1234',
+      save: 'Guardar',
+      saving: 'Guardando...',
+      invalid: 'Formato requerido: +1 seguido de 10 digitos.',
+      requiredForFirstSpace: 'Agrega un numero valido antes de continuar con tu primer espacio.',
+      saved: 'Telefono guardado.'
+    },
     stats: {
       spaces: 'Espacios registrados',
       bookings: 'Limpiezas realizadas',
@@ -569,7 +612,8 @@ const contentByLanguage = {
         addressSelectRequired: 'Selecciona una direccion sugerida o cambia al modo manual.',
         upload: 'No se pudo subir la foto en este momento.',
         generic: 'No se pudo guardar este espacio en este momento.',
-        profileMissing: 'No se puede guardar sin un perfil de cliente activo.'
+        profileMissing: 'No se puede guardar sin un perfil de cliente activo.',
+        phoneRequiredFirstSpace: 'Agrega un telefono valido en tu panel antes de crear tu primer espacio.'
       },
       stepTitles: ['Tipo de espacio', 'Formato y tamaño', 'Detalle de habitaciones', 'Información del espacio'],
       typeStep: {
@@ -776,9 +820,10 @@ function NumberStepper({
 
 export function ClientDashboardPage() {
   const { language, navigateTo } = useLanguage();
-  const { profile, user, loading: authLoading } = useAuth();
+  const { profile, user, loading: authLoading, updateProfile } = useAuth();
   const content = contentByLanguage[language];
   const addSpacePath = getPathForRoute(language, 'clientAddSpace');
+  const phoneInputRef = useRef<HTMLInputElement | null>(null);
   const [spaces, setSpaces] = useState<SpaceRecord[]>([]);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
@@ -787,6 +832,13 @@ export function ClientDashboardPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<SpaceRecord | null>(null);
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
+  const [phoneValue, setPhoneValue] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+
+  useEffect(() => {
+    setPhoneValue(profile?.phone ?? '');
+  }, [profile?.phone]);
 
   const fetchSpaces = async () => {
     if (!user?.id) {
@@ -966,7 +1018,45 @@ export function ClientDashboardPage() {
       : user?.email?.split('@')[0] || 'Nettoyo';
   const firstName = profile?.first_name || user?.email?.split('@')[0] || 'there';
   const accountEmail = user?.email || profile?.email || '';
+  const normalizedPhone = normalizeNorthAmericanPhone(phoneValue);
+  const hasValidPhone = Boolean(normalizedPhone);
+  const requiresPhoneBeforeFirstSpace = spaces.length === 0;
   console.log('Rendering spaces:', spaces);
+
+  const savePhone = async () => {
+    if (!user?.id) return;
+    const normalized = normalizeNorthAmericanPhone(phoneValue);
+    if (!normalized) {
+      setPhoneError(content.phone.invalid);
+      return;
+    }
+    setPhoneSaving(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ phone: normalized })
+      .eq('id', user.id);
+    setPhoneSaving(false);
+    if (error) {
+      setPhoneError(error.message);
+      return;
+    }
+    setPhoneError(null);
+    setPhoneValue(normalized);
+    updateProfile({ phone: normalized });
+    setToast(content.phone.saved);
+    window.setTimeout(() => setToast(null), 2200);
+  };
+
+  const goToAddSpace = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (requiresPhoneBeforeFirstSpace && !hasValidPhone) {
+      setPhoneError(content.phone.requiredForFirstSpace);
+      phoneInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      phoneInputRef.current?.focus();
+      return;
+    }
+    navigateTo('clientAddSpace');
+  };
 
   return (
     <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7] px-4 py-8 sm:px-6 lg:px-8">
@@ -1014,6 +1104,42 @@ export function ClientDashboardPage() {
           </div>
         </section>
 
+        <section className="mt-6 rounded-[28px] bg-white px-6 py-6 shadow-[0_14px_32px_rgba(17,24,39,0.06)] sm:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-[#1A1A2E]">{content.phone.title}</h2>
+              <p className="mt-1 text-sm text-[#6B7280]">{content.phone.subtitle}</p>
+            </div>
+            {requiresPhoneBeforeFirstSpace && !hasValidPhone ? (
+              <p className="text-xs font-semibold text-[#B45309]">{content.phone.requiredForFirstSpace}</p>
+            ) : null}
+          </div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              ref={phoneInputRef}
+              type="tel"
+              value={phoneValue}
+              onChange={(event) => {
+                setPhoneValue(event.target.value);
+                if (phoneError) setPhoneError(null);
+              }}
+              placeholder={content.phone.placeholder}
+              className={`w-full rounded-xl border px-4 py-3 text-sm text-[#1A1A2E] outline-none ${
+                phoneError ? 'border-[#E24B4A] bg-[#FCEBEB]' : 'border-[#E5E7EB] focus:border-[#4FC3F7]'
+              }`}
+            />
+            <button
+              type="button"
+              disabled={phoneSaving}
+              onClick={() => void savePhone()}
+              className="inline-flex min-w-[130px] items-center justify-center rounded-full bg-[#4FC3F7] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {phoneSaving ? content.phone.saving : content.phone.save}
+            </button>
+          </div>
+          {phoneError ? <p className="mt-2 text-xs font-semibold text-[#B91C1C]">{phoneError}</p> : null}
+        </section>
+
         <section className="mt-6 grid gap-4 md:grid-cols-3">
           {[
             { value: spaces.length, label: content.stats.spaces },
@@ -1035,10 +1161,7 @@ export function ClientDashboardPage() {
             <h2 className="text-2xl font-bold text-[#1A1A2E]">{content.spaces.title}</h2>
             <a
               href={addSpacePath}
-              onClick={(event) => {
-                event.preventDefault();
-                navigateTo('clientAddSpace');
-              }}
+              onClick={goToAddSpace}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-5 py-3 font-semibold text-white shadow-[0_14px_28px_rgba(79,195,247,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#3FAAD4]"
             >
               <Plus size={18} />
@@ -1058,10 +1181,7 @@ export function ClientDashboardPage() {
               <p className="mt-6 text-lg font-semibold text-[#1A1A2E]">{content.spaces.noSpaces}</p>
               <a
                 href={addSpacePath}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigateTo('clientAddSpace');
-                }}
+                onClick={goToAddSpace}
                 className="mt-6 inline-flex items-center justify-center rounded-full bg-[#4FC3F7] px-6 py-3 font-semibold text-white shadow-[0_14px_28px_rgba(79,195,247,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#3FAAD4]"
               >
                 {content.spaces.add}
@@ -1270,11 +1390,40 @@ export function ClientAddSpacePage() {
   const [showDraftToast, setShowDraftToast] = useState(false);
   const [fadeDraftToast, setFadeDraftToast] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ address: boolean; city: boolean }>({ address: false, city: false });
+  const [hasExistingSpaces, setHasExistingSpaces] = useState(false);
   const geoapifyApiKey = (import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined)?.trim() ?? '';
+  const phoneReady = Boolean(normalizeNorthAmericanPhone(profile?.phone ?? ''));
+  const phoneGateBlocked = !editingId && !hasExistingSpaces && !phoneReady;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  useEffect(() => {
+    if (!profile?.id || editingId) {
+      setHasExistingSpaces(false);
+      return;
+    }
+    let active = true;
+    const loadSpaceCount = async () => {
+      const { count, error } = await supabase
+        .from('spaces')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', profile.id)
+        .eq('is_active', true);
+      if (!active) return;
+      if (error) {
+        console.error('Client add-space count lookup error:', error);
+        setHasExistingSpaces(false);
+        return;
+      }
+      setHasExistingSpaces((count ?? 0) > 0);
+    };
+    void loadSpaceCount();
+    return () => {
+      active = false;
+    };
+  }, [editingId, profile?.id]);
 
   useEffect(() => {
     if (editingId) {
@@ -1651,6 +1800,10 @@ export function ClientAddSpacePage() {
 
   const handleNext = () => {
     setErrorMessage(null);
+    if (phoneGateBlocked) {
+      setErrorMessage(content.addSpace.errors.phoneRequiredFirstSpace);
+      return;
+    }
 
     if (step === 1 && !form.type) {
       setErrorMessage(content.addSpace.errors.stepOneType);
@@ -1792,6 +1945,11 @@ export function ClientAddSpacePage() {
   };
 
   const handleSubmit = async () => {
+    if (phoneGateBlocked) {
+      setErrorMessage(content.addSpace.errors.phoneRequiredFirstSpace);
+      return;
+    }
+
     if (!profile?.id) {
       setErrorMessage(content.addSpace.errors.profileMissing);
       return;
@@ -1959,6 +2117,11 @@ export function ClientAddSpacePage() {
             className={`mx-4 mt-4 rounded-full bg-[rgba(168,230,207,0.35)] px-4 py-2 text-center text-xs font-medium text-[#047857] transition-opacity duration-500 sm:mx-6 ${fadeDraftToast ? 'opacity-0' : 'opacity-100'}`}
           >
             {content.addSpace.draftRestored}
+          </div>
+        ) : null}
+        {phoneGateBlocked ? (
+          <div className="mx-4 mt-4 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-medium text-[#92400E] sm:mx-6">
+            {content.addSpace.errors.phoneRequiredFirstSpace}
           </div>
         ) : null}
 
@@ -2403,8 +2566,9 @@ export function ClientAddSpacePage() {
             {step < 4 ? (
               <button
                 type="button"
+                disabled={phoneGateBlocked}
                 onClick={handleNext}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3.5 font-bold text-white shadow-lg transition-all active:scale-95 sm:flex-none sm:min-w-[180px]"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3.5 font-bold text-white shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:min-w-[180px]"
               >
                 {content.addSpace.next}
                 <ChevronRight size={18} />
@@ -2412,7 +2576,7 @@ export function ClientAddSpacePage() {
             ) : (
               <button
                 type="button"
-                disabled={submitting}
+                disabled={submitting || phoneGateBlocked}
                 onClick={() => void handleSubmit()}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3.5 font-bold text-white shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 sm:flex-none sm:min-w-[180px]"
               >

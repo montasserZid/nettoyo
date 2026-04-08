@@ -1,11 +1,11 @@
-import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
+﻿import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { daysSinceMontrealDate, getMontrealToday, isPastInMontreal } from '../lib/montrealDate';
 import supabase from '../lib/supabase';
 
-type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted';
+type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' | 'expired';
 type BookingSpace = {
   name?: string | null;
   type?: string | null;
@@ -93,11 +93,11 @@ const contentByLanguage = {
   },
   es: {
     title: 'Historial',
-    subtitle: 'Consulta limpiezas pasadas y deja una reseña simple para cada cliente.',
+    subtitle: 'Consulta limpiezas pasadas y deja una reseÃ±a simple para cada cliente.',
     empty: 'Aun no hay limpiezas pasadas.',
     details: 'Detalles',
-    leaveReview: 'Dejar reseña',
-    viewReview: 'Ver tu reseña',
+    leaveReview: 'Dejar reseÃ±a',
+    viewReview: 'Ver tu reseÃ±a',
     serviceDate: 'Fecha de servicio',
     serviceType: 'Servicio',
     propertyType: 'Tipo de propiedad',
@@ -113,8 +113,8 @@ const contentByLanguage = {
     commentLabel: 'Comentario (opcional)',
     commentPlaceholder: 'Comentario opcional...',
     submitReview: 'Publicar',
-    reviewSaved: 'Reseña guardada.',
-    reviewError: 'No se pudo guardar la reseña.',
+    reviewSaved: 'ReseÃ±a guardada.',
+    reviewError: 'No se pudo guardar la reseÃ±a.',
     loading: 'Cargando historial...',
     firstNameFallback: 'Cliente'
   }
@@ -542,3 +542,4 @@ export function CleanerHistoryPage() {
     </div>
   );
 }
+
