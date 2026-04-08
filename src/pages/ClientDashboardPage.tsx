@@ -5,9 +5,11 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
 import { ToastError } from '../components/ToastError';
+import { requestAccountDeletion } from '../lib/accountDeletion';
 import { convertToWebP } from '../lib/imageUtils';
 import { fetchGeoapifyAddressSuggestions } from '../lib/geoapify';
 import type { AddressSuggestion } from '../lib/geoapify';
+import { normalizeNorthAmericanPhone } from '../lib/phone';
 import { deriveZoneFromCityName } from '../lib/zoneMapping';
 import supabase from '../lib/supabase';
 
@@ -204,17 +206,6 @@ function formatDate(language: 'fr' | 'en' | 'es', value?: string | null) {
   }).format(new Date(value));
 }
 
-function normalizeNorthAmericanPhone(raw: string) {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length === 10) {
-    return `+1${digits}`;
-  }
-  if (digits.length === 11 && digits.startsWith('1')) {
-    return `+1${digits.slice(1)}`;
-  }
-  return null;
-}
-
 function getEditSpacePath(language: 'fr' | 'en' | 'es', spaceId: string) {
   if (language === 'fr') {
     return `/fr/dashboard/client/modifier-espace/${spaceId}`;
@@ -265,6 +256,14 @@ const contentByLanguage = {
       invalid: 'Format requis: +1 suivi de 10 chiffres.',
       requiredForFirstSpace: "Ajoutez un numero valide pour continuer vers votre premier espace.",
       saved: 'Numero enregistre.'
+    },
+    account: {
+      deleteButton: 'Supprimer mon compte',
+      deleteTitle: 'Supprimer mon compte ?',
+      deleteMessage: "Toutes vos donnees seront supprimees definitivement de l'application.",
+      deleteCancel: 'Annuler',
+      deleteConfirm: 'Supprimer definitivement',
+      deleteError: 'Impossible de supprimer votre compte pour le moment.'
     },
     stats: {
       spaces: 'Espaces enregistrés',
@@ -418,6 +417,14 @@ const contentByLanguage = {
       requiredForFirstSpace: 'Add a valid phone number before continuing to your first space.',
       saved: 'Phone number saved.'
     },
+    account: {
+      deleteButton: 'Delete my account',
+      deleteTitle: 'Delete my account?',
+      deleteMessage: 'All your data will be permanently removed from the app.',
+      deleteCancel: 'Cancel',
+      deleteConfirm: 'Delete permanently',
+      deleteError: 'Unable to delete your account right now.'
+    },
     stats: {
       spaces: 'Registered spaces',
       bookings: 'Cleanings completed',
@@ -559,6 +566,14 @@ const contentByLanguage = {
       invalid: 'Formato requerido: +1 seguido de 10 digitos.',
       requiredForFirstSpace: 'Agrega un numero valido antes de continuar con tu primer espacio.',
       saved: 'Telefono guardado.'
+    },
+    account: {
+      deleteButton: 'Eliminar mi cuenta',
+      deleteTitle: '¿Eliminar mi cuenta?',
+      deleteMessage: 'Todos tus datos se eliminaran definitivamente de la aplicacion.',
+      deleteCancel: 'Cancelar',
+      deleteConfirm: 'Eliminar definitivamente',
+      deleteError: 'No se puede eliminar tu cuenta en este momento.'
     },
     stats: {
       spaces: 'Espacios registrados',
@@ -820,7 +835,7 @@ function NumberStepper({
 
 export function ClientDashboardPage() {
   const { language, navigateTo } = useLanguage();
-  const { profile, user, loading: authLoading, updateProfile } = useAuth();
+  const { profile, user, session, loading: authLoading, updateProfile, signOut } = useAuth();
   const content = contentByLanguage[language];
   const addSpacePath = getPathForRoute(language, 'clientAddSpace');
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
@@ -835,6 +850,8 @@ export function ClientDashboardPage() {
   const [phoneValue, setPhoneValue] = useState('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneSaving, setPhoneSaving] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
 
   useEffect(() => {
     setPhoneValue(profile?.phone ?? '');
@@ -1056,6 +1073,24 @@ export function ClientDashboardPage() {
       return;
     }
     navigateTo('clientAddSpace');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!session?.access_token) {
+      setErrorMessage(content.account.deleteError);
+      return;
+    }
+    setDeleteAccountLoading(true);
+    try {
+      await requestAccountDeletion(session.access_token);
+      await signOut();
+      window.location.assign(getPathForRoute(language, 'home'));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : content.account.deleteError);
+      setDeleteAccountLoading(false);
+      return;
+    }
+    setDeleteAccountLoading(false);
   };
 
   return (
@@ -1291,6 +1326,44 @@ export function ClientDashboardPage() {
             </div>
           )}
         </section>
+        <section className="mt-6 rounded-[24px] border border-[rgba(220,38,38,0.25)] bg-white px-6 py-5 shadow-[0_10px_24px_rgba(17,24,39,0.05)] sm:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[#6B7280]">{content.account.deleteMessage}</p>
+            <button
+              type="button"
+              onClick={() => setDeleteAccountOpen(true)}
+              className="inline-flex items-center justify-center rounded-full bg-[#DC2626] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B91C1C]"
+            >
+              {content.account.deleteButton}
+            </button>
+          </div>
+        </section>
+        {deleteAccountOpen ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
+              <h3 className="text-xl font-bold text-[#1A1A2E]">{content.account.deleteTitle}</h3>
+              <p className="mt-3 text-sm leading-6 text-[#6B7280]">{content.account.deleteMessage}</p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={deleteAccountLoading}
+                  onClick={() => setDeleteAccountOpen(false)}
+                  className="rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#6B7280] transition-colors hover:bg-[#F7F7F7] disabled:opacity-60"
+                >
+                  {content.account.deleteCancel}
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteAccountLoading}
+                  onClick={() => void handleDeleteAccount()}
+                  className="inline-flex min-w-[170px] items-center justify-center rounded-full bg-[#DC2626] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B91C1C] disabled:opacity-60"
+                >
+                  {deleteAccountLoading ? <Loader2 size={14} className="animate-spin" /> : content.account.deleteConfirm}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {deleteCandidate ? (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">

@@ -5,9 +5,12 @@ import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-le
 import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
+import { getPathForRoute } from '../i18n/routes';
+import { requestAccountDeletion } from '../lib/accountDeletion';
 import { convertToWebP } from '../lib/imageUtils';
 import { fetchGeoapifyAddressSuggestions } from '../lib/geoapify';
 import type { AddressSuggestion, HomeAddress } from '../lib/geoapify';
+import { normalizeNorthAmericanPhone } from '../lib/phone';
 import { areaPoints, firstZoneName, getZoneArea, deriveZoneFromAddress, zoneAreas, zones } from '../lib/zoneMapping';
 import supabase from '../lib/supabase';
 import 'leaflet/dist/leaflet.css';
@@ -90,6 +93,18 @@ const contentByLanguage = {
     photoSourceHelp: 'Choisissez une photo existante ou ouvrez la camera.',
     close: 'Fermer',
     viewPhoto: 'Voir la photo',
+    photoTapHint: 'Appuyez sur la photo pour ajouter ou modifier.',
+    phoneTitle: 'Numero de telephone',
+    phoneHelp: 'Requis pour finaliser votre profil nettoyeur.',
+    phonePlaceholder: '+1 514 555 1234',
+    phoneInvalid: 'Format requis: +1 suivi de 10 chiffres.',
+    phoneRequired: 'Ajoutez un numero de telephone valide pour enregistrer votre profil.',
+    deleteAccountButton: 'Supprimer mon compte',
+    deleteAccountTitle: 'Supprimer mon compte ?',
+    deleteAccountMessage: "Toutes vos donnees seront supprimees definitivement de l'application.",
+    deleteAccountCancel: 'Annuler',
+    deleteAccountConfirm: 'Supprimer definitivement',
+    deleteAccountError: 'Impossible de supprimer votre compte pour le moment.',
     descriptionTitle: 'Description professionnelle',
     descriptionHelp: 'Parlez de votre experience, de vos specialites et de votre methode de travail.',
     descriptionPlaceholder:
@@ -195,6 +210,18 @@ const contentByLanguage = {
     photoSourceHelp: 'Choose an existing picture or open the camera.',
     close: 'Close',
     viewPhoto: 'View photo',
+    photoTapHint: 'Tap the photo to add or update it.',
+    phoneTitle: 'Phone number',
+    phoneHelp: 'Required to complete your cleaner profile.',
+    phonePlaceholder: '+1 514 555 1234',
+    phoneInvalid: 'Required format: +1 followed by 10 digits.',
+    phoneRequired: 'Add a valid phone number to save your profile.',
+    deleteAccountButton: 'Delete my account',
+    deleteAccountTitle: 'Delete my account?',
+    deleteAccountMessage: 'All your data will be permanently removed from the app.',
+    deleteAccountCancel: 'Cancel',
+    deleteAccountConfirm: 'Delete permanently',
+    deleteAccountError: 'Unable to delete your account right now.',
     descriptionTitle: 'Professional description',
     descriptionHelp: 'Highlight your experience, specialties, and working style.',
     descriptionPlaceholder:
@@ -300,6 +327,18 @@ const contentByLanguage = {
     photoSourceHelp: 'Elige una foto existente o abre la camara.',
     close: 'Cerrar',
     viewPhoto: 'Ver foto',
+    photoTapHint: 'Toca la foto para agregarla o cambiarla.',
+    phoneTitle: 'Numero de telefono',
+    phoneHelp: 'Obligatorio para completar tu perfil de limpiador.',
+    phonePlaceholder: '+1 514 555 1234',
+    phoneInvalid: 'Formato requerido: +1 seguido de 10 digitos.',
+    phoneRequired: 'Agrega un numero de telefono valido para guardar tu perfil.',
+    deleteAccountButton: 'Eliminar mi cuenta',
+    deleteAccountTitle: '¿Eliminar mi cuenta?',
+    deleteAccountMessage: 'Todos tus datos se eliminaran definitivamente de la aplicacion.',
+    deleteAccountCancel: 'Cancelar',
+    deleteAccountConfirm: 'Eliminar definitivamente',
+    deleteAccountError: 'No se puede eliminar tu cuenta en este momento.',
     descriptionTitle: 'Descripcion profesional',
     descriptionHelp: 'Destaca tu experiencia, especialidades y forma de trabajar.',
     descriptionPlaceholder:
@@ -569,7 +608,7 @@ async function dataUrlToFile(dataUrl: string, filename: string) {
 }
 
 export function CleanerDashboardPage() {
-  const { user, profile, updateProfile } = useAuth();
+  const { user, profile, session, updateProfile, signOut } = useAuth();
   const { language } = useLanguage();
   const content = contentByLanguage[language];
   const weekdayLabels = weekdayLabelByLanguage[language];
@@ -580,6 +619,8 @@ export function CleanerDashboardPage() {
   const autocompleteAbortRef = useRef<AbortController | null>(null);
 
   const [description, setDescription] = useState('');
+  const [phoneValue, setPhoneValue] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [hourlyRateInput, setHourlyRateInput] = useState('');
   const [selectedServices, setSelectedServices] = useState<CleanerServiceId[]>([]);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
@@ -612,6 +653,8 @@ export function CleanerDashboardPage() {
   const [saveToast, setSaveToast] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const geoapifyApiKey = (import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined)?.trim() ?? '';
@@ -638,6 +681,8 @@ export function CleanerDashboardPage() {
     const loadCleanerProfile = async () => {
       if (!user?.id) {
         setDescription('');
+        setPhoneValue(profile?.phone ?? '');
+        setPhoneError(null);
         setHourlyRateInput('');
         setSelectedServices([]);
         setPhotoDataUrl(profile?.avatar_url ?? null);
@@ -687,6 +732,8 @@ export function CleanerDashboardPage() {
         fallbackLocalProfile
       );
       setDescription(normalized.description);
+      setPhoneValue(profile?.phone ?? '');
+      setPhoneError(null);
       setHourlyRateInput(normalized.hourlyRate !== null ? String(normalized.hourlyRate) : '');
       setSelectedServices(normalized.services);
       setPhotoDataUrl(normalized.photoDataUrl);
@@ -717,7 +764,7 @@ export function CleanerDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [content.loadError, profile?.avatar_url, storageKey, user?.id]);
+  }, [content.loadError, profile?.avatar_url, profile?.phone, storageKey, user?.id]);
 
   useEffect(() => {
     if (!saveToast) return;
@@ -1026,6 +1073,13 @@ export function CleanerDashboardPage() {
       setErrorMessage(content.hourlyRateInvalid);
       return;
     }
+    const normalizedPhone = normalizeNorthAmericanPhone(phoneValue);
+    if (!normalizedPhone) {
+      setPhoneError(content.phoneInvalid);
+      setErrorMessage(content.phoneRequired);
+      return;
+    }
+    setPhoneError(null);
 
     setIsSaving(true);
 
@@ -1133,11 +1187,15 @@ export function CleanerDashboardPage() {
       return;
     }
 
-    const { error: profileUpdateError } = await supabase.from('profiles').update({ avatar_url: payload.photoDataUrl }).eq('id', user.id);
+    const { error: profileUpdateError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: payload.photoDataUrl, phone: normalizedPhone })
+      .eq('id', user.id);
     if (profileUpdateError) {
       console.error('profile avatar sync error:', profileUpdateError);
     } else {
-      updateProfile({ avatar_url: payload.photoDataUrl ?? null });
+      updateProfile({ avatar_url: payload.photoDataUrl ?? null, phone: normalizedPhone });
+      setPhoneValue(normalizedPhone);
     }
 
     const previousPhotoPath = extractSpacePhotoPath(previousPhotoUrl);
@@ -1161,6 +1219,24 @@ export function CleanerDashboardPage() {
     setHomeAddressValidationError(null);
     setSaveToast(true);
     setIsSaving(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!session?.access_token) {
+      setErrorMessage(content.deleteAccountError);
+      return;
+    }
+    setDeleteAccountLoading(true);
+    try {
+      await requestAccountDeletion(session.access_token);
+      await signOut();
+      window.location.assign(getPathForRoute(language, 'home'));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : content.deleteAccountError);
+      setDeleteAccountLoading(false);
+      return;
+    }
+    setDeleteAccountLoading(false);
   };
 
   return (
@@ -1201,12 +1277,8 @@ export function CleanerDashboardPage() {
                 <div className="mt-6 flex justify-center">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (photoDataUrl) {
-                        setPhotoModalOpen(true);
-                      }
-                    }}
-                    className="group relative"
+                    onClick={() => setPhotoSourceOpen(true)}
+                    className="group relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4FC3F7] focus-visible:ring-offset-2"
                   >
                     {photoDataUrl ? (
                       <img
@@ -1219,8 +1291,12 @@ export function CleanerDashboardPage() {
                         <Camera size={32} className="sm:h-9 sm:w-9" />
                       </div>
                     )}
+                    <span className="absolute bottom-1 right-1 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white bg-[#1A1A2E] text-white shadow-[0_4px_10px_rgba(17,24,39,0.25)]">
+                      <Camera size={14} />
+                    </span>
                   </button>
                 </div>
+                <p className="mt-3 text-center text-xs font-medium text-[#6B7280]">{content.photoTapHint}</p>
 
                 {photoDataUrl ? (
                   <button
@@ -1296,6 +1372,28 @@ export function CleanerDashboardPage() {
                 />
                 <div className="mt-2 flex items-center justify-between">
                   <p className="text-xs text-[#9CA3AF]">{description.length}/1200</p>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-[#E5E7EB] bg-white p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">{content.phoneTitle}</p>
+                  <p className="mt-1 text-xs text-[#6B7280] sm:text-sm">{content.phoneHelp}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      type="tel"
+                      value={phoneValue}
+                      onChange={(event) => {
+                        setPhoneValue(event.target.value);
+                        if (phoneError) setPhoneError(null);
+                      }}
+                      placeholder={content.phonePlaceholder}
+                      className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold text-[#1A1A2E] outline-none transition-all ${
+                        phoneError
+                          ? 'border-[#E24B4A] bg-[#FCEBEB]'
+                          : 'border-[#E5E7EB] focus:border-[#4FC3F7] focus:shadow-[0_0_0_4px_rgba(79,195,247,0.08)]'
+                      }`}
+                    />
+                  </div>
+                  {phoneError ? <p className="mt-2 text-xs font-medium text-[#B91C1C]">{phoneError}</p> : null}
                 </div>
 
                 <div className="mt-5 rounded-xl border border-[#E5E7EB] bg-white p-4">
@@ -1751,6 +1849,18 @@ export function CleanerDashboardPage() {
             </div>
           </div>
         </section>
+        <section className="mt-6 rounded-2xl border border-[rgba(220,38,38,0.25)] bg-white p-5 shadow-[0_4px_16px_rgba(17,24,39,0.04)] sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[#6B7280]">{content.deleteAccountMessage}</p>
+            <button
+              type="button"
+              onClick={() => setDeleteAccountOpen(true)}
+              className="inline-flex items-center justify-center rounded-full bg-[#DC2626] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#B91C1C]"
+            >
+              {content.deleteAccountButton}
+            </button>
+          </div>
+        </section>
         </div>
 
       {isAreaWizardOpen ? (
@@ -2176,6 +2286,33 @@ export function CleanerDashboardPage() {
                   {content.close}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteAccountOpen ? (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
+            <h3 className="text-xl font-bold text-[#1A1A2E]">{content.deleteAccountTitle}</h3>
+            <p className="mt-3 text-sm leading-6 text-[#6B7280]">{content.deleteAccountMessage}</p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={deleteAccountLoading}
+                onClick={() => setDeleteAccountOpen(false)}
+                className="rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-medium text-[#6B7280] transition-colors hover:bg-[#F7F7F7] disabled:opacity-60"
+              >
+                {content.deleteAccountCancel}
+              </button>
+              <button
+                type="button"
+                disabled={deleteAccountLoading}
+                onClick={() => void handleDeleteAccount()}
+                className="inline-flex min-w-[170px] items-center justify-center rounded-full bg-[#DC2626] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#B91C1C] disabled:opacity-60"
+              >
+                {deleteAccountLoading ? <Loader2 size={14} className="animate-spin" /> : content.deleteAccountConfirm}
+              </button>
             </div>
           </div>
         </div>

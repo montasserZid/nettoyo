@@ -1,6 +1,6 @@
-import { CalendarDays, ClipboardList, Home, Info, LogIn, UserRound } from 'lucide-react';
+﻿import { CalendarDays, ClipboardList, Home, Info, LogIn, UserRound } from 'lucide-react';
 import type { MouseEvent } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavBookingCounts } from '../hooks/useNavBookingCounts';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -33,11 +33,25 @@ export function MobileBottomNav() {
   const { language, route, navigateTo } = useLanguage();
   const { user, isClient, isCleaner } = useAuth();
   const { pendingBookingCount } = useNavBookingCounts();
+  const [cleanerView, setCleanerView] = useState<CleanerReservationsView>(() => getCleanerViewFromSearch());
 
-  const currentCleanerView = useMemo(
-    () => (route === 'cleanerReservations' ? getCleanerViewFromSearch() : 'pending'),
-    [route]
-  );
+  useEffect(() => {
+    const syncCleanerView = () => setCleanerView(getCleanerViewFromSearch());
+    const onCustomView = (event: Event) => {
+      const detail = (event as CustomEvent<{ view?: string }>).detail;
+      if (detail?.view === 'accepted' || detail?.view === 'pending') {
+        setCleanerView(detail.view);
+      } else {
+        syncCleanerView();
+      }
+    };
+    window.addEventListener('popstate', syncCleanerView);
+    window.addEventListener('cleaner-reservations-view', onCustomView as EventListener);
+    return () => {
+      window.removeEventListener('popstate', syncCleanerView);
+      window.removeEventListener('cleaner-reservations-view', onCustomView as EventListener);
+    };
+  }, []);
 
   const goToRoute = (nextRoute: AppRoute) => (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -46,10 +60,11 @@ export function MobileBottomNav() {
 
   const goToCleanerReservationsView = (view: CleanerReservationsView) => (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
+    navigateTo('cleanerReservations');
     const basePath = getPathForRoute(language, 'cleanerReservations');
     const nextUrl = `${basePath}?view=${view}`;
-    window.history.pushState({}, '', nextUrl);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.history.replaceState({}, '', nextUrl);
+    setCleanerView(view);
     window.dispatchEvent(new CustomEvent('cleaner-reservations-view', { detail: { view } }));
   };
 
@@ -66,7 +81,7 @@ export function MobileBottomNav() {
         },
         {
           key: 'client-reservations',
-          label: language === 'fr' ? 'Reservations' : language === 'es' ? 'Reservas' : 'Bookings',
+          label: language === 'fr' ? 'Réservations' : language === 'es' ? 'Reservas' : 'Bookings',
           icon: CalendarDays,
           href: getPathForRoute(language, 'clientReservations'),
           onClick: goToRoute('clientReservations'),
@@ -91,16 +106,16 @@ export function MobileBottomNav() {
           icon: ClipboardList,
           href: `${getPathForRoute(language, 'cleanerReservations')}?view=pending`,
           onClick: goToCleanerReservationsView('pending'),
-          isActive: route === 'cleanerReservations' && currentCleanerView === 'pending',
+          isActive: route === 'cleanerReservations' && cleanerView === 'pending',
           badge: pendingBookingCount > 0 ? pendingBookingCount : undefined
         },
         {
           key: 'cleaner-reservations',
-          label: language === 'fr' ? 'Reservations' : language === 'es' ? 'Reservas' : 'Bookings',
+          label: language === 'fr' ? 'Réservations' : language === 'es' ? 'Reservas' : 'Bookings',
           icon: CalendarDays,
           href: `${getPathForRoute(language, 'cleanerReservations')}?view=accepted`,
           onClick: goToCleanerReservationsView('accepted'),
-          isActive: route === 'cleanerReservations' && currentCleanerView === 'accepted'
+          isActive: route === 'cleanerReservations' && cleanerView === 'accepted'
         },
         {
           key: 'cleaner-profile',
@@ -124,7 +139,7 @@ export function MobileBottomNav() {
       },
       {
         key: 'guest-how',
-        label: language === 'fr' ? 'Comment ca marche' : language === 'es' ? 'Como funciona' : 'How it works',
+        label: language === 'fr' ? 'Comment ça marche' : language === 'es' ? 'Como funciona' : 'How it works',
         icon: Info,
         href: getPathForRoute(language, 'howItWorks'),
         onClick: goToRoute('howItWorks'),
@@ -139,7 +154,7 @@ export function MobileBottomNav() {
         isActive: route === 'login' || route === 'signup'
       }
     ];
-  }, [currentCleanerView, isCleaner, isClient, language, pendingBookingCount, route, user]);
+  }, [cleanerView, isCleaner, isClient, language, pendingBookingCount, route, user]);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-[70] border-t border-[#E5E7EB] bg-white/95 shadow-[0_-10px_24px_rgba(17,24,39,0.08)] backdrop-blur-sm md:hidden">
@@ -171,3 +186,4 @@ export function MobileBottomNav() {
     </nav>
   );
 }
+

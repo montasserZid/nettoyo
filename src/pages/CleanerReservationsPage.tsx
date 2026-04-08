@@ -36,46 +36,46 @@ const serviceLabels: Record<string, { fr: string; en: string; es: string }> = {
   domicile: { fr: 'Domicile', en: 'Home', es: 'Domicilio' },
   deep_cleaning: { fr: 'Profondeur', en: 'Deep cleaning', es: 'Profunda' },
   office: { fr: 'Bureau', en: 'Office', es: 'Oficina' },
-  moving: { fr: 'Demenagement', en: 'Moving', es: 'Mudanza' },
+  moving: { fr: 'Déménagement', en: 'Moving', es: 'Mudanza' },
   post_renovation: { fr: 'Post-renovation', en: 'Post-renovation', es: 'Post-renovacion' },
   airbnb: { fr: 'Airbnb', en: 'Airbnb', es: 'Airbnb' }
 };
 
 const contentByLanguage = {
   fr: {
-    title: 'Mes reservations',
-    subtitle: 'Gerez vos demandes et interventions a venir.',
+    title: 'Mes réservations',
+    subtitle: 'Gérez vos demandes et interventions à venir.',
     pendingTitle: 'Demandes de nettoyage',
-    acceptedTitle: 'Demandes acceptees',
+    acceptedTitle: 'Demandes acceptées',
     pendingEmpty: 'Aucune nouvelle demande pour le moment.',
-    acceptedEmpty: 'Aucune reservation acceptee a venir.',
+    acceptedEmpty: 'Aucune réservation acceptée à venir.',
     scheduledFor: 'Planifie pour',
     statusPending: 'En attente',
-    statusAccepted: 'Acceptee',
-    privacy: 'Les informations completes seront disponibles apres acceptation',
-    details: 'Details',
+    statusAccepted: 'Acceptée',
+    privacy: 'Les informations complètes seront disponibles après acceptation',
+    details: 'Détails',
     accept: 'Accepter',
     refuse: 'Refuser',
     contact: 'Contact',
-    placeDetails: 'Details du lieu',
+    placeDetails: 'Détails du lieu',
     clientNote: 'Note client',
     noClientNote: 'Aucune note client',
-    noPlaceDetails: 'Aucun detail supplementaire',
+    noPlaceDetails: 'Aucun détail supplémentaire',
     modalTitlePending: 'Demande en attente',
-    modalTitleAccepted: 'Reservation acceptee',
+    modalTitleAccepted: 'Réservation acceptée',
     close: 'Fermer',
-    contactSoon: 'Contact bientot disponible',
-    contactAvailable: 'Coordonnees disponibles',
-    contactRuleSoon: 'Les coordonnees seront disponibles 24h avant la reservation.',
-    noPhone: 'Telephone non disponible',
-    actionError: "Impossible de mettre a jour la reservation pour l'instant.",
+    contactSoon: 'Contact bientôt disponible',
+    contactAvailable: 'Coordonnées disponibles',
+    contactRuleSoon: 'Les coordonnées seront disponibles 24 h avant la réservation.',
+    noPhone: 'Téléphone non disponible',
+    actionError: "Impossible de mettre à jour la réservation pour l'instant.",
     confirmTitle: 'Confirmation',
-    confirmMessage: 'Etes-vous sur ?',
+    confirmMessage: 'Êtes-vous sûr ?',
     yes: 'Oui',
     no: 'Non',
-    acceptedToast: 'Reservation acceptee.',
-    declinedToast: 'Demande refusee.',
-    loading: 'Chargement des reservations...'
+    acceptedToast: 'Réservation acceptée.',
+    declinedToast: 'Demande refusée.',
+    loading: 'Chargement des réservations...'
     ,
     estimatedHours: 'Estimation',
     hoursSuffix: 'h'
@@ -626,7 +626,7 @@ export function CleanerReservationsPage() {
         {errorMessage ? <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[rgba(239,68,68,0.14)] px-5 py-3 text-sm font-semibold text-[#B91C1C] shadow-[0_12px_24px_rgba(17,24,39,0.12)]">{errorMessage}</div> : null}
 
         <section className="rounded-[28px] bg-white px-6 py-8 shadow-[0_16px_36px_rgba(17,24,39,0.07)] sm:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4FC3F7]">Reservations</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4FC3F7]">Réservations</p>
           <h1 className="mt-2 text-2xl font-bold text-[#1A1A2E] sm:text-3xl">{content.title}</h1>
           <p className="mt-2 max-w-2xl text-sm text-[#6B7280]">{content.subtitle}</p>
         </section>

@@ -13,17 +13,17 @@ type BookingSummary = {
 
 const labels = {
   fr: {
-    title: 'Reservation envoyee',
+    title: 'Réservation envoyée',
     subtitle:
-      'Votre demande a bien ete envoyee. Elle est actuellement en attente de confirmation par le nettoyeur. Vous recevrez un email une fois la demande confirmee.',
+      'Votre demande a bien été envoyée. Elle est actuellement en attente de confirmation par le nettoyeur. Vous recevrez un e-mail une fois la demande confirmée.',
     status: 'Statut',
     statusPending: 'En attente',
-    statusConfirmed: 'Confirmee',
-    statusCompleted: 'Terminee',
-    statusCancelled: 'Annulee',
-    reference: 'Reference',
+    statusConfirmed: 'Confirmée',
+    statusCompleted: 'Terminée',
+    statusCancelled: 'Annulée',
+    reference: 'Référence',
     waiting: 'Le nettoyeur doit encore accepter votre demande.',
-    backHome: "Retour a l'accueil"
+    backHome: "Retour à l'accueil"
   },
   en: {
     title: 'Booking request sent',

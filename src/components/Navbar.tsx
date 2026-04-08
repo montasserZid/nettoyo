@@ -8,15 +8,15 @@ import { useNavBookingCounts } from '../hooks/useNavBookingCounts';
 import { NettoyoLogo } from './NettoyoLogo';
 
 const accountLabels = {
-  fr: { profile: 'Mon profil', logout: 'Se deconnecter' },
+  fr: { profile: 'Mon profil', logout: 'Se déconnecter' },
   en: { profile: 'My profile', logout: 'Log out' },
   es: { profile: 'Mi perfil', logout: 'Cerrar sesion' }
 } as const;
 
 const reservationCtaLabels = {
   fr: {
-    cleaner: 'Mes reservations',
-    cleanerWithCount: (count: number) => `Mes reservations (${count})`
+    cleaner: 'Mes réservations',
+    cleanerWithCount: (count: number) => `Mes réservations (${count})`
   },
   en: {
     cleaner: 'My bookings',
@@ -39,7 +39,7 @@ const clientNavLabels = {
   es: 'Historial'
 } as const;
 const clientReservationsLabels = {
-  fr: 'Mes reservations',
+  fr: 'Mes réservations',
   en: 'My bookings',
   es: 'Mis reservas'
 } as const;

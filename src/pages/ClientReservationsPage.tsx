@@ -32,39 +32,39 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 const contentByLanguage = {
   fr: {
-    title: 'Mes reservations',
-    subtitle: 'Suivez vos reservations actives et a venir.',
+    title: 'Mes réservations',
+    subtitle: 'Suivez vos réservations actives et à venir.',
     pendingTitle: 'En attente',
-    confirmedTitle: 'Confirmees',
+    confirmedTitle: 'Confirmées',
     pendingEmpty: 'Aucune reservation en attente.',
     confirmedEmpty: 'Aucune reservation confirmee a venir.',
     statusPending: 'En attente',
-    statusConfirmed: 'Confirmee',
-    details: 'Details',
+    statusConfirmed: 'Confirmée',
+    details: 'Détails',
     close: 'Fermer',
     service: 'Service',
-    propertyType: 'Type de propriete',
+    propertyType: 'Type de propriété',
     location: 'Ville',
     schedule: 'Date et heure',
-    estimate: 'Heures estimees',
-    reference: 'Reference',
+    estimate: 'Heures estimées',
+    reference: 'Référence',
     cleaner: 'Nettoyeur',
     cancel: 'Annuler',
-    cancelNotAllowed: "Annulation possible uniquement jusqu'a 24h avant la prestation.",
-    cancelRule: "Vous pouvez annuler gratuitement jusqu'a 24 heures avant l'heure prevue.",
+    cancelNotAllowed: "Annulation possible uniquement jusqu'à 24 h avant la prestation.",
+    cancelRule: "Vous pouvez annuler gratuitement jusqu'à 24 heures avant l'heure prévue.",
     cancelRuleBlocked: "Il reste moins de 24 heures: l'annulation n'est plus disponible.",
     confirmTitle: 'Confirmation',
-    confirmMessage: 'Etes-vous sur ?',
+    confirmMessage: 'Êtes-vous sûr ?',
     yes: 'Oui',
     no: 'Non',
-    cancelledToast: 'Reservation annulee.',
-    cancelError: "Impossible d'annuler cette reservation pour le moment.",
-    loading: 'Chargement des reservations...',
+    cancelledToast: 'Réservation annulée.',
+    cancelError: "Impossible d'annuler cette réservation pour le moment.",
+    loading: 'Chargement des réservations...',
     contactCta: 'Contacter le nettoyeur',
-    contactRuleSoon: 'Les coordonnees seront affichees 24 heures avant le nettoyage.',
+    contactRuleSoon: 'Les coordonnées seront affichées 24 heures avant le nettoyage.',
     contactRuleNow: 'Contact disponible (fenetre de 24h avant la prestation).',
     contactUnavailable: 'Coordonnees temporairement indisponibles.',
-    noPhone: 'Telephone non disponible.'
+    noPhone: 'Téléphone non disponible.'
   },
   en: {
     title: 'My bookings',
@@ -149,7 +149,7 @@ const serviceLabels: Record<string, { fr: string; en: string; es: string }> = {
   domicile: { fr: 'Domicile', en: 'Home', es: 'Domicilio' },
   deep_cleaning: { fr: 'Profondeur', en: 'Deep cleaning', es: 'Profunda' },
   office: { fr: 'Bureau', en: 'Office', es: 'Oficina' },
-  moving: { fr: 'Demenagement', en: 'Moving', es: 'Mudanza' },
+  moving: { fr: 'Déménagement', en: 'Moving', es: 'Mudanza' },
   post_renovation: { fr: 'Post-renovation', en: 'Post-renovation', es: 'Post-renovacion' },
   airbnb: { fr: 'Airbnb', en: 'Airbnb', es: 'Airbnb' }
 };
@@ -189,7 +189,7 @@ function toBookingReference(bookingId: string) {
 
 function buildMaskedName(firstName?: string | null, lastName?: string | null) {
   const first = firstName?.trim();
-  if (!first) return 'Nettoyo';
+    if (!first) return 'Nettoyó';
   const initial = lastName?.trim()?.[0]?.toUpperCase() ?? '';
   return initial ? `${first} ${initial}.` : first;
 }
@@ -536,7 +536,7 @@ export function ClientReservationsPage() {
         {errorMessage ? <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[rgba(239,68,68,0.14)] px-5 py-3 text-sm font-semibold text-[#B91C1C] shadow-[0_12px_24px_rgba(17,24,39,0.12)]">{errorMessage}</div> : null}
 
         <section className="rounded-[28px] bg-white px-6 py-8 shadow-[0_16px_36px_rgba(17,24,39,0.07)] sm:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4FC3F7]">Reservations</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4FC3F7]">Réservations</p>
           <h1 className="mt-2 text-2xl font-bold text-[#1A1A2E] sm:text-3xl">{content.title}</h1>
           <p className="mt-2 max-w-2xl text-sm text-[#6B7280]">{content.subtitle}</p>
         </section>
@@ -604,7 +604,7 @@ export function ClientReservationsPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{content.service}</p>
                 <p className="mt-2 text-sm font-semibold text-[#1A1A2E]">{formatService(selectedBooking.service_type, language)}</p>
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{content.cleaner}</p>
-                <p className="mt-2 text-sm text-[#4B5563]">{selectedCleaner?.name || 'Nettoyo'}</p>
+                <p className="mt-2 text-sm text-[#4B5563]">{selectedCleaner?.name || 'Nettoyó'}</p>
                 {typeof selectedBooking.estimated_hours === 'number' ? (
                   <>
                     <p className="mt-3 text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{content.estimate}</p>
