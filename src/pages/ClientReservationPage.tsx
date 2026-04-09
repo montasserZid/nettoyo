@@ -1,5 +1,5 @@
 ﻿import { Calendar, CheckCircle2, Clock3, Home, Loader2, MapPin, Search, Sparkles, User, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
@@ -18,10 +18,26 @@ import supabase from '../lib/supabase';
 type ServiceId = 'domicile' | 'deep_cleaning' | 'office' | 'moving' | 'post_renovation' | 'airbnb';
 type SpaceRecord = { id: string; name: string; address: string | null; city: string | null; derived_zone: string | null; is_favorite: boolean; is_active: boolean };
 type CleanerProfileRecord = { id: string; description: string | null; hourly_rate: number | null; services: string[] | null; photo_url: string | null; service_areas: unknown; weekly_availability: unknown; availability_exceptions: unknown };
+type CleanerReviewRecord = { cleaner_id: string; rating: number | null };
+type CleanerCompletedBookingRecord = { cleaner_id: string | null };
 type AreaSelection = { id: string; zone: string; name: string; lat: number; lng: number };
 type CleanerIdentity = { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
-type CleanerCandidate = { id: string; displayName: string; description: string; photoUrl: string | null; hourlyRate: number | null; services: ServiceId[]; serviceAreas: AreaSelection[]; availability: unknown; exceptions: unknown };
+type CleanerCandidate = {
+  id: string;
+  displayName: string;
+  description: string;
+  photoUrl: string | null;
+  hourlyRate: number | null;
+  services: ServiceId[];
+  serviceAreas: AreaSelection[];
+  availability: unknown;
+  exceptions: unknown;
+  completedJobs: number;
+  averageRating: number | null;
+  ratingCount: number;
+};
 type BookingInsertResult = { id: string; status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' | 'expired' };
+type SortOption = 'price_asc' | 'price_desc' | 'jobs_desc' | 'rating_desc';
 
 type ServiceFailure = { cleanerId: string; cleanerServices: ServiceId[]; selectedServices: ServiceId[] };
 type ZoneFailure = { cleanerId: string; selectedZone: string; selectedZoneNormalized: string; cleanerAreas: { zone: string; name: string }[] };
@@ -40,8 +56,25 @@ const labels = {
     addSpace: 'Ajouter un espace', noSpace: 'Ajoutez un espace pour commencer.',
     details: 'Details', reserve: 'Reserver', selected: 'Selectionne', noResult: 'Aucun nettoyeur compatible.',
     hint: 'Completez les etapes 1 a 3 pour voir les nettoyeurs disponibles.',
+    missingIntro: 'Pour afficher les nettoyeurs, completez :',
+    missingAddress: 'adresse',
+    missingService: 'type de nettoyage',
+    missingDate: 'date',
+    missingDateInvalid: 'date valide',
+    missingTime: 'heure',
+    missingTimeInvalid: 'heure valide',
+    missingLeadTime: "heure (minimum 2h d'avance aujourd'hui)",
+    sortBy: 'Trier par',
+    sortPriceAsc: 'Moins cher d abord',
+    sortPriceDesc: 'Plus cher d abord',
+    sortJobsDesc: 'Plus de nettoyages',
+    sortRatingDesc: 'Mieux notes',
+    descriptionTitle: 'Description',
+    descriptionEmpty: 'Aucune description disponible.',
+    seeMore: 'Voir plus',
+    fullDescriptionTitle: 'Description complete',
     trust: 'Nouveau sur Nettoyo', zoneMatch: 'Zone compatible', avail: 'Disponible',
-    modalServices: 'Services proposes', modalZones: 'Zones desservies', close: 'Fermer',
+    close: 'Fermer',
     reserveSuccess: 'Reservation creee.', reserveError: 'Impossible de reserver pour le moment.', loading: 'Chargement...',
     timeRequired: 'Veuillez choisir une heure.', timeInvalid: 'Format d heure invalide.',
     sameDayLeadError: "Pour aujourd'hui, choisissez une heure au moins 2h plus tard (heure de Montreal).",
@@ -59,8 +92,25 @@ const labels = {
     addSpace: 'Add a space', noSpace: 'Add a space to get started.',
     details: 'Details', reserve: 'Book now', selected: 'Selected', noResult: 'No matching cleaner yet.',
     hint: 'Complete steps 1–3 to see available cleaners.',
+    missingIntro: 'To see cleaners, complete:',
+    missingAddress: 'address',
+    missingService: 'cleaning type',
+    missingDate: 'date',
+    missingDateInvalid: 'valid date',
+    missingTime: 'time',
+    missingTimeInvalid: 'valid time',
+    missingLeadTime: 'time (at least 2h ahead for today)',
+    sortBy: 'Sort by',
+    sortPriceAsc: 'Cheaper first',
+    sortPriceDesc: 'Most expensive first',
+    sortJobsDesc: 'Most jobs done',
+    sortRatingDesc: 'Highly rated',
+    descriptionTitle: 'Description',
+    descriptionEmpty: 'No description available.',
+    seeMore: 'See more',
+    fullDescriptionTitle: 'Full description',
     trust: 'New on Nettoyo', zoneMatch: 'Zone match', avail: 'Available',
-    modalServices: 'Services offered', modalZones: 'Service areas', close: 'Close',
+    close: 'Close',
     reserveSuccess: 'Booking created.', reserveError: 'Unable to book right now.', loading: 'Loading...',
     timeRequired: 'Please choose a time.', timeInvalid: 'Invalid time format.',
     sameDayLeadError: 'For same-day bookings, choose a time at least 2 hours later (Montreal time).',
@@ -78,8 +128,25 @@ const labels = {
     addSpace: 'Agregar espacio', noSpace: 'Agrega un espacio para comenzar.',
     details: 'Detalles', reserve: 'Reservar', selected: 'Seleccionado', noResult: 'Aun no hay limpiadores compatibles.',
     hint: 'Completa los pasos 1 a 3 para ver los limpiadores disponibles.',
+    missingIntro: 'Para ver limpiadores, completa:',
+    missingAddress: 'direccion',
+    missingService: 'tipo de limpieza',
+    missingDate: 'fecha',
+    missingDateInvalid: 'fecha valida',
+    missingTime: 'hora',
+    missingTimeInvalid: 'hora valida',
+    missingLeadTime: 'hora (minimo 2h de anticipacion hoy)',
+    sortBy: 'Ordenar por',
+    sortPriceAsc: 'Mas barato primero',
+    sortPriceDesc: 'Mas caro primero',
+    sortJobsDesc: 'Mas trabajos realizados',
+    sortRatingDesc: 'Mejor calificados',
+    descriptionTitle: 'Descripcion',
+    descriptionEmpty: 'Sin descripcion disponible.',
+    seeMore: 'Ver mas',
+    fullDescriptionTitle: 'Descripcion completa',
     trust: 'Nuevo en Nettoyo', zoneMatch: 'Zona compatible', avail: 'Disponible',
-    modalServices: 'Servicios ofrecidos', modalZones: 'Zonas de servicio', close: 'Cerrar',
+    close: 'Cerrar',
     reserveSuccess: 'Reserva creada.', reserveError: 'No se pudo reservar.', loading: 'Cargando...',
     timeRequired: 'Selecciona una hora.', timeInvalid: 'Formato de hora invalido.',
     sameDayLeadError: 'Para reservas del mismo dia, elige una hora al menos 2h mas tarde (hora de Montreal).',
@@ -142,11 +209,6 @@ const isWithin = (t: string, s: string, e: string) => {
 };
 const formatHourlyRate = (rate: number | null) =>
   typeof rate === 'number' && Number.isFinite(rate) ? `${rate}$/h` : '--';
-const formatDescriptionPreview = (description: string, max = 90) => {
-  const text = description.trim();
-  return text.length <= max ? text : `${text.slice(0, max).trim()}...`;
-};
-
 const triggerBookingCreatedNotification = async (bookingId: string, accessToken: string | null) => {
   try {
     console.info('[booking-notify] trigger start', { bookingId });
@@ -207,6 +269,18 @@ function StepProgress({ steps, current }: { steps: string[]; current: number }) 
   );
 }
 
+function reservationPageStyles() {
+  return (
+    <style>{`
+      @keyframes reservation-missing-soft-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(79,195,247,0.18); border-color: #D1E7F7; }
+        50% { box-shadow: 0 0 0 6px rgba(79,195,247,0.08); border-color: #9EDAF5; }
+        100% { box-shadow: 0 0 0 0 rgba(79,195,247,0.18); border-color: #D1E7F7; }
+      }
+    `}</style>
+  );
+}
+
 // ─── Cleaner Card ─────────────────────────────────────────────────────────────
 function CleanerCard({
   cleaner,
@@ -249,7 +323,7 @@ function CleanerCard({
             <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#4ADE80]" />
           </div>
 
-          {/* Name + rate + description */}
+          {/* Name + rate */}
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="truncate text-base font-bold text-[#1A1A2E]">{cleaner.displayName}</p>
@@ -257,9 +331,6 @@ function CleanerCard({
                 {formatHourlyRate(cleaner.hourlyRate)}
               </span>
             </div>
-            <p className="mt-1.5 text-sm leading-relaxed text-[#6B7280]">
-              {formatDescriptionPreview(cleaner.description)}
-            </p>
           </div>
         </div>
 
@@ -343,11 +414,14 @@ export function ClientReservationPage() {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [modalCleaner, setModalCleaner] = useState<CleanerCandidate | null>(null);
+  const [fullDescriptionOpen, setFullDescriptionOpen] = useState(false);
   const [bookingCleaner, setBookingCleaner] = useState<CleanerCandidate | null>(null);
   const [bookingStep, setBookingStep] = useState<1 | 2>(1);
   const [estimatedHours, setEstimatedHours] = useState<number>(3);
   const [reservingId, setReservingId] = useState<string | null>(null);
-  useBodyScrollLock(Boolean(modalCleaner || bookingCleaner));
+  const [sortBy, setSortBy] = useState<SortOption>('price_asc');
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  useBodyScrollLock(Boolean(modalCleaner || bookingCleaner || fullDescriptionOpen));
   const minBookDate = useMemo(() => getMontrealToday(), []);
 
   useEffect(() => {
@@ -375,12 +449,35 @@ export function ClientReservationPage() {
       if (cleanersRes.error) { setCleaners([]); setLoading(false); return; }
       const rows = (cleanersRes.data as CleanerProfileRecord[] | null) ?? [];
       const ids = rows.map((r) => r.id);
-      const profileRes = ids.length > 0
-        ? await supabase.from('profiles').select('id,first_name,last_name,avatar_url').in('id', ids).eq('role', 'nettoyeur')
-        : { data: null, error: null };
+      const [profileRes, reviewRes, completedBookingsRes] = ids.length > 0
+        ? await Promise.all([
+            supabase.from('profiles').select('id,first_name,last_name,avatar_url').in('id', ids).eq('role', 'nettoyeur'),
+            supabase.from('cleaner_client_reviews').select('cleaner_id,rating').in('cleaner_id', ids),
+            supabase.from('bookings').select('cleaner_id').in('cleaner_id', ids).eq('status', 'completed')
+          ])
+        : [
+            { data: null, error: null },
+            { data: null, error: null },
+            { data: null, error: null }
+          ];
       const idMap = new Map<string, CleanerIdentity>(
         ((profileRes.data as CleanerIdentity[] | null) ?? []).map((p) => [p.id, p])
       );
+      const ratingsMap = new Map<string, { sum: number; count: number }>();
+      ((reviewRes.data as CleanerReviewRecord[] | null) ?? []).forEach((row) => {
+        if (!row.cleaner_id || typeof row.rating !== 'number' || !Number.isFinite(row.rating)) {
+          return;
+        }
+        const current = ratingsMap.get(row.cleaner_id) ?? { sum: 0, count: 0 };
+        ratingsMap.set(row.cleaner_id, { sum: current.sum + row.rating, count: current.count + 1 });
+      });
+      const completedJobsMap = new Map<string, number>();
+      ((completedBookingsRes.data as CleanerCompletedBookingRecord[] | null) ?? []).forEach((row) => {
+        if (!row.cleaner_id) {
+          return;
+        }
+        completedJobsMap.set(row.cleaner_id, (completedJobsMap.get(row.cleaner_id) ?? 0) + 1);
+      });
       setCleaners(rows.map((row) => {
         const identity = idMap.get(row.id);
         const first = identity?.first_name?.trim();
@@ -388,6 +485,8 @@ export function ClientReservationPage() {
         const name = first ? `${first}${initial ? ` ${initial}.` : ''}` : 'Nettoyo Cleaner';
         const normalizedServices = (Array.isArray(row.services) ? row.services : [])
           .map(normalizeServiceId).filter((s): s is ServiceId => Boolean(s));
+        const ratingStats = ratingsMap.get(row.id);
+        const ratingCount = ratingStats?.count ?? 0;
         return {
           id: row.id, displayName: name,
           description: row.description?.trim() || 'Nettoyeur professionnel disponible localement.',
@@ -396,7 +495,10 @@ export function ClientReservationPage() {
           services: normalizedServices,
           serviceAreas: parseAreas(row.service_areas),
           availability: row.weekly_availability,
-          exceptions: row.availability_exceptions
+          exceptions: row.availability_exceptions,
+          completedJobs: completedJobsMap.get(row.id) ?? 0,
+          averageRating: ratingCount > 0 && ratingStats ? ratingStats.sum / ratingCount : null,
+          ratingCount
         };
       }));
       setLoading(false);
@@ -428,6 +530,28 @@ export function ClientReservationPage() {
     ? (selectedDate ? t.timeRequired : null)
     : (selectedTimeValid ? (sameDayLeadValid ? null : t.sameDayLeadError) : t.timeInvalid);
   const ready = Boolean(selectedSpace && selectedServices.length > 0 && selectedDateValid && selectedTimeValid && sameDayLeadValid);
+  const missingRequirements = useMemo(() => {
+    const missing: string[] = [];
+    if (!selectedSpace) {
+      missing.push(t.missingAddress);
+    }
+    if (selectedServices.length === 0) {
+      missing.push(t.missingService);
+    }
+    if (!selectedDate) {
+      missing.push(t.missingDate);
+    } else if (!selectedDateValid) {
+      missing.push(t.missingDateInvalid);
+    }
+    if (!selectedTime) {
+      missing.push(t.missingTime);
+    } else if (!selectedTimeValid) {
+      missing.push(t.missingTimeInvalid);
+    } else if (!sameDayLeadValid) {
+      missing.push(t.missingLeadTime);
+    }
+    return missing;
+  }, [sameDayLeadValid, selectedDate, selectedDateValid, selectedServices.length, selectedSpace, selectedTime, selectedTimeValid, t.missingAddress, t.missingDate, t.missingDateInvalid, t.missingLeadTime, t.missingService, t.missingTime, t.missingTimeInvalid]);
 
   useEffect(() => {
     if (!sameDayMinTime || sameDayMinTimeMinutes === null || selectedTimeMinutes === null) return;
@@ -474,6 +598,44 @@ export function ClientReservationPage() {
     if (!ready) return [];
     return matchingPipeline.afterAvailability;
   }, [matchingPipeline.afterAvailability, ready]);
+  const sortedMatched = useMemo(() => {
+    const indexed = matched.map((cleaner, index) => ({ cleaner, index }));
+    indexed.sort((left, right) => {
+      const a = left.cleaner;
+      const b = right.cleaner;
+      if (sortBy === 'price_asc') {
+        const ar = a.hourlyRate ?? Number.POSITIVE_INFINITY;
+        const br = b.hourlyRate ?? Number.POSITIVE_INFINITY;
+        if (ar !== br) return ar - br;
+        return left.index - right.index;
+      }
+      if (sortBy === 'price_desc') {
+        const ar = a.hourlyRate ?? Number.NEGATIVE_INFINITY;
+        const br = b.hourlyRate ?? Number.NEGATIVE_INFINITY;
+        if (ar !== br) return br - ar;
+        return left.index - right.index;
+      }
+      if (sortBy === 'jobs_desc') {
+        if (a.completedJobs !== b.completedJobs) return b.completedJobs - a.completedJobs;
+        const ar = a.hourlyRate ?? Number.POSITIVE_INFINITY;
+        const br = b.hourlyRate ?? Number.POSITIVE_INFINITY;
+        if (ar !== br) return ar - br;
+        return left.index - right.index;
+      }
+      const aHasRating = typeof a.averageRating === 'number' && Number.isFinite(a.averageRating);
+      const bHasRating = typeof b.averageRating === 'number' && Number.isFinite(b.averageRating);
+      if (aHasRating && bHasRating) {
+        if (a.averageRating !== b.averageRating) return (b.averageRating ?? 0) - (a.averageRating ?? 0);
+        if (a.ratingCount !== b.ratingCount) return b.ratingCount - a.ratingCount;
+        return left.index - right.index;
+      }
+      if (aHasRating !== bHasRating) {
+        return aHasRating ? -1 : 1;
+      }
+      return left.index - right.index;
+    });
+    return indexed.map((entry) => entry.cleaner);
+  }, [matched, sortBy]);
 
   useEffect(() => {
     if (!DEBUG_RESERVATION_MATCHING) return;
@@ -498,8 +660,15 @@ export function ClientReservationPage() {
     setBookingCleaner(cleaner);
     setBookingStep(1);
     setEstimatedHours(3);
+    setFullDescriptionOpen(false);
     setModalCleaner(null);
   };
+
+  useEffect(() => {
+    if (!modalCleaner) {
+      setFullDescriptionOpen(false);
+    }
+  }, [modalCleaner]);
 
   const reserve = async (cleaner: CleanerCandidate) => {
     if (!user?.id || !selectedSpace || !selectedDateValid || !selectedTimeValid || selectedServices.length === 0) return;
@@ -543,6 +712,21 @@ export function ClientReservationPage() {
     return bookingCleaner.hourlyRate * estimatedHours;
   }, [bookingCleaner?.hourlyRate, estimatedHours]);
 
+  const openDatePicker = () => {
+    const input = dateInputRef.current;
+    if (!input) {
+      return;
+    }
+    input.focus();
+    if (typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+      } catch {
+        // Some browsers require a strict user gesture; focus fallback still helps.
+      }
+    }
+  };
+
   // Compute current step for progress indicator
   const currentStep = useMemo(() => {
     if (!selectedSpace) return 1;
@@ -556,6 +740,7 @@ export function ClientReservationPage() {
   return (
     <div className="min-h-[calc(100vh-160px)] bg-[#F0F4F8] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
+        {reservationPageStyles()}
 
         {/* Toast */}
         {toast && (
@@ -681,17 +866,27 @@ export function ClientReservationPage() {
                 <h2 className="text-base font-bold text-[#1A1A2E]">{t.step3}</h2>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="rounded-2xl border border-[#E5E7EB] px-4 py-3.5 transition-colors focus-within:border-[#4FC3F7] focus-within:shadow-[0_0_0_1px_rgba(79,195,247,0.3)]">
+                <label
+                  className="cursor-pointer rounded-2xl border border-[#E5E7EB] px-4 py-3.5 transition-colors focus-within:border-[#4FC3F7] focus-within:shadow-[0_0_0_1px_rgba(79,195,247,0.3)]"
+                  onPointerDown={(event) => {
+                    if (event.target instanceof HTMLInputElement) {
+                      return;
+                    }
+                    event.preventDefault();
+                    openDatePicker();
+                  }}
+                >
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
                     <Calendar size={12} />
                     {t.dateLabel}
                   </div>
                   <input
+                    ref={dateInputRef}
                     type="date"
                     value={selectedDate}
                     min={minBookDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full bg-transparent text-sm font-semibold text-[#1A1A2E] outline-none"
+                    className="min-h-[44px] w-full cursor-pointer bg-transparent text-sm font-semibold text-[#1A1A2E] outline-none"
                   />
                   {dateValidationMessage && (
                     <p className="mt-2 text-xs font-medium text-[#DC2626]">{dateValidationMessage}</p>
@@ -717,17 +912,26 @@ export function ClientReservationPage() {
                 <div className="flex items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">4</span>
                   <h2 className="text-base font-bold text-[#1A1A2E]">{t.step4}</h2>
-                  {ready && matched.length > 0 && (
+                  {ready && sortedMatched.length > 0 && (
                     <span className="rounded-lg bg-[rgba(168,230,207,0.3)] px-2 py-0.5 text-xs font-bold text-[#065F46]">
-                      {matched.length}
+                      {sortedMatched.length}
                     </span>
                   )}
                 </div>
-                {ready && (
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-[rgba(79,195,247,0.1)] px-2.5 py-1 text-xs font-semibold text-[#0284C7]">
-                    <Search size={11} />
-                    {t.hint.split(' ').slice(0, 3).join(' ')}...
-                  </span>
+                {ready && sortedMatched.length > 0 && (
+                  <label className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-[#6B7280]">{t.sortBy}</span>
+                    <select
+                      value={sortBy}
+                      onChange={(event) => setSortBy(event.target.value as SortOption)}
+                      className="rounded-xl border border-[#D1E7F7] bg-[#F8FCFF] px-3 py-2 text-xs font-semibold text-[#1A1A2E] outline-none transition-colors focus:border-[#4FC3F7] sm:text-sm"
+                    >
+                      <option value="price_asc">{t.sortPriceAsc}</option>
+                      <option value="price_desc">{t.sortPriceDesc}</option>
+                      <option value="jobs_desc">{t.sortJobsDesc}</option>
+                      <option value="rating_desc">{t.sortRatingDesc}</option>
+                    </select>
+                  </label>
                 )}
               </div>
 
@@ -738,19 +942,36 @@ export function ClientReservationPage() {
               )}
 
               {!ready ? (
-                <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#D1E7F7] bg-[#F8FCFF] px-5 py-12 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(79,195,247,0.1)] text-[#4FC3F7]">
-                    <Search size={20} />
+                <div
+                  className="rounded-2xl border bg-[#F8FCFF] px-5 py-6"
+                  style={{ animation: 'reservation-missing-soft-pulse 2.2s ease-in-out infinite' }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(79,195,247,0.14)] text-[#4FC3F7]">
+                      <Search size={18} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#1A1A2E]">{t.missingIntro}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {missingRequirements.map((item) => (
+                          <span
+                            key={item}
+                            className="inline-flex rounded-full border border-[#BFE9FB] bg-white px-2.5 py-1 text-xs font-semibold text-[#0284C7]"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <p className="mt-3 max-w-xs text-sm text-[#6B7280]">{t.hint}</p>
                 </div>
-              ) : matched.length === 0 ? (
+              ) : sortedMatched.length === 0 ? (
                 <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#D1E7F7] bg-[#F8FCFF] px-5 py-12 text-center">
                   <p className="text-sm font-medium text-[#4B5563]">{t.noResult}</p>
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {matched.map((cleaner) => (
+                  {sortedMatched.map((cleaner) => (
                     <CleanerCard
                       key={cleaner.id}
                       cleaner={cleaner}
@@ -790,7 +1011,6 @@ export function ClientReservationPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-lg font-bold text-[#1A1A2E]">{modalCleaner.displayName}</p>
                 <p className="mt-0.5 text-sm font-semibold text-[#0284C7]">{formatHourlyRate(modalCleaner.hourlyRate)}</p>
-                <p className="mt-1 text-sm leading-relaxed text-[#6B7280]">{modalCleaner.description}</p>
               </div>
               <button
                 type="button"
@@ -804,30 +1024,23 @@ export function ClientReservationPage() {
             <div className="border-t border-[#F0F4F8]" />
 
             {/* Modal body */}
-            <div className="grid gap-4 p-6 sm:grid-cols-2">
+            <div className="p-6">
               <div className="rounded-2xl bg-[#F8FAFC] p-4">
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">
-                  {t.modalServices}
+                  {t.descriptionTitle}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {modalCleaner.services.map((s) => (
-                    <span key={`modal-s-${s}`} className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-[#4B5563] shadow-[0_1px_3px_rgba(17,24,39,0.08)]">
-                      {serviceLabels[s][language]}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-2xl bg-[#F8FAFC] p-4">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">
-                  {t.modalZones}
+                <p className="line-clamp-3 text-sm leading-relaxed text-[#4B5563]">
+                  {modalCleaner.description || t.descriptionEmpty}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {modalCleaner.serviceAreas.slice(0, 8).map((a) => (
-                    <span key={`modal-z-${a.id}`} className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-[#4B5563] shadow-[0_1px_3px_rgba(17,24,39,0.08)]">
-                      {a.zone}
-                    </span>
-                  ))}
-                </div>
+                {modalCleaner.description.trim().length > 180 ? (
+                  <button
+                    type="button"
+                    onClick={() => setFullDescriptionOpen(true)}
+                    className="mt-3 text-xs font-semibold text-[#0284C7] transition-colors hover:text-[#0369A1]"
+                  >
+                    {t.seeMore}
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -851,6 +1064,34 @@ export function ClientReservationPage() {
           </div>
         </div>
       )}
+
+      {modalCleaner && fullDescriptionOpen ? (
+        <div
+          className="fixed inset-0 z-[75] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/50 px-4 pb-4 sm:items-center sm:pb-0"
+          onClick={() => setFullDescriptionOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 shadow-[0_20px_60px_rgba(17,24,39,0.3)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-base font-bold text-[#1A1A2E]">{t.fullDescriptionTitle}</h3>
+              <button
+                type="button"
+                onClick={() => setFullDescriptionOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#9CA3AF] transition-colors hover:border-[#DC2626] hover:text-[#DC2626]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="mt-4 max-h-[60vh] overflow-y-auto rounded-2xl bg-[#F8FAFC] p-4">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#4B5563]">
+                {modalCleaner.description || t.descriptionEmpty}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Booking Flow Modal ── */}
       {bookingCleaner && (

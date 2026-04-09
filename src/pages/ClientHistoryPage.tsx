@@ -1,9 +1,9 @@
 import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
-import { daysSinceMontrealDate, getMontrealToday, isPastInMontreal } from '../lib/montrealDate';
+import { getMontrealToday, isPastInMontreal } from '../lib/montrealDate';
 import supabase from '../lib/supabase';
 
 type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'accepted' | 'expired';
@@ -14,7 +14,6 @@ type BookingSpace = {
   city?: string | null;
   postal_code?: string | null;
   rooms?: unknown;
-  notes?: string | null;
 } | null;
 type HistoryBooking = {
   id: string;
@@ -50,11 +49,7 @@ const contentByLanguage = {
     serviceType: 'Service',
     propertyType: 'Type de propriete',
     cleaner: 'Nettoyeur',
-    addressHidden: 'Details masques apres 3 jours',
-    addressVisible: 'Details visibles (fenetre de 3 jours)',
     placeDetails: 'Details du lieu',
-    cleanerNote: 'Note',
-    noCleanerNote: 'Aucune note',
     noDetails: 'Aucun detail supplementaire',
     close: 'Fermer',
     ratingTitle: 'Note globale',
@@ -78,11 +73,7 @@ const contentByLanguage = {
     serviceType: 'Service',
     propertyType: 'Property type',
     cleaner: 'Cleaner',
-    addressHidden: 'Details hidden after 3 days',
-    addressVisible: 'Details visible (3-day window)',
     placeDetails: 'Place details',
-    cleanerNote: 'Note',
-    noCleanerNote: 'No note',
     noDetails: 'No additional details',
     close: 'Close',
     ratingTitle: 'Overall rating',
@@ -106,11 +97,7 @@ const contentByLanguage = {
     serviceType: 'Servicio',
     propertyType: 'Tipo de propiedad',
     cleaner: 'Limpiador',
-    addressHidden: 'Detalles ocultos despues de 3 dias',
-    addressVisible: 'Detalles visibles (ventana de 3 dias)',
     placeDetails: 'Detalles del lugar',
-    cleanerNote: 'Nota',
-    noCleanerNote: 'Sin nota',
     noDetails: 'Sin detalles adicionales',
     close: 'Cerrar',
     ratingTitle: 'Calificacion global',
@@ -188,13 +175,6 @@ function formatAddress(space: BookingSpace) {
   return items.length ? items.join(', ') : '--';
 }
 
-function canShowSensitiveDetails(bookingDate: string | null, montrealToday: string) {
-  if (!bookingDate) return false;
-  const days = daysSinceMontrealDate(bookingDate, montrealToday);
-  if (days === null) return false;
-  return days >= 0 && days <= 3;
-}
-
 export function ClientHistoryPage() {
   const { language } = useLanguage();
   const { user, isClient } = useAuth();
@@ -229,7 +209,7 @@ export function ClientHistoryPage() {
   const loadHistory = async (clientId: string) => {
     const bookingRes = await supabase
       .from('bookings')
-      .select('id,status,service_type,scheduled_at,created_at,cleaner_id,space_id,spaces(name,type,address,city,postal_code,rooms,notes)')
+      .select('id,status,service_type,scheduled_at,created_at,cleaner_id,space_id,spaces(name,type,address,city,postal_code,rooms)')
       .eq('client_id', clientId)
       .in('status', ['completed', 'confirmed', 'accepted'])
       .order('scheduled_at', { ascending: false });
@@ -312,8 +292,6 @@ export function ClientHistoryPage() {
     setComment('');
   }, [reviewBooking, reviewsByBookingId]);
 
-  const montrealToday = useMemo(() => getMontrealToday(), []);
-
   const submitReview = async () => {
     if (!user?.id || !reviewBooking || !reviewBooking.cleaner_id) return;
     if (!confirmationResponse) {
@@ -383,7 +361,6 @@ export function ClientHistoryPage() {
             {bookings.map((booking) => {
               const space = getPrimarySpace(booking.spaces);
               const review = reviewsByBookingId[booking.id];
-              const detailsVisible = canShowSensitiveDetails(booking.scheduled_at, montrealToday);
               const cleanerName = booking.cleaner_id ? (cleanerNames[booking.cleaner_id] ?? content.cleanerFallback) : content.cleanerFallback;
 
               return (
@@ -402,10 +379,6 @@ export function ClientHistoryPage() {
                     <CalendarDays size={14} className="text-[#4FC3F7]" />
                     {formatMontrealDate(booking.scheduled_at, language)}
                   </div>
-
-                  <p className="mt-3 text-xs text-[#6B7280]">
-                    {detailsVisible ? content.addressVisible : content.addressHidden}
-                  </p>
 
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <button type="button" onClick={() => setSelectedBooking(booking)} className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] px-3 py-2 text-sm font-semibold text-[#1A1A2E]">
@@ -443,7 +416,7 @@ export function ClientHistoryPage() {
               </button>
             </div>
 
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="mt-5">
               <div className="rounded-2xl border border-[#E5E7EB] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{content.placeDetails}</p>
                 <div className="mt-2 space-y-1.5 text-sm">
@@ -460,16 +433,8 @@ export function ClientHistoryPage() {
                     {formatMontrealTime(selectedBooking.scheduled_at, language)}
                   </p>
                 </div>
-                {canShowSensitiveDetails(selectedBooking.scheduled_at, montrealToday) ? (
-                  <p className="mt-3 text-sm font-semibold text-[#1A1A2E]">{formatAddress(getPrimarySpace(selectedBooking.spaces))}</p>
-                ) : (
-                  <p className="mt-3 text-sm font-semibold text-[#6B7280]">{content.addressHidden}</p>
-                )}
+                <p className="mt-3 text-sm font-semibold text-[#1A1A2E]">{formatAddress(getPrimarySpace(selectedBooking.spaces))}</p>
                 <p className="mt-3 text-sm text-[#4B5563]">{formatPropertyType(getPrimarySpace(selectedBooking.spaces)?.type, language)}</p>
-              </div>
-              <div className="rounded-2xl border border-[#E5E7EB] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{content.cleanerNote}</p>
-                <p className="mt-2 text-sm leading-relaxed text-[#4B5563]">{getPrimarySpace(selectedBooking.spaces)?.notes?.trim() || content.noCleanerNote}</p>
               </div>
             </div>
 

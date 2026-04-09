@@ -16,7 +16,6 @@ import supabase from '../lib/supabase';
 
 type SpaceType = 'apartment' | 'house' | 'office' | 'other';
 type FormatSystem = 'quebec' | 'international';
-type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'expired';
 type RoomKey =
   | 'bedroom'
   | 'living_room'
@@ -55,15 +54,8 @@ type SpaceRecord = {
   updated_at: string;
 };
 
-type BookingRecord = {
-  id: string;
-  client_id: string;
-  space_id: string;
-  status: BookingStatus;
-  service_type: string | null;
-  scheduled_at: string | null;
-  created_at: string;
-  spaces?: { name: string } | { name: string }[] | null;
+type CleanerClientReviewRecord = {
+  rating: number;
 };
 
 type AddSpaceForm = {
@@ -195,18 +187,6 @@ function getInitials(firstName?: string | null, lastName?: string | null, email?
   return email?.[0]?.toUpperCase() || '?';
 }
 
-function formatDate(language: 'fr' | 'en' | 'es', value?: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(localeByLanguage[language], {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  }).format(new Date(value));
-}
-
 function getEditSpacePath(language: 'fr' | 'en' | 'es', spaceId: string) {
   if (language === 'fr') {
     return `/fr/dashboard/client/modifier-espace/${spaceId}`;
@@ -235,14 +215,6 @@ function normalizeRooms(rooms?: Partial<Record<RoomKey, number>> | null): Rooms 
     walk_in_closet: Number(rooms?.walk_in_closet ?? 0),
     laundry_room: Number(rooms?.laundry_room ?? 0)
   };
-}
-
-function getSpaceDisplayName(booking: BookingRecord) {
-  if (Array.isArray(booking.spaces)) {
-    return booking.spaces[0]?.name ?? '';
-  }
-
-  return booking.spaces?.name ?? '';
 }
 
 const contentByLanguage = {
@@ -844,8 +816,8 @@ export function ClientDashboardPage() {
   const addSpacePath = getPathForRoute(language, 'clientAddSpace');
   const phoneInputRef = useRef<HTMLInputElement | null>(null);
   const [spaces, setSpaces] = useState<SpaceRecord[]>([]);
-  const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
+  const [averageRating, setAverageRating] = useState<string>('--');
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -916,38 +888,44 @@ export function ClientDashboardPage() {
 
       await fetchSpaces();
 
-      const [bookingsResponse, completedResponse] = await Promise.all([
-        supabase
-          .from('bookings')
-          .select('id, client_id, space_id, status, service_type, scheduled_at, created_at, spaces(name)')
-          .eq('client_id', user.id)
-          .order('scheduled_at', { ascending: false })
-          .limit(5),
+      const [completedResponse, cleanerReviewsResponse] = await Promise.all([
         supabase
           .from('bookings')
           .select('*', { count: 'exact', head: true })
           .eq('client_id', user.id)
-          .eq('status', 'completed')
+          .eq('status', 'completed'),
+        supabase
+          .from('cleaner_client_reviews')
+          .select('rating')
+          .eq('client_id', user.id)
       ]);
 
       if (!active) {
         return;
       }
 
-      if (bookingsResponse.error || completedResponse.error) {
-        if (bookingsResponse.error) {
-          console.error('Bookings fetch error:', bookingsResponse.error);
-        }
+      if (completedResponse.error || cleanerReviewsResponse.error) {
         if (completedResponse.error) {
           console.error('Completed count fetch error:', completedResponse.error);
+        }
+        if (cleanerReviewsResponse.error) {
+          console.error('Cleaner -> client reviews fetch error:', cleanerReviewsResponse.error);
         }
         setErrorMessage('Unable to load the dashboard right now.');
         setDashboardLoading(false);
         return;
       }
 
-      setBookings((bookingsResponse.data as BookingRecord[] | null) ?? []);
       setCompletedCount(completedResponse.count ?? 0);
+      const ratings = ((cleanerReviewsResponse.data as CleanerClientReviewRecord[] | null) ?? [])
+        .map((review) => Number(review.rating))
+        .filter((value) => Number.isFinite(value) && value > 0);
+      if (ratings.length === 0) {
+        setAverageRating('--');
+      } else {
+        const average = ratings.reduce((sum, value) => sum + value, 0) / ratings.length;
+        setAverageRating(`${average.toFixed(1)} ★`);
+      }
       setDashboardLoading(false);
     };
 
@@ -964,20 +942,6 @@ export function ClientDashboardPage() {
       active = false;
     };
   }, [authLoading, user?.id]);
-
-  const lastCleaningBySpace = useMemo(() => {
-    const map = new Map<string, string>();
-
-    bookings
-      .filter((booking) => booking.status === 'completed' && booking.scheduled_at)
-      .forEach((booking) => {
-        if (!map.has(booking.space_id) && booking.scheduled_at) {
-          map.set(booking.space_id, booking.scheduled_at);
-        }
-      });
-
-    return map;
-  }, [bookings]);
 
   const handleFavoriteToggle = async (space: SpaceRecord) => {
     if (!profile?.id) {
@@ -1113,7 +1077,7 @@ export function ClientDashboardPage() {
         ) : null}
 
         <section className="rounded-[28px] bg-white px-6 py-8 shadow-[0_16px_36px_rgba(17,24,39,0.07)] sm:px-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-6">
             <div className="flex items-start gap-5">
               {profile?.avatar_url ? (
                 <img
@@ -1139,12 +1103,6 @@ export function ClientDashboardPage() {
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] bg-white px-5 py-3 font-semibold text-[#1A1A2E] shadow-[0_10px_20px_rgba(17,24,39,0.05)] transition-colors hover:bg-[#F7F7F7]"
-            >
-              {content.header.editProfile}
-            </button>
           </div>
         </section>
 
@@ -1199,7 +1157,7 @@ export function ClientDashboardPage() {
           {[
             { value: spaces.length, label: content.stats.spaces },
             { value: completedCount, label: content.stats.bookings },
-            { value: '4.9 ★', label: content.stats.rating }
+            { value: averageRating, label: content.stats.rating }
           ].map((stat) => (
             <div
               key={stat.label}
@@ -1247,7 +1205,6 @@ export function ClientDashboardPage() {
               {spaces.map((space) => {
                 console.log('Rendering space:', space.id, space.name);
                 console.log('space.photo_url:', space.photo_url);
-                const lastCleaning = lastCleaningBySpace.get(space.id);
                 const editHref = getEditSpacePath(language, space.id);
                 const resolvedPhotoUrl = resolveSpacePhotoUrl(space.photo_url);
                 const showPhoto = Boolean(resolvedPhotoUrl) && !imageLoadErrors[space.id];
@@ -1309,14 +1266,6 @@ export function ClientDashboardPage() {
                       </p>
                     </div>
                     <div className="flex items-center justify-between border-t border-[#E5E7EB] px-5 py-4">
-                      <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.12em] text-[#9CA3AF]">
-                          {content.spaces.lastCleaning}
-                        </p>
-                        <p className="mt-1 text-sm text-[#6B7280]">
-                          {lastCleaning ? formatDate(language, lastCleaning) : content.spaces.noCleaning}
-                        </p>
-                      </div>
                       <div className="flex items-center gap-2">
                         <a
                           href={editHref}

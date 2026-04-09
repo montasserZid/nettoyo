@@ -75,9 +75,9 @@ export function MobileBottomNav() {
           key: 'client-home',
           label: language === 'fr' ? 'Accueil' : language === 'es' ? 'Inicio' : 'Home',
           icon: Home,
-          href: getPathForRoute(language, 'clientReservation'),
-          onClick: goToRoute('clientReservation'),
-          isActive: route === 'clientReservation' || route === 'home'
+          href: getPathForRoute(language, 'home'),
+          onClick: goToRoute('home'),
+          isActive: route === 'home'
         },
         {
           key: 'client-reservations',
