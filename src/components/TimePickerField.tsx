@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, Clock3, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 type Meridiem = 'AM' | 'PM';
 
@@ -83,6 +84,8 @@ export function TimePickerField({ value, onChange, label, disabled = false }: Ti
   const controlBase =
     'inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#4FC3F7] transition-all hover:border-[#4FC3F7] hover:bg-[#F0FAFF] active:scale-95';
 
+  useBodyScrollLock(open);
+
   return (
     <>
       <button
@@ -99,8 +102,8 @@ export function TimePickerField({ value, onChange, label, disabled = false }: Ti
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-[3100] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(17,24,39,0.35)]">
+        <div className="fixed inset-0 z-[3100] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-[0_24px_60px_rgba(17,24,39,0.35)] max-h-[calc(100dvh-2rem)]">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#6B7280]">{label}</p>

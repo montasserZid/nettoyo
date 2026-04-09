@@ -1,6 +1,7 @@
 import { CalendarDays, Clock3, Loader2, MessageSquare, Phone, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
 import { expirePendingBookingsByActor, shouldShowBookingContact, shouldShowBookingFullAddress } from '../lib/bookingLifecycle';
 import { getLocalizedRoomText, normalizeRoomItems } from '../lib/roomDisplay';
@@ -593,6 +594,7 @@ export function CleanerReservationsPage() {
   const selectedFullAddressVisible = selectedBooking && !selectedIsPending ? canShowFullAddress(selectedBooking) : false;
   const selectedContact = contactBooking ? clientContacts[contactBooking.client_id] : undefined;
   const selectedContactVisibleFromModal = contactBooking ? canShowContact(contactBooking) : false;
+  useBodyScrollLock(Boolean(selectedBooking || contactBooking || confirmAction));
 
   useEffect(() => {
     const targetRef = entryView === 'accepted' ? acceptedSectionRef : pendingSectionRef;
@@ -705,8 +707,8 @@ export function CleanerReservationsPage() {
       </div>
 
       {selectedBooking ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{selectedIsPending ? content.modalTitlePending : content.modalTitleAccepted}</h3>
@@ -820,8 +822,8 @@ export function CleanerReservationsPage() {
       ) : null}
 
       {contactBooking ? (
-        <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
-          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+        <div className="fixed inset-0 z-[85] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{content.contactModalTitle}</h3>
@@ -870,8 +872,8 @@ export function CleanerReservationsPage() {
       ) : null}
 
       {confirmAction ? (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
-          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{content.confirmTitle}</h3>

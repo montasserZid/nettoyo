@@ -2,6 +2,7 @@ import type { ChangeEvent, MouseEvent, ReactNode, RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bath, BedDouble, Briefcase, Building2, Camera, ChefHat, ChevronLeft, ChevronRight, Grid2x2 as Grid2X2, Home, Loader2, Lock, MapPin, Monitor, Pencil, Plus, Search, Shirt, Sofa, Star, Trash2, Warehouse, WashingMachine, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
 import { ToastError } from '../components/ToastError';
@@ -856,6 +857,7 @@ export function ClientDashboardPage() {
   const [phoneEditing, setPhoneEditing] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+  useBodyScrollLock(Boolean(deleteAccountOpen || deleteCandidate));
 
   useEffect(() => {
     setPhoneValue(profile?.phone ?? '');
@@ -1357,8 +1359,8 @@ export function ClientDashboardPage() {
           </div>
         </section>
         {deleteAccountOpen ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4">
+            <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
               <h3 className="text-xl font-bold text-[#1A1A2E]">{content.account.deleteTitle}</h3>
               <p className="mt-3 text-sm leading-6 text-[#6B7280]">{content.account.deleteMessage}</p>
               <div className="mt-6 flex items-center justify-end gap-3">
@@ -1383,8 +1385,8 @@ export function ClientDashboardPage() {
           </div>
         ) : null}
         {deleteCandidate ? (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/40 px-4 py-4">
+            <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
               <h3 className="text-xl font-bold text-[#1A1A2E]">{content.spaces.deleteConfirm}</h3>
               <p className="mt-3 text-sm leading-6 text-[#6B7280]">{content.spaces.deleteMessage}</p>
               <div className="mt-6 flex items-center justify-end gap-3">

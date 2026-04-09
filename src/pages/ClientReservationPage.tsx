@@ -1,7 +1,8 @@
-﻿import { Calendar, Clock3, Home, Loader2, MapPin, Search, Sparkles, User, X } from 'lucide-react';
+﻿import { Calendar, CheckCircle2, Clock3, Home, Loader2, MapPin, Search, Sparkles, User, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
 import {
@@ -34,13 +35,13 @@ const estimatedHourOptions = [2, 3, 4, 5, 6, 8, 10];
 const labels = {
   fr: {
     title: 'Reserver', subtitle: 'Choisissez adresse, service, date et heure avant les resultats.',
-    step1: '1. Adresse', step2: '2. Service(s)', step3: '3. Date & heure', step4: '4. Nettoyeurs',
+    step1: 'Adresse', step2: 'Service', step3: 'Horaire', step4: 'Nettoyeurs',
     dateLabel: 'Date', timeLabel: 'Heure', dateRequired: 'Veuillez choisir une date.', dateInvalid: 'Date invalide.',
-    addSpace: 'Ajouter un espace', noSpace: 'Vous devez ajouter un espace avant de reserver.',
+    addSpace: 'Ajouter un espace', noSpace: 'Ajoutez un espace pour commencer.',
     details: 'Details', reserve: 'Reserver', selected: 'Selectionne', noResult: 'Aucun nettoyeur compatible.',
-    hint: 'Completer les etapes 1 a 3 pour afficher les nettoyeurs.',
-    trust: 'Nouveau sur Nettoyo', zoneMatch: 'Zone compatible', avail: 'Disponible a cette date',
-    modalServices: 'Services', modalZones: 'Zones', close: 'Fermer',
+    hint: 'Completez les etapes 1 a 3 pour voir les nettoyeurs disponibles.',
+    trust: 'Nouveau sur Nettoyo', zoneMatch: 'Zone compatible', avail: 'Disponible',
+    modalServices: 'Services proposes', modalZones: 'Zones desservies', close: 'Fermer',
     reserveSuccess: 'Reservation creee.', reserveError: 'Impossible de reserver pour le moment.', loading: 'Chargement...',
     timeRequired: 'Veuillez choisir une heure.', timeInvalid: 'Format d heure invalide.',
     sameDayLeadError: "Pour aujourd'hui, choisissez une heure au moins 2h plus tard (heure de Montreal).",
@@ -49,17 +50,17 @@ const labels = {
     bookingAdjustDisclaimer: 'Cette estimation n est pas finale. Vous pourrez ajuster avec le nettoyeur selon le travail reel.', bookingHoursLabel: 'Heures estimees',
     bookingSummaryTitle: 'Resume de la reservation', bookingSummaryAddress: 'Adresse', bookingSummaryRate: 'Taux horaire', bookingSummaryHours: 'Heures estimees', bookingSummaryDate: 'Date', bookingSummaryTime: 'Heure',
     bookingApproxTotal: 'Total approximatif', paymentDisclaimer1: 'Le paiement se fait directement avec le nettoyeur (cash ou Interac).', paymentDisclaimer2: 'Le montant affiche est approximatif et peut varier selon le travail reel.',
-    back: 'Retour', continue: 'Continuer', finish: 'Terminer'
+    back: 'Retour', continue: 'Continuer', finish: 'Confirmer la reservation'
   },
   en: {
     title: 'Book', subtitle: 'Choose address, service, date and time before results.',
-    step1: '1. Address', step2: '2. Service(s)', step3: '3. Date & time', step4: '4. Cleaners',
+    step1: 'Address', step2: 'Service', step3: 'Schedule', step4: 'Cleaners',
     dateLabel: 'Date', timeLabel: 'Time', dateRequired: 'Please choose a date.', dateInvalid: 'Invalid date.',
-    addSpace: 'Add a space', noSpace: 'You need a saved space before booking.',
-    details: 'Details', reserve: 'Reserve', selected: 'Selected', noResult: 'No matching cleaner yet.',
-    hint: 'Complete steps 1 to 3 to display cleaners.',
-    trust: 'New on Nettoyo', zoneMatch: 'Zone match', avail: 'Available on this date',
-    modalServices: 'Services', modalZones: 'Zones', close: 'Close',
+    addSpace: 'Add a space', noSpace: 'Add a space to get started.',
+    details: 'Details', reserve: 'Book now', selected: 'Selected', noResult: 'No matching cleaner yet.',
+    hint: 'Complete steps 1–3 to see available cleaners.',
+    trust: 'New on Nettoyo', zoneMatch: 'Zone match', avail: 'Available',
+    modalServices: 'Services offered', modalZones: 'Service areas', close: 'Close',
     reserveSuccess: 'Booking created.', reserveError: 'Unable to book right now.', loading: 'Loading...',
     timeRequired: 'Please choose a time.', timeInvalid: 'Invalid time format.',
     sameDayLeadError: 'For same-day bookings, choose a time at least 2 hours later (Montreal time).',
@@ -68,17 +69,17 @@ const labels = {
     bookingAdjustDisclaimer: 'This estimate is not final. You can adjust with the cleaner based on actual work.', bookingHoursLabel: 'Estimated hours',
     bookingSummaryTitle: 'Booking summary', bookingSummaryAddress: 'Address', bookingSummaryRate: 'Hourly rate', bookingSummaryHours: 'Estimated hours', bookingSummaryDate: 'Date', bookingSummaryTime: 'Time',
     bookingApproxTotal: 'Approximate total', paymentDisclaimer1: 'Payment is made directly to the cleaner (cash or Interac).', paymentDisclaimer2: 'Displayed amount is approximate and may vary based on actual work.',
-    back: 'Back', continue: 'Continue', finish: 'Confirm'
+    back: 'Back', continue: 'Continue', finish: 'Confirm booking'
   },
   es: {
     title: 'Reservar', subtitle: 'Elige direccion, servicio, fecha y hora antes de ver resultados.',
-    step1: '1. Direccion', step2: '2. Servicio(s)', step3: '3. Fecha y hora', step4: '4. Limpiadores',
+    step1: 'Direccion', step2: 'Servicio', step3: 'Horario', step4: 'Limpiadores',
     dateLabel: 'Fecha', timeLabel: 'Hora', dateRequired: 'Selecciona una fecha.', dateInvalid: 'Fecha invalida.',
-    addSpace: 'Agregar espacio', noSpace: 'Debes agregar un espacio antes de reservar.',
+    addSpace: 'Agregar espacio', noSpace: 'Agrega un espacio para comenzar.',
     details: 'Detalles', reserve: 'Reservar', selected: 'Seleccionado', noResult: 'Aun no hay limpiadores compatibles.',
-    hint: 'Completa los pasos 1 a 3 para mostrar limpiadores.',
-    trust: 'Nuevo en Nettoyo', zoneMatch: 'Zona compatible', avail: 'Disponible en esta fecha',
-    modalServices: 'Servicios', modalZones: 'Zonas', close: 'Cerrar',
+    hint: 'Completa los pasos 1 a 3 para ver los limpiadores disponibles.',
+    trust: 'Nuevo en Nettoyo', zoneMatch: 'Zona compatible', avail: 'Disponible',
+    modalServices: 'Servicios ofrecidos', modalZones: 'Zonas de servicio', close: 'Cerrar',
     reserveSuccess: 'Reserva creada.', reserveError: 'No se pudo reservar.', loading: 'Cargando...',
     timeRequired: 'Selecciona una hora.', timeInvalid: 'Formato de hora invalido.',
     sameDayLeadError: 'Para reservas del mismo dia, elige una hora al menos 2h mas tarde (hora de Montreal).',
@@ -87,24 +88,65 @@ const labels = {
     bookingAdjustDisclaimer: 'Esta estimacion no es final. Podras ajustarla con el limpiador segun el trabajo real.', bookingHoursLabel: 'Horas estimadas',
     bookingSummaryTitle: 'Resumen de reserva', bookingSummaryAddress: 'Direccion', bookingSummaryRate: 'Tarifa por hora', bookingSummaryHours: 'Horas estimadas', bookingSummaryDate: 'Fecha', bookingSummaryTime: 'Hora',
     bookingApproxTotal: 'Total aproximado', paymentDisclaimer1: 'El pago se realiza directamente con el limpiador (efectivo o Interac).', paymentDisclaimer2: 'El monto mostrado es aproximado y puede variar segun el trabajo real.',
-    back: 'Atras', continue: 'Continuar', finish: 'Terminar'
+    back: 'Atras', continue: 'Continuar', finish: 'Confirmar reserva'
   }
 } as const;
 
 const serviceLabels: Record<ServiceId, { fr: string; en: string; es: string }> = {
-  domicile: { fr: 'Domicile', en: 'Home', es: 'Domicilio' }, deep_cleaning: { fr: 'Profondeur', en: 'Deep cleaning', es: 'Profunda' }, office: { fr: 'Bureau', en: 'Office', es: 'Oficina' },
-  moving: { fr: 'Demenagement', en: 'Moving', es: 'Mudanza' }, post_renovation: { fr: 'Post-renovation', en: 'Post-renovation', es: 'Post-renovacion' }, airbnb: { fr: 'Airbnb', en: 'Airbnb', es: 'Airbnb' }
+  domicile: { fr: 'Domicile', en: 'Home', es: 'Domicilio' },
+  deep_cleaning: { fr: 'Profondeur', en: 'Deep cleaning', es: 'Profunda' },
+  office: { fr: 'Bureau', en: 'Office', es: 'Oficina' },
+  moving: { fr: 'Demenagement', en: 'Moving', es: 'Mudanza' },
+  post_renovation: { fr: 'Post-renovation', en: 'Post-reno', es: 'Post-reno' },
+  airbnb: { fr: 'Airbnb', en: 'Airbnb', es: 'Airbnb' }
 };
 
-const parseAreas = (value: unknown): AreaSelection[] => Array.isArray(value) ? value.filter((v): v is AreaSelection => Boolean(v && typeof v === 'object' && typeof (v as AreaSelection).zone === 'string' && typeof (v as AreaSelection).name === 'string')) : [];
+const parseAreas = (value: unknown): AreaSelection[] =>
+  Array.isArray(value)
+    ? value.filter((v): v is AreaSelection =>
+        Boolean(v && typeof v === 'object' && typeof (v as AreaSelection).zone === 'string' && typeof (v as AreaSelection).name === 'string')
+      )
+    : [];
+
 const weekday = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
-const normalizeMatch = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-const serviceAliasMap: Record<string, ServiceId> = { domicile: 'domicile', home: 'domicile', domicilio: 'domicile', 'deep cleaning': 'deep_cleaning', deep_cleaning: 'deep_cleaning', profondeur: 'deep_cleaning', profunda: 'deep_cleaning', office: 'office', bureau: 'office', oficina: 'office', moving: 'moving', demenagement: 'moving', mudanza: 'moving', post_renovation: 'post_renovation', 'post renovation': 'post_renovation', airbnb: 'airbnb' };
+const normalizeMatch = (value: string) =>
+  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const serviceAliasMap: Record<string, ServiceId> = {
+  domicile: 'domicile', home: 'domicile', domicilio: 'domicile',
+  'deep cleaning': 'deep_cleaning', deep_cleaning: 'deep_cleaning', profondeur: 'deep_cleaning', profunda: 'deep_cleaning',
+  office: 'office', bureau: 'office', oficina: 'office',
+  moving: 'moving', demenagement: 'moving', mudanza: 'moving',
+  post_renovation: 'post_renovation', 'post renovation': 'post_renovation',
+  airbnb: 'airbnb'
+};
 const normalizeServiceId = (value: string): ServiceId | null => serviceAliasMap[normalizeMatch(value)] ?? null;
-const toMinutes = (v: string) => { const m = v.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/); if (!m) return null; const rawHour = Number(m[1]); const minute = Number(m[2]); const second = m[3] ? Number(m[3]) : 0; const meridiem = m[4]?.toUpperCase() as 'AM' | 'PM' | undefined; if (Number.isNaN(rawHour) || Number.isNaN(minute) || Number.isNaN(second) || minute > 59 || second > 59) return null; if (meridiem) { if (rawHour < 1 || rawHour > 12) return null; const hour24 = meridiem === 'PM' ? (rawHour % 12) + 12 : rawHour % 12; return hour24 * 60 + minute; } if (rawHour < 0 || rawHour > 23) return null; return rawHour * 60 + minute; };
-const isWithin = (t: string,s: string,e: string) => { const tt=toMinutes(t); const ss=toMinutes(s); const ee=toMinutes(e); if(tt===null||ss===null||ee===null) return true; if(ee<ss) return tt>=ss||tt<=ee; return tt>=ss&&tt<=ee; };
-const formatHourlyRate = (rate: number | null) => (typeof rate === 'number' && Number.isFinite(rate) ? `${rate}$/h` : '--');
-const formatDescriptionPreview = (description: string, max = 96) => { const text = description.trim(); return text.length <= max ? text : `${text.slice(0, max).trim()}...`; };
+const toMinutes = (v: string) => {
+  const m = v.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
+  if (!m) return null;
+  const rawHour = Number(m[1]); const minute = Number(m[2]); const second = m[3] ? Number(m[3]) : 0;
+  const meridiem = m[4]?.toUpperCase() as 'AM' | 'PM' | undefined;
+  if (Number.isNaN(rawHour) || Number.isNaN(minute) || Number.isNaN(second) || minute > 59 || second > 59) return null;
+  if (meridiem) {
+    if (rawHour < 1 || rawHour > 12) return null;
+    const hour24 = meridiem === 'PM' ? (rawHour % 12) + 12 : rawHour % 12;
+    return hour24 * 60 + minute;
+  }
+  if (rawHour < 0 || rawHour > 23) return null;
+  return rawHour * 60 + minute;
+};
+const isWithin = (t: string, s: string, e: string) => {
+  const tt = toMinutes(t); const ss = toMinutes(s); const ee = toMinutes(e);
+  if (tt === null || ss === null || ee === null) return true;
+  if (ee < ss) return tt >= ss || tt <= ee;
+  return tt >= ss && tt <= ee;
+};
+const formatHourlyRate = (rate: number | null) =>
+  typeof rate === 'number' && Number.isFinite(rate) ? `${rate}$/h` : '--';
+const formatDescriptionPreview = (description: string, max = 90) => {
+  const text = description.trim();
+  return text.length <= max ? text : `${text.slice(0, max).trim()}...`;
+};
+
 const triggerBookingCreatedNotification = async (bookingId: string, accessToken: string | null) => {
   try {
     console.info('[booking-notify] trigger start', { bookingId });
@@ -117,14 +159,173 @@ const triggerBookingCreatedNotification = async (bookingId: string, accessToken:
       body: JSON.stringify({ event: 'booking_created', bookingId })
     });
     console.info('[booking-notify] trigger response', { bookingId, status: response.status, ok: response.ok });
-    if (!response.ok) {
-      console.error('Booking-created notification failed:', response.status, response.statusText);
-    }
+    if (!response.ok) console.error('Booking-created notification failed:', response.status, response.statusText);
   } catch (error) {
     console.error('Booking-created notification request error:', error);
   }
 };
 
+// ─── Step Progress Indicator ──────────────────────────────────────────────────
+function StepProgress({ steps, current }: { steps: string[]; current: number }) {
+  return (
+    <div className="flex items-center gap-0">
+      {steps.map((label, idx) => {
+        const num = idx + 1;
+        const done = num < current;
+        const active = num === current;
+        return (
+          <div key={label} className="flex items-center">
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                  done
+                    ? 'bg-[#A8E6CF] text-[#065F46]'
+                    : active
+                    ? 'bg-[#4FC3F7] text-white shadow-[0_0_0_3px_rgba(79,195,247,0.2)]'
+                    : 'bg-[#F0F4F8] text-[#9CA3AF]'
+                }`}
+              >
+                {done ? <CheckCircle2 size={14} /> : num}
+              </div>
+              <span
+                className={`hidden text-[10px] font-semibold tracking-wide sm:block ${
+                  active ? 'text-[#0284C7]' : done ? 'text-[#065F46]' : 'text-[#9CA3AF]'
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+            {idx < steps.length - 1 && (
+              <div
+                className={`mb-4 h-[2px] w-8 sm:w-12 ${done ? 'bg-[#A8E6CF]' : 'bg-[#E5E7EB]'}`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Cleaner Card ─────────────────────────────────────────────────────────────
+function CleanerCard({
+  cleaner,
+  language,
+  t,
+  onDetails,
+  onBook,
+  reservingId
+}: {
+  cleaner: CleanerCandidate;
+  language: 'fr' | 'en' | 'es';
+  t: typeof labels['fr'];
+  onDetails: () => void;
+  onBook: () => void;
+  reservingId: string | null;
+}) {
+  const isReserving = reservingId === cleaner.id;
+  const visibleServices = cleaner.services.slice(0, 3);
+
+  return (
+    <article className="group flex flex-col rounded-3xl border border-[#EEF2F7] bg-white shadow-[0_4px_24px_rgba(17,24,39,0.06)] transition-shadow hover:shadow-[0_8px_32px_rgba(17,24,39,0.1)]">
+      {/* Card body */}
+      <div className="flex flex-col gap-3 p-5 sm:p-6">
+        {/* Top row: avatar + identity + rate */}
+        <div className="flex items-start gap-3.5">
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            {cleaner.photoUrl ? (
+              <img
+                src={cleaner.photoUrl}
+                alt={cleaner.displayName}
+                className="h-14 w-14 rounded-2xl object-cover"
+              />
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[rgba(79,195,247,0.2)] to-[rgba(168,230,207,0.2)] text-[#4FC3F7]">
+                <User size={22} />
+              </div>
+            )}
+            {/* Online dot */}
+            <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#4ADE80]" />
+          </div>
+
+          {/* Name + rate + description */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <p className="truncate text-base font-bold text-[#1A1A2E]">{cleaner.displayName}</p>
+              <span className="flex-shrink-0 rounded-xl bg-[rgba(79,195,247,0.12)] px-2.5 py-1 text-sm font-bold text-[#0284C7]">
+                {formatHourlyRate(cleaner.hourlyRate)}
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm leading-relaxed text-[#6B7280]">
+              {formatDescriptionPreview(cleaner.description)}
+            </p>
+          </div>
+        </div>
+
+        {/* Service tags */}
+        {visibleServices.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {visibleServices.map((s) => (
+              <span
+                key={`${cleaner.id}-${s}`}
+                className="rounded-lg bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-semibold text-[#4B5563]"
+              >
+                {serviceLabels[s][language]}
+              </span>
+            ))}
+            {cleaner.services.length > 3 && (
+              <span className="text-[11px] text-[#9CA3AF]">+{cleaner.services.length - 3}</span>
+            )}
+          </div>
+        )}
+
+        {/* Trust signals */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-lg bg-[rgba(168,230,207,0.3)] px-2.5 py-1 text-[11px] font-semibold text-[#065F46]">
+            <MapPin size={10} />
+            {t.zoneMatch}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-lg bg-[rgba(79,195,247,0.12)] px-2.5 py-1 text-[11px] font-semibold text-[#0284C7]">
+            <Clock3 size={10} />
+            {t.avail}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-lg bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-medium text-[#9CA3AF]">
+            <Sparkles size={10} />
+            {t.trust}
+          </span>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="mx-5 border-t border-[#F0F4F8] sm:mx-6" />
+
+      {/* Actions footer */}
+      <div className="flex items-center gap-2.5 p-4 sm:p-5">
+        {/* Details: ghost, secondary */}
+        <button
+          type="button"
+          onClick={onDetails}
+          className="flex-1 rounded-2xl border border-[#E5E7EB] px-4 py-2.5 text-sm font-semibold text-[#4B5563] transition-colors hover:border-[#4FC3F7] hover:text-[#0284C7]"
+        >
+          {t.details}
+        </button>
+
+        {/* Book: solid, primary */}
+        <button
+          type="button"
+          onClick={onBook}
+          disabled={isReserving}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[#4FC3F7] px-4 py-2.5 text-sm font-bold text-white shadow-[0_4px_12px_rgba(79,195,247,0.35)] transition-all hover:bg-[#38B2E8] hover:shadow-[0_6px_16px_rgba(79,195,247,0.4)] disabled:opacity-60"
+        >
+          {isReserving ? <Loader2 size={14} className="animate-spin" /> : t.reserve}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export function ClientReservationPage() {
   const { language, navigateTo } = useLanguage();
   const { user, session, isClient, loading: authLoading } = useAuth();
@@ -139,16 +340,21 @@ export function ClientReservationPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState('');
   const [selectedServices, setSelectedServices] = useState<ServiceId[]>([]);
-  const [selectedDate, setSelectedDate] = useState(getMontrealToday);
-  const [selectedTime, setSelectedTime] = useState('06:00');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('08:00');
   const [modalCleaner, setModalCleaner] = useState<CleanerCandidate | null>(null);
   const [bookingCleaner, setBookingCleaner] = useState<CleanerCandidate | null>(null);
   const [bookingStep, setBookingStep] = useState<1 | 2>(1);
   const [estimatedHours, setEstimatedHours] = useState<number>(3);
   const [reservingId, setReservingId] = useState<string | null>(null);
+  useBodyScrollLock(Boolean(modalCleaner || bookingCleaner));
   const minBookDate = useMemo(() => getMontrealToday(), []);
 
-  useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(null), 2400); return () => window.clearTimeout(timer); }, [toast]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -169,18 +375,21 @@ export function ClientReservationPage() {
       if (cleanersRes.error) { setCleaners([]); setLoading(false); return; }
       const rows = (cleanersRes.data as CleanerProfileRecord[] | null) ?? [];
       const ids = rows.map((r) => r.id);
-      const profileRes = ids.length > 0 ? await supabase.from('profiles').select('id,first_name,last_name,avatar_url').in('id', ids).eq('role', 'nettoyeur') : { data: null, error: null };
-      const idMap = new Map<string, CleanerIdentity>(((profileRes.data as CleanerIdentity[] | null) ?? []).map((p) => [p.id, p]));
-
+      const profileRes = ids.length > 0
+        ? await supabase.from('profiles').select('id,first_name,last_name,avatar_url').in('id', ids).eq('role', 'nettoyeur')
+        : { data: null, error: null };
+      const idMap = new Map<string, CleanerIdentity>(
+        ((profileRes.data as CleanerIdentity[] | null) ?? []).map((p) => [p.id, p])
+      );
       setCleaners(rows.map((row) => {
         const identity = idMap.get(row.id);
         const first = identity?.first_name?.trim();
         const initial = identity?.last_name?.trim()?.[0]?.toUpperCase();
         const name = first ? `${first}${initial ? ` ${initial}.` : ''}` : 'Nettoyo Cleaner';
-        const normalizedServices = (Array.isArray(row.services) ? row.services : []).map(normalizeServiceId).filter((service): service is ServiceId => Boolean(service));
+        const normalizedServices = (Array.isArray(row.services) ? row.services : [])
+          .map(normalizeServiceId).filter((s): s is ServiceId => Boolean(s));
         return {
-          id: row.id,
-          displayName: name,
+          id: row.id, displayName: name,
           description: row.description?.trim() || 'Nettoyeur professionnel disponible localement.',
           photoUrl: identity?.avatar_url ?? row.photo_url,
           hourlyRate: typeof row.hourly_rate === 'number' ? row.hourly_rate : null,
@@ -198,7 +407,7 @@ export function ClientReservationPage() {
 
   useEffect(() => {
     if (spaces.length === 0) { if (selectedSpaceId) setSelectedSpaceId(''); return; }
-    if (!spaces.some((space) => space.id === selectedSpaceId)) setSelectedSpaceId(spaces[0].id);
+    if (!spaces.some((s) => s.id === selectedSpaceId)) setSelectedSpaceId(spaces[0].id);
   }, [selectedSpaceId, spaces]);
 
   const selectedSpace = useMemo(() => spaces.find((s) => s.id === selectedSpaceId) ?? null, [spaces, selectedSpaceId]);
@@ -207,10 +416,7 @@ export function ClientReservationPage() {
   const selectedTimeMinutes = useMemo(() => (selectedTime ? toMinutes(selectedTime) : null), [selectedTime]);
   const selectedTimeValid = selectedTimeMinutes !== null;
   const isSameDaySelected = useMemo(() => isDateTodayInMontreal(selectedDate), [selectedDate]);
-  const sameDayMinTime = useMemo(
-    () => (isSameDaySelected ? getMinimumSameDayBookingTime(2, 30) : null),
-    [isSameDaySelected]
-  );
+  const sameDayMinTime = useMemo(() => (isSameDaySelected ? getMinimumSameDayBookingTime(2, 30) : null), [isSameDaySelected]);
   const sameDayMinTimeMinutes = useMemo(() => (sameDayMinTime ? toMinutes(sameDayMinTime) : null), [sameDayMinTime]);
   const sameDayLeadValid = useMemo(() => {
     if (!isSameDaySelected) return true;
@@ -225,9 +431,7 @@ export function ClientReservationPage() {
 
   useEffect(() => {
     if (!sameDayMinTime || sameDayMinTimeMinutes === null || selectedTimeMinutes === null) return;
-    if (selectedTimeMinutes < sameDayMinTimeMinutes) {
-      setSelectedTime(sameDayMinTime);
-    }
+    if (selectedTimeMinutes < sameDayMinTimeMinutes) setSelectedTime(sameDayMinTime);
   }, [sameDayMinTime, sameDayMinTimeMinutes, selectedTimeMinutes]);
 
   const matchingPipeline = useMemo<MatchingPipeline>(() => {
@@ -236,23 +440,21 @@ export function ClientReservationPage() {
     const zoneFailures: ZoneFailure[] = [];
     const availabilityFailures: AvailabilityFailure[] = [];
     const normalizedSelectedZone = normalizeMatch(selectedZone);
-
     const afterService = raw.filter((cleaner) => {
-      const serviceOk = cleaner.services.some((service) => selectedServices.includes(service));
+      const serviceOk = cleaner.services.some((s) => selectedServices.includes(s));
       if (!serviceOk) serviceFailures.push({ cleanerId: cleaner.id, cleanerServices: cleaner.services, selectedServices });
       return serviceOk;
     });
-
     const afterZone = afterService.filter((cleaner) => {
+      if (!normalizedSelectedZone) return true;
       const zoneOk = cleaner.serviceAreas.some((area) => {
         const normalizedAreaZone = normalizeMatch(area.zone);
         const normalizedAreaName = normalizeMatch(area.name);
         return normalizedAreaZone === normalizedSelectedZone || normalizedAreaName === normalizedSelectedZone;
       });
-      if (!zoneOk) zoneFailures.push({ cleanerId: cleaner.id, selectedZone, selectedZoneNormalized: normalizedSelectedZone, cleanerAreas: cleaner.serviceAreas.map((area) => ({ zone: area.zone, name: area.name })) });
+      if (!zoneOk) zoneFailures.push({ cleanerId: cleaner.id, selectedZone, selectedZoneNormalized: normalizedSelectedZone, cleanerAreas: cleaner.serviceAreas.map((a) => ({ zone: a.zone, name: a.name })) });
       return zoneOk;
     });
-
     const afterAvailability = afterZone.filter((cleaner) => {
       const weekly = cleaner.availability as Record<string, { enabled: boolean; start: string; end: string }> | null;
       if (!weekly || typeof weekly !== 'object') return true;
@@ -265,16 +467,18 @@ export function ClientReservationPage() {
       if (!within) availabilityFailures.push({ cleanerId: cleaner.id, selectedDate, selectedTime, weekday: weekdayKey, dayAvailability: day, reason: 'time_out_of_range' });
       return within;
     });
-
     return { raw, afterService, afterZone, afterAvailability, serviceFailures, zoneFailures, availabilityFailures };
   }, [cleaners, selectedDate, selectedServices, selectedTime, selectedZone]);
 
-  const matched = useMemo(() => { if (!ready || !selectedZone) return []; return matchingPipeline.afterAvailability; }, [matchingPipeline.afterAvailability, ready, selectedZone]);
+  const matched = useMemo(() => {
+    if (!ready) return [];
+    return matchingPipeline.afterAvailability;
+  }, [matchingPipeline.afterAvailability, ready]);
 
   useEffect(() => {
     if (!DEBUG_RESERVATION_MATCHING) return;
     const inputSnapshot = { selectedPlace: selectedSpace?.name ?? null, selectedAddress: selectedSpace?.address ?? null, derivedCity: selectedSpace?.city ?? null, derivedZone: selectedZone || null, selectedServices, selectedDate, selectedTime, selectedDateValid, selectedTimeValid, ready };
-    const rawCleanerSnapshot = matchingPipeline.raw.map((cleaner) => ({ id: cleaner.id, hourly_rate: cleaner.hourlyRate, services: cleaner.services, service_areas: cleaner.serviceAreas, weekly_availability: cleaner.availability, availability_exceptions: cleaner.exceptions }));
+    const rawCleanerSnapshot = matchingPipeline.raw.map((c) => ({ id: c.id, hourly_rate: c.hourlyRate, services: c.services, service_areas: c.serviceAreas, weekly_availability: c.availability, availability_exceptions: c.exceptions }));
     console.groupCollapsed('[Reservation Matching Debug]');
     console.info('Step 1 - Reservation runtime values:', inputSnapshot);
     console.info('Step 2 - Raw cleaners count:', matchingPipeline.raw.length);
@@ -290,7 +494,12 @@ export function ClientReservationPage() {
     console.groupEnd();
   }, [matched.length, matchingPipeline.afterAvailability.length, matchingPipeline.afterService.length, matchingPipeline.afterZone.length, matchingPipeline.availabilityFailures, matchingPipeline.raw, matchingPipeline.serviceFailures, matchingPipeline.zoneFailures, ready, selectedDate, selectedDateValid, selectedServices, selectedSpace?.address, selectedSpace?.city, selectedSpace?.name, selectedTime, selectedTimeValid, selectedZone]);
 
-  const openBookingFlow = (cleaner: CleanerCandidate) => { setBookingCleaner(cleaner); setBookingStep(1); setEstimatedHours(3); setModalCleaner(null); };
+  const openBookingFlow = (cleaner: CleanerCandidate) => {
+    setBookingCleaner(cleaner);
+    setBookingStep(1);
+    setEstimatedHours(3);
+    setModalCleaner(null);
+  };
 
   const reserve = async (cleaner: CleanerCandidate) => {
     if (!user?.id || !selectedSpace || !selectedDateValid || !selectedTimeValid || selectedServices.length === 0) return;
@@ -299,43 +508,19 @@ export function ClientReservationPage() {
       return;
     }
     const scheduledDate = combineMontrealDateTimeToUtc(selectedDate, selectedTime);
-    if (!scheduledDate) {
-      setErrorMessage(t.timeInvalid);
-      return;
-    }
+    if (!scheduledDate) { setErrorMessage(t.timeInvalid); return; }
     setReservingId(cleaner.id);
     const scheduledAt = scheduledDate.toISOString();
     let insertRes = await supabase
       .from('bookings')
-      .insert([
-        {
-          client_id: user.id,
-          cleaner_id: cleaner.id,
-          space_id: selectedSpace.id,
-          service_type: selectedServices.join(','),
-          scheduled_at: scheduledAt,
-          estimated_hours: estimatedHours,
-          status: 'pending'
-        }
-      ])
-      .select('id,status')
-      .single();
+      .insert([{ client_id: user.id, cleaner_id: cleaner.id, space_id: selectedSpace.id, service_type: selectedServices.join(','), scheduled_at: scheduledAt, estimated_hours: estimatedHours, status: 'pending' }])
+      .select('id,status').single();
     let error = insertRes.error;
     if (error && (error.code === '42703' || error.message?.toLowerCase().includes('cleaner_id') || error.message?.toLowerCase().includes('estimated_hours'))) {
       insertRes = await supabase
         .from('bookings')
-        .insert([
-          {
-            client_id: user.id,
-            cleaner_id: cleaner.id,
-            space_id: selectedSpace.id,
-            service_type: selectedServices.join(','),
-            scheduled_at: scheduledAt,
-            status: 'pending'
-          }
-        ])
-        .select('id,status')
-        .single();
+        .insert([{ client_id: user.id, cleaner_id: cleaner.id, space_id: selectedSpace.id, service_type: selectedServices.join(','), scheduled_at: scheduledAt, status: 'pending' }])
+        .select('id,status').single();
       error = insertRes.error;
     }
     setReservingId(null);
@@ -353,29 +538,463 @@ export function ClientReservationPage() {
     setBookingCleaner(null);
   };
 
-  const approxTotal = useMemo(() => { if (!bookingCleaner?.hourlyRate) return null; return bookingCleaner.hourlyRate * estimatedHours; }, [bookingCleaner?.hourlyRate, estimatedHours]);
+  const approxTotal = useMemo(() => {
+    if (!bookingCleaner?.hourlyRate) return null;
+    return bookingCleaner.hourlyRate * estimatedHours;
+  }, [bookingCleaner?.hourlyRate, estimatedHours]);
+
+  // Compute current step for progress indicator
+  const currentStep = useMemo(() => {
+    if (!selectedSpace) return 1;
+    if (selectedServices.length === 0) return 2;
+    if (!selectedDateValid || !selectedTimeValid) return 3;
+    return 4;
+  }, [selectedSpace, selectedServices.length, selectedDateValid, selectedTimeValid]);
 
   if (!isClient()) return null;
 
   return (
-    <div className="min-h-[calc(100vh-160px)] bg-[#F7F7F7] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        {toast ? <div className="fixed right-4 top-24 z-50 rounded-full bg-[#1A1A2E] px-5 py-3 text-sm font-medium text-white shadow-[0_18px_40px_rgba(17,24,39,0.2)]">{toast}</div> : null}
-        <section className="rounded-[28px] bg-white px-6 py-8 shadow-[0_16px_36px_rgba(17,24,39,0.07)] sm:px-8"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4FC3F7]">Reservation</p><h1 className="mt-2 text-2xl font-bold text-[#1A1A2E] sm:text-3xl">{t.title}</h1><p className="mt-2 max-w-2xl text-sm text-[#6B7280]">{t.subtitle}</p></section>
+    <div className="min-h-[calc(100vh-160px)] bg-[#F0F4F8] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl">
 
-        {loading ? <section className="mt-6 rounded-[28px] bg-white p-12 text-center shadow-[0_14px_32px_rgba(17,24,39,0.06)]"><Loader2 className="mx-auto animate-spin text-[#4FC3F7]" size={28} /><p className="mt-4 text-sm font-medium text-[#6B7280]">{t.loading}</p></section> : (
-          <>
-            <section className="mt-6 rounded-[28px] bg-white p-6 shadow-[0_14px_32px_rgba(17,24,39,0.06)] sm:p-7"><h2 className="text-lg font-bold text-[#1A1A2E]">{t.step1}</h2>{spaces.length === 0 ? <div className="mt-4 rounded-2xl border border-dashed border-[#BFE9FB] bg-[#F8FCFF] p-6 text-center"><Home size={22} className="mx-auto text-[#4FC3F7]" /><p className="mt-3 text-sm text-[#6B7280]">{t.noSpace}</p><a href={addSpacePath} onClick={(e)=>{e.preventDefault();navigateTo('clientAddSpace');}} className="mt-4 inline-flex rounded-full bg-[#4FC3F7] px-5 py-2 text-sm font-semibold text-white">{t.addSpace}</a></div> : <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{spaces.map((s)=>{const selected=s.id===selectedSpaceId; const zone=s.derived_zone || deriveZoneFromCityName(s.city) || '--'; return <button key={s.id} type="button" onClick={()=>setSelectedSpaceId(s.id)} className={`rounded-2xl border p-4 text-left ${selected?'border-[#4FC3F7] bg-[#F8FCFF]':'border-[#E5E7EB] hover:border-[#BFE9FB]'}`}><p className="text-sm font-bold text-[#1A1A2E]">{s.name}</p><p className="mt-1 text-xs text-[#6B7280]">{[s.address,s.city].filter(Boolean).join(', ')||'--'}</p><div className="mt-3 flex items-center justify-between"><span className="rounded-full bg-[rgba(168,230,207,0.28)] px-2.5 py-1 text-[11px] font-semibold text-[#1A1A2E]">{zone}</span>{selected?<span className="text-[11px] font-semibold text-[#4FC3F7]">{t.selected}</span>:null}</div></button>;})}</div>}</section>
-            <section className="mt-6 rounded-[28px] bg-white p-6 shadow-[0_14px_32px_rgba(17,24,39,0.06)] sm:p-7"><h2 className="text-lg font-bold text-[#1A1A2E]">{t.step2}</h2><div className="mt-4 flex flex-wrap gap-2.5">{services.map((service)=>{const selected=selectedServices.includes(service); return <button key={service} type="button" onClick={()=>setSelectedServices((cur)=>selected?cur.filter((item)=>item!==service):[...cur,service])} className={`rounded-full border px-4 py-2 text-sm font-semibold ${selected?'border-[#4FC3F7] bg-[rgba(79,195,247,0.12)] text-[#0284C7]':'border-[#E5E7EB] text-[#1A1A2E]'}`}>{serviceLabels[service][language]}</button>;})}</div></section>
-            <section className="mt-6 rounded-[28px] bg-white p-6 shadow-[0_14px_32px_rgba(17,24,39,0.06)] sm:p-7"><h2 className="text-lg font-bold text-[#1A1A2E]">{t.step3}</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="rounded-2xl border border-[#E5E7EB] px-4 py-3"><div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><Calendar size={13}/>{t.dateLabel}</div><input type="date" value={selectedDate} min={minBookDate} onChange={(e)=>setSelectedDate(e.target.value)} className="w-full bg-transparent text-sm font-semibold text-[#1A1A2E] outline-none"/>{dateValidationMessage?<p className="mt-2 text-xs font-medium text-[#B91C1C]">{dateValidationMessage}</p>:null}</label><div className="rounded-2xl border border-[#E5E7EB] px-4 py-3"><div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><Clock3 size={13}/>{t.timeLabel}</div><TimePickerField value={selectedTime} onChange={setSelectedTime} label={t.timeLabel} />{timeValidationMessage?<p className="mt-2 text-xs font-medium text-[#B91C1C]">{timeValidationMessage}</p>:null}</div></div></section>
-            <section className="mt-6 rounded-[28px] bg-white p-6 shadow-[0_14px_32px_rgba(17,24,39,0.06)] sm:p-7"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-lg font-bold text-[#1A1A2E]">{t.step4}</h2><span className="inline-flex items-center gap-1 rounded-full bg-[rgba(79,195,247,0.12)] px-3 py-1 text-xs font-semibold text-[#0284C7]"><Search size={12}/>{t.hint}</span></div>{errorMessage?<div className="mb-4 rounded-xl bg-[rgba(239,68,68,0.1)] px-4 py-3 text-sm font-medium text-[#B91C1C]">{errorMessage}</div>:null}{!ready?<div className="rounded-2xl border border-dashed border-[#D1E7F7] bg-[#F8FCFF] px-5 py-8 text-center text-sm text-[#6B7280]">{t.hint}</div>:matched.length===0?<div className="rounded-2xl border border-dashed border-[#D1E7F7] bg-[#F8FCFF] px-5 py-8 text-center text-sm text-[#6B7280]">{t.noResult}</div>:<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{matched.map((cleaner)=>{const showServices=cleaner.services.slice(0,4); return <article key={cleaner.id} className="rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-[0_14px_30px_rgba(17,24,39,0.06)]"><div className="flex items-start gap-3">{cleaner.photoUrl?<img src={cleaner.photoUrl} alt={cleaner.displayName} className="h-14 w-14 rounded-full object-cover"/>:<div className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-[#4FC3F7]"><User size={20}/></div>}<div className="min-w-0"><p className="truncate text-base font-bold text-[#1A1A2E]">{cleaner.displayName}</p><p className="mt-1 text-xs font-semibold text-[#0284C7]">{t.hourlyRate}: {formatHourlyRate(cleaner.hourlyRate)}</p><p className="mt-1 line-clamp-2 text-sm text-[#6B7280]">{formatDescriptionPreview(cleaner.description)}</p></div></div><div className="mt-3 flex flex-wrap gap-2">{showServices.map((s)=><span key={`${cleaner.id}-${s}`} className="inline-flex rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-semibold text-[#4B5563]">{serviceLabels[s][language]}</span>)}</div><div className="mt-4 space-y-2 text-xs text-[#6B7280]"><p className="inline-flex items-center gap-1 rounded-full bg-[rgba(168,230,207,0.32)] px-2.5 py-1 font-semibold text-[#1A1A2E]"><MapPin size={12}/>{t.zoneMatch}</p><p className="inline-flex items-center gap-1 rounded-full bg-[rgba(79,195,247,0.12)] px-2.5 py-1 font-semibold text-[#0284C7]"><Clock3 size={12}/>{t.avail}</p></div><p className="mt-4 inline-flex items-center gap-1 rounded-full bg-[rgba(79,195,247,0.12)] px-2.5 py-1 text-xs font-semibold text-[#0284C7]"><Sparkles size={12}/>{t.trust}</p><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={()=>setModalCleaner(cleaner)} className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] px-3 py-2 text-sm font-semibold text-[#1A1A2E]">{t.details}</button><button type="button" onClick={()=>openBookingFlow(cleaner)} className="inline-flex items-center justify-center rounded-full bg-[#4FC3F7] px-3 py-2 text-sm font-semibold text-white">{t.reserve}</button></div></article>;})}</div>}</section>
-          </>
+        {/* Toast */}
+        {toast && (
+          <div className="fixed right-4 top-24 z-50 flex items-center gap-2 rounded-2xl bg-[#1A1A2E] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_32px_rgba(17,24,39,0.25)]">
+            <CheckCircle2 size={15} className="text-[#A8E6CF]" />
+            {toast}
+          </div>
+        )}
+
+        {/* Page header */}
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#4FC3F7]">Nettoyó</p>
+            <h1 className="mt-1 text-2xl font-bold text-[#1A1A2E] sm:text-3xl">{t.title}</h1>
+            <p className="mt-1 text-sm text-[#6B7280]">{t.subtitle}</p>
+          </div>
+          <StepProgress
+            steps={[t.step1, t.step2, t.step3, t.step4]}
+            current={currentStep}
+          />
+        </div>
+
+        {loading ? (
+          /* Loading state */
+          <div className="flex flex-col items-center justify-center rounded-3xl bg-white py-20 shadow-[0_4px_24px_rgba(17,24,39,0.06)]">
+            <Loader2 className="animate-spin text-[#4FC3F7]" size={28} />
+            <p className="mt-4 text-sm font-medium text-[#6B7280]">{t.loading}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+
+            {/* ── Step 1: Address ── */}
+            <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">1</span>
+                <h2 className="text-base font-bold text-[#1A1A2E]">{t.step1}</h2>
+              </div>
+
+              {spaces.length === 0 ? (
+                <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#BFE9FB] bg-[#F8FCFF] p-8 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(79,195,247,0.12)] text-[#4FC3F7]">
+                    <Home size={20} />
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-[#4B5563]">{t.noSpace}</p>
+                  <a
+                    href={addSpacePath}
+                    onClick={(e) => { e.preventDefault(); navigateTo('clientAddSpace'); }}
+                    className="mt-4 inline-flex rounded-2xl bg-[#4FC3F7] px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_12px_rgba(79,195,247,0.3)] transition-all hover:bg-[#38B2E8]"
+                  >
+                    {t.addSpace}
+                  </a>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {spaces.map((s) => {
+                    const selected = s.id === selectedSpaceId;
+                    const zone = s.derived_zone || deriveZoneFromCityName(s.city) || '--';
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedSpaceId(s.id)}
+                        className={`group relative rounded-2xl border p-4 text-left transition-all ${
+                          selected
+                            ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.06)] shadow-[0_0_0_1px_#4FC3F7]'
+                            : 'border-[#E5E7EB] hover:border-[#BFE9FB] hover:bg-[#FAFCFF]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-bold text-[#1A1A2E]">{s.name}</p>
+                          {selected && (
+                            <CheckCircle2 size={16} className="flex-shrink-0 text-[#4FC3F7]" />
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-[#6B7280]">
+                          {[s.address, s.city].filter(Boolean).join(', ') || '--'}
+                        </p>
+                        <span className="mt-3 inline-flex rounded-lg bg-[rgba(168,230,207,0.28)] px-2.5 py-1 text-[11px] font-semibold text-[#065F46]">
+                          {zone}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* ── Step 2: Services ── */}
+            <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">2</span>
+                <h2 className="text-base font-bold text-[#1A1A2E]">{t.step2}</h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {services.map((service) => {
+                  const selected = selectedServices.includes(service);
+                  return (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() =>
+                        setSelectedServices((cur) =>
+                          selected ? cur.filter((item) => item !== service) : [...cur, service]
+                        )
+                      }
+                      className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition-all ${
+                        selected
+                          ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.1)] text-[#0284C7] shadow-[0_0_0_1px_rgba(79,195,247,0.4)]'
+                          : 'border-[#E5E7EB] text-[#4B5563] hover:border-[#BFE9FB]'
+                      }`}
+                    >
+                      {serviceLabels[service][language]}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* ── Step 3: Date & Time ── */}
+            <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">3</span>
+                <h2 className="text-base font-bold text-[#1A1A2E]">{t.step3}</h2>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="rounded-2xl border border-[#E5E7EB] px-4 py-3.5 transition-colors focus-within:border-[#4FC3F7] focus-within:shadow-[0_0_0_1px_rgba(79,195,247,0.3)]">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                    <Calendar size={12} />
+                    {t.dateLabel}
+                  </div>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    min={minBookDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full bg-transparent text-sm font-semibold text-[#1A1A2E] outline-none"
+                  />
+                  {dateValidationMessage && (
+                    <p className="mt-2 text-xs font-medium text-[#DC2626]">{dateValidationMessage}</p>
+                  )}
+                </label>
+
+                <div className="rounded-2xl border border-[#E5E7EB] px-4 py-3.5 transition-colors focus-within:border-[#4FC3F7] focus-within:shadow-[0_0_0_1px_rgba(79,195,247,0.3)]">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                    <Clock3 size={12} />
+                    {t.timeLabel}
+                  </div>
+                  <TimePickerField value={selectedTime} onChange={setSelectedTime} label={t.timeLabel} />
+                  {timeValidationMessage && (
+                    <p className="mt-2 text-xs font-medium text-[#DC2626]">{timeValidationMessage}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* ── Step 4: Cleaners ── */}
+            <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">4</span>
+                  <h2 className="text-base font-bold text-[#1A1A2E]">{t.step4}</h2>
+                  {ready && matched.length > 0 && (
+                    <span className="rounded-lg bg-[rgba(168,230,207,0.3)] px-2 py-0.5 text-xs font-bold text-[#065F46]">
+                      {matched.length}
+                    </span>
+                  )}
+                </div>
+                {ready && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-[rgba(79,195,247,0.1)] px-2.5 py-1 text-xs font-semibold text-[#0284C7]">
+                    <Search size={11} />
+                    {t.hint.split(' ').slice(0, 3).join(' ')}...
+                  </span>
+                )}
+              </div>
+
+              {errorMessage && (
+                <div className="mb-4 rounded-2xl bg-[rgba(220,38,38,0.08)] px-4 py-3 text-sm font-medium text-[#DC2626]">
+                  {errorMessage}
+                </div>
+              )}
+
+              {!ready ? (
+                <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#D1E7F7] bg-[#F8FCFF] px-5 py-12 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(79,195,247,0.1)] text-[#4FC3F7]">
+                    <Search size={20} />
+                  </div>
+                  <p className="mt-3 max-w-xs text-sm text-[#6B7280]">{t.hint}</p>
+                </div>
+              ) : matched.length === 0 ? (
+                <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#D1E7F7] bg-[#F8FCFF] px-5 py-12 text-center">
+                  <p className="text-sm font-medium text-[#4B5563]">{t.noResult}</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {matched.map((cleaner) => (
+                    <CleanerCard
+                      key={cleaner.id}
+                      cleaner={cleaner}
+                      language={language}
+                      t={t}
+                      onDetails={() => setModalCleaner(cleaner)}
+                      onBook={() => openBookingFlow(cleaner)}
+                      reservingId={reservingId}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
         )}
       </div>
 
-      {modalCleaner ? <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 px-4 py-4 sm:items-center"><div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-[0_18px_40px_rgba(17,24,39,0.2)] sm:p-6"><div className="flex items-start justify-between gap-4"><div className="flex items-center gap-3">{modalCleaner.photoUrl?<img src={modalCleaner.photoUrl} alt={modalCleaner.displayName} className="h-16 w-16 rounded-full object-cover"/>:<div className="flex h-16 w-16 items-center justify-center rounded-full bg-[rgba(79,195,247,0.14)] text-[#4FC3F7]"><User size={22}/></div>}<div><p className="text-lg font-bold text-[#1A1A2E]">{modalCleaner.displayName}</p><p className="mt-1 text-sm font-semibold text-[#0284C7]">{t.hourlyRate}: {formatHourlyRate(modalCleaner.hourlyRate)}</p><p className="mt-1 text-sm text-[#6B7280]">{modalCleaner.description}</p></div></div><button type="button" onClick={()=>setModalCleaner(null)} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280]"><X size={16}/></button></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><div className="rounded-2xl border border-[#E5E7EB] p-4"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{t.modalServices}</p><div className="mt-2 flex flex-wrap gap-2">{modalCleaner.services.map((s)=><span key={`modal-s-${s}`} className="inline-flex rounded-full bg-[#F3F4F6] px-2.5 py-1 text-xs font-semibold text-[#4B5563]">{serviceLabels[s][language]}</span>)}</div></div><div className="rounded-2xl border border-[#E5E7EB] p-4"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#9CA3AF]">{t.modalZones}</p><div className="mt-2 flex flex-wrap gap-2">{modalCleaner.serviceAreas.slice(0,8).map((a)=><span key={`modal-z-${a.id}`} className="inline-flex rounded-full bg-[rgba(168,230,207,0.28)] px-2.5 py-1 text-xs font-semibold text-[#1A1A2E]">{a.zone}</span>)}</div></div></div><div className="mt-6 flex items-center justify-end gap-2"><button type="button" onClick={()=>setModalCleaner(null)} className="rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{t.close}</button><button type="button" onClick={()=>openBookingFlow(modalCleaner)} className="inline-flex min-w-[120px] items-center justify-center rounded-full bg-[#4FC3F7] px-5 py-2 text-sm font-semibold text-white">{t.reserve}</button></div></div></div> : null}
-      {bookingCleaner ? <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center"><div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6"><div className="flex items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-[#1A1A2E]">{t.bookingFlowTitle}</h3><p className="mt-1 text-sm text-[#4B5563]">{bookingCleaner.displayName}</p></div><button type="button" onClick={()=>setBookingCleaner(null)} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#6B7280]"><X size={16}/></button></div>{bookingStep===1?<div className="mt-5 space-y-4"><h4 className="text-base font-bold text-[#1A1A2E]">{t.bookingStep1Title}</h4><p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0284C7]">{t.bookingStep1Hint}</p><div className="rounded-2xl border border-[#D1E7F7] bg-[#F8FCFF] p-4 text-xs leading-relaxed text-[#4B5563]"><p>{t.bookingGuideSmall}</p><p className="mt-1">{t.bookingGuideMedium}</p><p className="mt-1">{t.bookingGuideLarge}</p><p className="mt-1">{t.bookingGuideMove}</p></div><div><p className="mb-2 text-sm font-semibold text-[#1A1A2E]">{t.bookingHoursLabel}</p><div className="flex flex-wrap gap-2">{estimatedHourOptions.map((value)=><button key={value} type="button" onClick={()=>setEstimatedHours(value)} className={`rounded-full border px-4 py-2 text-sm font-semibold ${estimatedHours===value?'border-[#4FC3F7] bg-[rgba(79,195,247,0.12)] text-[#0284C7]':'border-[#E5E7EB] text-[#1A1A2E]'}`}>{value}h</button>)}</div></div><p className="rounded-xl bg-[rgba(251,191,36,0.14)] px-4 py-3 text-xs font-medium text-[#92400E]">{t.bookingAdjustDisclaimer}</p><div className="mt-6 flex justify-end"><button type="button" onClick={()=>setBookingStep(2)} className="rounded-full bg-[#4FC3F7] px-5 py-2 text-sm font-semibold text-white">{t.continue}</button></div></div>:<div className="mt-5 space-y-4"><h4 className="text-base font-bold text-[#1A1A2E]">{t.bookingSummaryTitle}</h4><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-[#E5E7EB] p-3"><p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{t.bookingSummaryAddress}</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{[selectedSpace?.address,selectedSpace?.city].filter(Boolean).join(', ')||'--'}</p></div><div className="rounded-xl border border-[#E5E7EB] p-3"><p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{t.bookingSummaryRate}</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{formatHourlyRate(bookingCleaner.hourlyRate)}</p></div><div className="rounded-xl border border-[#E5E7EB] p-3"><p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{t.bookingSummaryHours}</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{estimatedHours}h</p></div><div className="rounded-xl border border-[#E5E7EB] p-3"><p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{t.bookingSummaryDate}</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{selectedDate}</p></div><div className="rounded-xl border border-[#E5E7EB] p-3"><p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{t.bookingSummaryTime}</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{selectedTime}</p></div></div><div className="rounded-xl border border-[#A7F3D0] bg-[rgba(168,230,207,0.22)] px-4 py-3 text-sm font-semibold text-[#065F46]">{t.bookingApproxTotal}: {bookingCleaner.hourlyRate && approxTotal!==null ? `${bookingCleaner.hourlyRate}$/h x ${estimatedHours}h = ${approxTotal}$ (approx)` : '--'}</div><div className="rounded-xl border border-[#D1E7F7] bg-[#F8FCFF] px-4 py-3 text-xs text-[#4B5563]"><p>{t.paymentDisclaimer1}</p><p className="mt-1">{t.paymentDisclaimer2}</p></div><div className="mt-6 flex items-center justify-end gap-2"><button type="button" onClick={()=>setBookingStep(1)} className="rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280]">{t.back}</button><button type="button" disabled={reservingId===bookingCleaner.id} onClick={()=>void reserve(bookingCleaner)} className="inline-flex min-w-[120px] items-center justify-center rounded-full bg-[#4FC3F7] px-5 py-2 text-sm font-semibold text-white disabled:opacity-70">{reservingId===bookingCleaner.id?<Loader2 size={14} className="animate-spin"/>:t.finish}</button></div></div>}</div></div> : null}
+      {/* ── Cleaner Details Modal ── */}
+      {modalCleaner && (
+        <div
+          className="fixed inset-0 z-[70] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/40 px-4 pb-4 sm:items-center sm:pb-0"
+          onClick={() => setModalCleaner(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white shadow-[0_20px_60px_rgba(17,24,39,0.25)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-start gap-4 p-6 pb-5">
+              {modalCleaner.photoUrl ? (
+                <img src={modalCleaner.photoUrl} alt={modalCleaner.displayName} className="h-16 w-16 flex-shrink-0 rounded-2xl object-cover" />
+              ) : (
+                <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[rgba(79,195,247,0.2)] to-[rgba(168,230,207,0.2)] text-[#4FC3F7]">
+                  <User size={24} />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-bold text-[#1A1A2E]">{modalCleaner.displayName}</p>
+                <p className="mt-0.5 text-sm font-semibold text-[#0284C7]">{formatHourlyRate(modalCleaner.hourlyRate)}</p>
+                <p className="mt-1 text-sm leading-relaxed text-[#6B7280]">{modalCleaner.description}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalCleaner(null)}
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[#E5E7EB] text-[#9CA3AF] transition-colors hover:border-[#DC2626] hover:text-[#DC2626]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="border-t border-[#F0F4F8]" />
+
+            {/* Modal body */}
+            <div className="grid gap-4 p-6 sm:grid-cols-2">
+              <div className="rounded-2xl bg-[#F8FAFC] p-4">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">
+                  {t.modalServices}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {modalCleaner.services.map((s) => (
+                    <span key={`modal-s-${s}`} className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-[#4B5563] shadow-[0_1px_3px_rgba(17,24,39,0.08)]">
+                      {serviceLabels[s][language]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-[#F8FAFC] p-4">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">
+                  {t.modalZones}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {modalCleaner.serviceAreas.slice(0, 8).map((a) => (
+                    <span key={`modal-z-${a.id}`} className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-[#4B5563] shadow-[0_1px_3px_rgba(17,24,39,0.08)]">
+                      {a.zone}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center gap-3 border-t border-[#F0F4F8] p-5">
+              <button
+                type="button"
+                onClick={() => setModalCleaner(null)}
+                className="flex-1 rounded-2xl border border-[#E5E7EB] py-2.5 text-sm font-semibold text-[#6B7280] transition-colors hover:border-[#9CA3AF]"
+              >
+                {t.close}
+              </button>
+              <button
+                type="button"
+                onClick={() => openBookingFlow(modalCleaner)}
+                className="flex flex-1 items-center justify-center rounded-2xl bg-[#4FC3F7] py-2.5 text-sm font-bold text-white shadow-[0_4px_12px_rgba(79,195,247,0.35)] transition-all hover:bg-[#38B2E8]"
+              >
+                {t.reserve}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Booking Flow Modal ── */}
+      {bookingCleaner && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 pb-4 sm:items-center sm:pb-0"
+          onClick={() => setBookingCleaner(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white shadow-[0_24px_70px_rgba(17,24,39,0.3)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between gap-3 border-b border-[#F0F4F8] px-6 py-5">
+              <div>
+                <h3 className="text-base font-bold text-[#1A1A2E]">{t.bookingFlowTitle}</h3>
+                <p className="mt-0.5 text-sm font-medium text-[#0284C7]">{bookingCleaner.displayName}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Mini step dots */}
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-full ${bookingStep >= 1 ? 'bg-[#4FC3F7]' : 'bg-[#E5E7EB]'}`} />
+                  <span className={`h-2 w-2 rounded-full ${bookingStep >= 2 ? 'bg-[#4FC3F7]' : 'bg-[#E5E7EB]'}`} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBookingCleaner(null)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E7EB] text-[#9CA3AF] transition-colors hover:border-[#DC2626] hover:text-[#DC2626]"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Step 1: Hours */}
+            {bookingStep === 1 && (
+              <div className="p-6">
+                <h4 className="text-sm font-bold text-[#1A1A2E]">{t.bookingStep1Title}</h4>
+                <p className="mt-0.5 text-xs font-semibold text-[#0284C7]">{t.bookingStep1Hint}</p>
+
+                {/* Guidance card */}
+                <div className="mt-4 rounded-2xl border border-[#D1E7F7] bg-[#F8FCFF] p-4 text-xs leading-relaxed text-[#4B5563]">
+                  <p>{t.bookingGuideSmall}</p>
+                  <p className="mt-1">{t.bookingGuideMedium}</p>
+                  <p className="mt-1">{t.bookingGuideLarge}</p>
+                  <p className="mt-1">{t.bookingGuideMove}</p>
+                </div>
+
+                {/* Hour selector */}
+                <div className="mt-5">
+                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#9CA3AF]">{t.bookingHoursLabel}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {estimatedHourOptions.map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setEstimatedHours(value)}
+                        className={`rounded-2xl border px-4 py-2 text-sm font-bold transition-all ${
+                          estimatedHours === value
+                            ? 'border-[#4FC3F7] bg-[rgba(79,195,247,0.12)] text-[#0284C7] shadow-[0_0_0_1px_rgba(79,195,247,0.4)]'
+                            : 'border-[#E5E7EB] text-[#4B5563] hover:border-[#BFE9FB]'
+                        }`}
+                      >
+                        {value}h
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="mt-4 rounded-2xl bg-[rgba(251,191,36,0.12)] px-4 py-3 text-xs font-medium text-[#92400E]">
+                  {t.bookingAdjustDisclaimer}
+                </p>
+
+                <div className="mt-5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setBookingStep(2)}
+                    className="rounded-2xl bg-[#4FC3F7] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_12px_rgba(79,195,247,0.35)] transition-all hover:bg-[#38B2E8]"
+                  >
+                    {t.continue}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Summary */}
+            {bookingStep === 2 && (
+              <div className="p-6">
+                <h4 className="mb-4 text-sm font-bold text-[#1A1A2E]">{t.bookingSummaryTitle}</h4>
+
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {[
+                    { label: t.bookingSummaryAddress, value: [selectedSpace?.address, selectedSpace?.city].filter(Boolean).join(', ') || '--' },
+                    { label: t.bookingSummaryRate, value: formatHourlyRate(bookingCleaner.hourlyRate) },
+                    { label: t.bookingSummaryHours, value: `${estimatedHours}h` },
+                    { label: t.bookingSummaryDate, value: selectedDate },
+                    { label: t.bookingSummaryTime, value: selectedTime },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-2xl border border-[#EEF2F7] bg-[#F8FAFC] p-3.5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">{label}</p>
+                      <p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Total highlight */}
+                <div className="mt-3.5 flex items-center justify-between rounded-2xl border border-[#A7F3D0] bg-[rgba(168,230,207,0.18)] px-4 py-3">
+                  <span className="text-sm font-semibold text-[#065F46]">{t.bookingApproxTotal}</span>
+                  <span className="text-base font-bold text-[#065F46]">
+                    {bookingCleaner.hourlyRate && approxTotal !== null
+                      ? `~${approxTotal}$`
+                      : '--'}
+                  </span>
+                </div>
+
+                {/* Payment notice */}
+                <div className="mt-3 rounded-2xl border border-[#D1E7F7] bg-[#F8FCFF] px-4 py-3 text-xs leading-relaxed text-[#4B5563]">
+                  <p>{t.paymentDisclaimer1}</p>
+                  <p className="mt-1">{t.paymentDisclaimer2}</p>
+                </div>
+
+                <div className="mt-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBookingStep(1)}
+                    className="flex-1 rounded-2xl border border-[#E5E7EB] py-2.5 text-sm font-semibold text-[#6B7280] transition-colors hover:border-[#9CA3AF]"
+                  >
+                    {t.back}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reservingId === bookingCleaner.id}
+                    onClick={() => void reserve(bookingCleaner)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#4FC3F7] py-2.5 text-sm font-bold text-white shadow-[0_4px_12px_rgba(79,195,247,0.35)] transition-all hover:bg-[#38B2E8] disabled:opacity-60"
+                  >
+                    {reservingId === bookingCleaner.id
+                      ? <Loader2 size={14} className="animate-spin" />
+                      : t.finish}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

@@ -1,6 +1,7 @@
 import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
 import { daysSinceMontrealDate, getMontrealToday, isPastInMontreal } from '../lib/montrealDate';
 import supabase from '../lib/supabase';
@@ -41,7 +42,7 @@ const contentByLanguage = {
     title: 'Historique',
     subtitle: 'Retrouvez vos nettoyages passes et laissez un avis simple pour chaque client.',
     empty: 'Aucun nettoyage passe pour le moment.',
-    details: 'D�tails',
+    details: 'Détails',
     leaveReview: 'Laisser un avis',
     viewReview: 'Voir votre avis',
     serviceDate: 'Date de service',
@@ -97,11 +98,11 @@ const contentByLanguage = {
   },
   es: {
     title: 'Historial',
-    subtitle: 'Consulta limpiezas pasadas y deja una reseña simple para cada cliente.',
+    subtitle: 'Consulta limpiezas pasadas y deja una reseÃ±a simple para cada cliente.',
     empty: 'Aun no hay limpiezas pasadas.',
     details: 'Detalles',
-    leaveReview: 'Dejar reseña',
-    viewReview: 'Ver tu reseña',
+    leaveReview: 'Dejar reseÃ±a',
+    viewReview: 'Ver tu reseÃ±a',
     serviceDate: 'Fecha de servicio',
     serviceTime: 'Hora',
     serviceType: 'Servicio',
@@ -119,8 +120,8 @@ const contentByLanguage = {
     commentLabel: 'Comentario (opcional)',
     commentPlaceholder: 'Comentario opcional...',
     submitReview: 'Publicar',
-    reviewSaved: 'Reseña guardada.',
-    reviewError: 'No se pudo guardar la reseña.',
+    reviewSaved: 'ReseÃ±a guardada.',
+    reviewError: 'No se pudo guardar la reseÃ±a.',
     loading: 'Cargando historial...',
     firstNameFallback: 'Cliente'
   }
@@ -208,6 +209,7 @@ export function CleanerHistoryPage() {
   const [reviewsByBookingId, setReviewsByBookingId] = useState<Record<string, ReviewRow>>({});
   const [selectedBooking, setSelectedBooking] = useState<HistoryBooking | null>(null);
   const [reviewBooking, setReviewBooking] = useState<HistoryBooking | null>(null);
+  useBodyScrollLock(Boolean(selectedBooking || reviewBooking));
   const [confirmationResponse, setConfirmationResponse] = useState<'yes' | 'no' | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -432,8 +434,8 @@ export function CleanerHistoryPage() {
       </div>
 
       {selectedBooking ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{content.details}</h3>
@@ -488,8 +490,8 @@ export function CleanerHistoryPage() {
       ) : null}
 
       {reviewBooking ? (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{reviewsByBookingId[reviewBooking.id] ? content.viewReview : content.leaveReview}</h3>

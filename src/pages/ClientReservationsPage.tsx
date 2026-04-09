@@ -1,6 +1,7 @@
 import { CalendarDays, Loader2, Mail, MessageSquare, Phone, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
 import { expirePendingBookingsByActor, shouldShowBookingContact } from '../lib/bookingLifecycle';
 import supabase from '../lib/supabase';
@@ -454,16 +455,7 @@ export function ClientReservationsPage() {
   const selectedCleaner = selectedBooking?.cleaner_id ? cleanerContacts[selectedBooking.cleaner_id] : undefined;
   const selectedContactVisible = selectedBooking ? canShowContact(selectedBooking) : false;
   const selectedCancelAllowed = selectedBooking ? canCancelBooking(selectedBooking) : false;
-
-  useEffect(() => {
-    const hasOpenModal = Boolean(selectedBooking || confirmCancelBooking);
-    if (!hasOpenModal) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [confirmCancelBooking, selectedBooking]);
+  useBodyScrollLock(Boolean(selectedBooking || confirmCancelBooking));
 
   if (!isClient()) return null;
 
@@ -576,8 +568,8 @@ export function ClientReservationsPage() {
       </div>
 
       {selectedBooking ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{content.details}</h3>
@@ -701,8 +693,8 @@ export function ClientReservationsPage() {
       ) : null}
 
       {confirmCancelBooking ? (
-        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 px-4 py-4 sm:items-center">
-          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4 sm:items-center">
+          <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white p-5 shadow-[0_20px_50px_rgba(17,24,39,0.28)] sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A2E]">{content.confirmTitle}</h3>

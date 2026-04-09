@@ -4,6 +4,7 @@ import { Briefcase, Building2, CalendarDays, Camera, Check, Clock3, Home, Layers
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
 import { requestAccountDeletion } from '../lib/accountDeletion';
@@ -662,6 +663,7 @@ export function CleanerDashboardPage() {
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  useBodyScrollLock(Boolean(isAreaWizardOpen || photoSourceOpen || deleteAccountOpen || photoModalOpen));
   const geoapifyApiKey = (import.meta.env.VITE_GEOAPIFY_API_KEY as string | undefined)?.trim() ?? '';
 
   const storageKey = useMemo(() => getCleanerStorageKey(user?.id), [user?.id]);
@@ -1043,21 +1045,6 @@ export function CleanerDashboardPage() {
   };
   const simpleModeArea = derivedHomeArea ?? draftHomeArea;
   const activeServiceAreasForMap = serviceMode === 'simple' && simpleModeArea ? [simpleModeArea] : draftServiceAreas;
-
-  useEffect(() => {
-    if (!isAreaWizardOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
-    const previousTouchAction = document.body.style.touchAction;
-    document.body.style.overflow = 'hidden';
-    document.body.style.overscrollBehavior = 'none';
-    document.body.style.touchAction = 'none';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.body.style.overscrollBehavior = previousOverscrollBehavior;
-      document.body.style.touchAction = previousTouchAction;
-    };
-  }, [isAreaWizardOpen]);
 
   const handleSave = async () => {
     if (!user?.id) {
@@ -1889,7 +1876,7 @@ export function CleanerDashboardPage() {
         </div>
 
       {isAreaWizardOpen ? (
-        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/55 p-0 sm:items-center sm:p-4">
           <div className="relative z-[3001] h-[92vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-[0_24px_60px_rgba(17,24,39,0.35)] sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-2xl">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4 sm:px-6">
               <div>
@@ -2279,8 +2266,8 @@ export function CleanerDashboardPage() {
       ) : null}
 
       {photoSourceOpen ? (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm p-4 sm:items-center animate-[slideUp_0.2s_ease]">
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-[0_24px_50px_rgba(17,24,39,0.3)] animate-[slideUp_0.3s_ease]">
+        <div className="fixed inset-0 z-[70] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/50 p-4 backdrop-blur-sm animate-[slideUp_0.2s_ease] sm:items-center">
+          <div className="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-[0_24px_50px_rgba(17,24,39,0.3)] animate-[slideUp_0.3s_ease]">
             <div className="p-5 sm:p-6">
               <h3 className="text-lg font-bold text-[#1A1A2E]">{content.photoSourceTitle}</h3>
               <p className="mt-2 text-sm leading-relaxed text-[#6B7280]">{content.photoSourceHelp}</p>
@@ -2317,8 +2304,8 @@ export function CleanerDashboardPage() {
       ) : null}
 
       {deleteAccountOpen ? (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/45 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
+        <div className="fixed inset-0 z-[95] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 py-4">
+          <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-6 shadow-[0_18px_40px_rgba(17,24,39,0.22)]">
             <h3 className="text-xl font-bold text-[#1A1A2E]">{content.deleteAccountTitle}</h3>
             <p className="mt-3 text-sm leading-6 text-[#6B7280]">{content.deleteAccountMessage}</p>
             <div className="mt-6 flex items-center justify-end gap-3">
@@ -2344,7 +2331,7 @@ export function CleanerDashboardPage() {
       ) : null}
 
       {photoModalOpen && photoDataUrl ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-[slideUp_0.2s_ease]">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/80 p-4 backdrop-blur-sm animate-[slideUp_0.2s_ease]">
           <div className="relative w-full max-w-3xl">
             <button
               type="button"
