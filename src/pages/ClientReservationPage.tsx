@@ -1,4 +1,4 @@
-﻿import { Calendar, CheckCircle2, Clock3, Home, Loader2, MapPin, Search, Sparkles, User, X } from 'lucide-react';
+import { ArrowUpDown, Calendar, CheckCircle2, Clock3, Home, Loader2, MapPin, Search, Sparkles, User, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
@@ -65,10 +65,10 @@ const labels = {
     missingTimeInvalid: 'heure valide',
     missingLeadTime: "heure (minimum 2h d'avance aujourd'hui)",
     sortBy: 'Trier par',
-    sortPriceAsc: 'Moins cher d abord',
-    sortPriceDesc: 'Plus cher d abord',
+    sortPriceAsc: 'Moins cher d\u2019abord',
+    sortPriceDesc: 'Plus cher d\u2019abord',
     sortJobsDesc: 'Plus de nettoyages',
-    sortRatingDesc: 'Mieux notes',
+    sortRatingDesc: 'Mieux not\u00e9s',
     descriptionTitle: 'Description',
     descriptionEmpty: 'Aucune description disponible.',
     seeMore: 'Voir plus',
@@ -91,7 +91,7 @@ const labels = {
     dateLabel: 'Date', timeLabel: 'Time', dateRequired: 'Please choose a date.', dateInvalid: 'Invalid date.',
     addSpace: 'Add a space', noSpace: 'Add a space to get started.',
     details: 'Details', reserve: 'Book now', selected: 'Selected', noResult: 'No matching cleaner yet.',
-    hint: 'Complete steps 1–3 to see available cleaners.',
+    hint: 'Complete steps 1Ã¢â‚¬â€œ3 to see available cleaners.',
     missingIntro: 'To see cleaners, complete:',
     missingAddress: 'address',
     missingService: 'cleaning type',
@@ -101,10 +101,10 @@ const labels = {
     missingTimeInvalid: 'valid time',
     missingLeadTime: 'time (at least 2h ahead for today)',
     sortBy: 'Sort by',
-    sortPriceAsc: 'Cheaper first',
-    sortPriceDesc: 'Most expensive first',
+    sortPriceAsc: 'Moins cher d\u2019abord',
+    sortPriceDesc: 'Plus cher d\u2019abord',
     sortJobsDesc: 'Most jobs done',
-    sortRatingDesc: 'Highly rated',
+    sortRatingDesc: 'Mieux not\u00e9s',
     descriptionTitle: 'Description',
     descriptionEmpty: 'No description available.',
     seeMore: 'See more',
@@ -137,10 +137,10 @@ const labels = {
     missingTimeInvalid: 'hora valida',
     missingLeadTime: 'hora (minimo 2h de anticipacion hoy)',
     sortBy: 'Ordenar por',
-    sortPriceAsc: 'Mas barato primero',
-    sortPriceDesc: 'Mas caro primero',
+    sortPriceAsc: 'Moins cher d\u2019abord',
+    sortPriceDesc: 'Plus cher d\u2019abord',
     sortJobsDesc: 'Mas trabajos realizados',
-    sortRatingDesc: 'Mejor calificados',
+    sortRatingDesc: 'Mieux not\u00e9s',
     descriptionTitle: 'Descripcion',
     descriptionEmpty: 'Sin descripcion disponible.',
     seeMore: 'Ver mas',
@@ -227,7 +227,7 @@ const triggerBookingCreatedNotification = async (bookingId: string, accessToken:
   }
 };
 
-// ─── Step Progress Indicator ──────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Step Progress Indicator Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function StepProgress({ steps, current }: { steps: string[]; current: number }) {
   return (
     <div className="flex items-center gap-0">
@@ -281,7 +281,7 @@ function reservationPageStyles() {
   );
 }
 
-// ─── Cleaner Card ─────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Cleaner Card Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function CleanerCard({
   cleaner,
   language,
@@ -396,7 +396,7 @@ function CleanerCard({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 export function ClientReservationPage() {
   const { language, navigateTo } = useLanguage();
   const { user, session, isClient, loading: authLoading } = useAuth();
@@ -753,7 +753,7 @@ export function ClientReservationPage() {
         {/* Page header */}
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#4FC3F7]">Nettoyó</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#4FC3F7]">NettoyÃƒÂ³</p>
             <h1 className="mt-1 text-2xl font-bold text-[#1A1A2E] sm:text-3xl">{t.title}</h1>
             <p className="mt-1 text-sm text-[#6B7280]">{t.subtitle}</p>
           </div>
@@ -772,7 +772,7 @@ export function ClientReservationPage() {
         ) : (
           <div className="flex flex-col gap-4">
 
-            {/* ── Step 1: Address ── */}
+            {/* Ã¢â€â‚¬Ã¢â€â‚¬ Step 1: Address Ã¢â€â‚¬Ã¢â€â‚¬ */}
             <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
               <div className="mb-4 flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">1</span>
@@ -828,7 +828,7 @@ export function ClientReservationPage() {
               )}
             </section>
 
-            {/* ── Step 2: Services ── */}
+            {/* Ã¢â€â‚¬Ã¢â€â‚¬ Step 2: Services Ã¢â€â‚¬Ã¢â€â‚¬ */}
             <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
               <div className="mb-4 flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">2</span>
@@ -859,7 +859,7 @@ export function ClientReservationPage() {
               </div>
             </section>
 
-            {/* ── Step 3: Date & Time ── */}
+            {/* Ã¢â€â‚¬Ã¢â€â‚¬ Step 3: Date & Time Ã¢â€â‚¬Ã¢â€â‚¬ */}
             <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
               <div className="mb-4 flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">3</span>
@@ -906,7 +906,7 @@ export function ClientReservationPage() {
               </div>
             </section>
 
-            {/* ── Step 4: Cleaners ── */}
+            {/* Ã¢â€â‚¬Ã¢â€â‚¬ Step 4: Cleaners Ã¢â€â‚¬Ã¢â€â‚¬ */}
             <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -919,12 +919,15 @@ export function ClientReservationPage() {
                   )}
                 </div>
                 {ready && sortedMatched.length > 0 && (
-                  <label className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[#6B7280]">{t.sortBy}</span>
+                  <label className="inline-flex flex-shrink-0 items-center gap-1.5">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D1E7F7] bg-[#F8FCFF] text-[#6B7280]">
+                      <ArrowUpDown size={14} aria-hidden="true" />
+                    </span>
                     <select
                       value={sortBy}
                       onChange={(event) => setSortBy(event.target.value as SortOption)}
-                      className="rounded-xl border border-[#D1E7F7] bg-[#F8FCFF] px-3 py-2 text-xs font-semibold text-[#1A1A2E] outline-none transition-colors focus:border-[#4FC3F7] sm:text-sm"
+                      aria-label="Trier les r\u00e9sultats"
+                      className="min-w-0 rounded-xl border border-[#D1E7F7] bg-[#F8FCFF] px-2.5 py-2 text-xs font-semibold text-[#1A1A2E] outline-none transition-colors focus:border-[#4FC3F7] sm:px-3 sm:text-sm"
                     >
                       <option value="price_asc">{t.sortPriceAsc}</option>
                       <option value="price_desc">{t.sortPriceDesc}</option>
@@ -989,18 +992,18 @@ export function ClientReservationPage() {
         )}
       </div>
 
-      {/* ── Cleaner Details Modal ── */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cleaner Details Modal Ã¢â€â‚¬Ã¢â€â‚¬ */}
       {modalCleaner && (
         <div
-          className="fixed inset-0 z-[70] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/40 px-4 pb-4 sm:items-center sm:pb-0"
+          className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/40 p-4"
           onClick={() => setModalCleaner(null)}
         >
           <div
-            className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl bg-white shadow-[0_20px_60px_rgba(17,24,39,0.25)]"
+            className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-[0_20px_60px_rgba(17,24,39,0.25)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="flex items-start gap-4 p-6 pb-5">
+            <div className="flex flex-shrink-0 items-start gap-4 p-6 pb-5">
               {modalCleaner.photoUrl ? (
                 <img src={modalCleaner.photoUrl} alt={modalCleaner.displayName} className="h-16 w-16 flex-shrink-0 rounded-2xl object-cover" />
               ) : (
@@ -1024,7 +1027,7 @@ export function ClientReservationPage() {
             <div className="border-t border-[#F0F4F8]" />
 
             {/* Modal body */}
-            <div className="p-6">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
               <div className="rounded-2xl bg-[#F8FAFC] p-4">
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">
                   {t.descriptionTitle}
@@ -1045,7 +1048,7 @@ export function ClientReservationPage() {
             </div>
 
             {/* Modal footer */}
-            <div className="flex items-center gap-3 border-t border-[#F0F4F8] p-5">
+            <div className="flex flex-shrink-0 items-center gap-3 border-t border-[#F0F4F8] p-5">
               <button
                 type="button"
                 onClick={() => setModalCleaner(null)}
@@ -1093,7 +1096,7 @@ export function ClientReservationPage() {
         </div>
       ) : null}
 
-      {/* ── Booking Flow Modal ── */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Booking Flow Modal Ã¢â€â‚¬Ã¢â€â‚¬ */}
       {bookingCleaner && (
         <div
           className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 pb-4 sm:items-center sm:pb-0"
