@@ -5,11 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPathForRoute } from '../i18n/routes';
+import { PaginationControls } from '../components/PaginationControls';
 import { ToastError } from '../components/ToastError';
 import { requestAccountDeletion } from '../lib/accountDeletion';
 import { convertToWebP } from '../lib/imageUtils';
 import { fetchGeoapifyAddressSuggestions } from '../lib/geoapify';
 import type { AddressSuggestion } from '../lib/geoapify';
+import { getMontrealToday, isPastInMontreal } from '../lib/montrealDate';
 import { normalizeNorthAmericanPhone } from '../lib/phone';
 import { deriveZoneFromCityName } from '../lib/zoneMapping';
 import supabase from '../lib/supabase';
@@ -56,6 +58,11 @@ type SpaceRecord = {
 
 type CleanerClientReviewRecord = {
   rating: number;
+};
+
+type DashboardCompletedBookingRecord = {
+  id: string;
+  scheduled_at: string | null;
 };
 
 type AddSpaceForm = {
@@ -810,6 +817,7 @@ function NumberStepper({
 }
 
 export function ClientDashboardPage() {
+  const SPACES_PER_PAGE = 3;
   const { language, navigateTo } = useLanguage();
   const { profile, user, session, loading: authLoading, updateProfile, signOut } = useAuth();
   const content = contentByLanguage[language];
@@ -819,6 +827,7 @@ export function ClientDashboardPage() {
   const [completedCount, setCompletedCount] = useState(0);
   const [averageRating, setAverageRating] = useState<string>('--');
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [spacesPage, setSpacesPage] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<SpaceRecord | null>(null);
@@ -831,10 +840,35 @@ export function ClientDashboardPage() {
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   useBodyScrollLock(Boolean(deleteAccountOpen || deleteCandidate));
 
+  const paginationLabels = useMemo(
+    () =>
+      language === 'fr'
+        ? { previous: 'Precedent', next: 'Suivant', page: 'Page' }
+        : language === 'es'
+          ? { previous: 'Anterior', next: 'Siguiente', page: 'Pagina' }
+          : { previous: 'Previous', next: 'Next', page: 'Page' },
+    [language]
+  );
+  const spaceTotalPages = Math.max(1, Math.ceil(spaces.length / SPACES_PER_PAGE));
+  const paginatedSpaces = useMemo(() => {
+    const start = (spacesPage - 1) * SPACES_PER_PAGE;
+    return spaces.slice(start, start + SPACES_PER_PAGE);
+  }, [spaces, spacesPage, SPACES_PER_PAGE]);
+
   useEffect(() => {
     setPhoneValue(profile?.phone ?? '');
     setPhoneEditing(false);
   }, [profile?.phone]);
+
+  useEffect(() => {
+    setSpacesPage(1);
+  }, [spaces.length]);
+
+  useEffect(() => {
+    if (spacesPage > spaceTotalPages) {
+      setSpacesPage(spaceTotalPages);
+    }
+  }, [spaceTotalPages, spacesPage]);
 
   const fetchSpaces = async () => {
     if (!user?.id) {
@@ -891,9 +925,9 @@ export function ClientDashboardPage() {
       const [completedResponse, cleanerReviewsResponse] = await Promise.all([
         supabase
           .from('bookings')
-          .select('*', { count: 'exact', head: true })
+          .select('id,scheduled_at')
           .eq('client_id', user.id)
-          .eq('status', 'completed'),
+          .in('status', ['completed', 'confirmed', 'accepted']),
         supabase
           .from('cleaner_client_reviews')
           .select('rating')
@@ -916,7 +950,10 @@ export function ClientDashboardPage() {
         return;
       }
 
-      setCompletedCount(completedResponse.count ?? 0);
+      const montrealToday = getMontrealToday();
+      const completedRows = ((completedResponse.data as DashboardCompletedBookingRecord[] | null) ?? [])
+        .filter((row) => row.scheduled_at && isPastInMontreal(row.scheduled_at, montrealToday));
+      setCompletedCount(completedRows.length);
       const ratings = ((cleanerReviewsResponse.data as CleanerClientReviewRecord[] | null) ?? [])
         .map((review) => Number(review.rating))
         .filter((value) => Number.isFinite(value) && value > 0);
@@ -1201,8 +1238,9 @@ export function ClientDashboardPage() {
               </a>
             </div>
           ) : (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {spaces.map((space) => {
+            <>
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {paginatedSpaces.map((space) => {
                 console.log('Rendering space:', space.id, space.name);
                 console.log('space.photo_url:', space.photo_url);
                 const editHref = getEditSpacePath(language, space.id);
@@ -1291,8 +1329,15 @@ export function ClientDashboardPage() {
                     </div>
                   </article>
                 );
-              })}
-            </div>
+                })}
+              </div>
+              <PaginationControls
+                page={spacesPage}
+                totalPages={spaceTotalPages}
+                onPageChange={setSpacesPage}
+                labels={paginationLabels}
+              />
+            </>
           )}
         </section>
         <section className="mt-6 rounded-[24px] border border-[rgba(220,38,38,0.25)] bg-white px-6 py-5 shadow-[0_10px_24px_rgba(17,24,39,0.05)] sm:px-8">

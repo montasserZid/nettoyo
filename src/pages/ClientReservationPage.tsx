@@ -1,5 +1,6 @@
 import { ArrowUpDown, Calendar, CheckCircle2, Clock3, Home, Loader2, MapPin, Search, Sparkles, User, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { PaginationControls } from '../components/PaginationControls';
 import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
@@ -398,6 +399,7 @@ function CleanerCard({
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 export function ClientReservationPage() {
+  const CLEANERS_PER_PAGE = 6;
   const { language, navigateTo } = useLanguage();
   const { user, session, isClient, loading: authLoading } = useAuth();
   const t = labels[language];
@@ -420,8 +422,18 @@ export function ClientReservationPage() {
   const [estimatedHours, setEstimatedHours] = useState<number>(3);
   const [reservingId, setReservingId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('price_asc');
+  const [cleanersPage, setCleanersPage] = useState(1);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   useBodyScrollLock(Boolean(modalCleaner || bookingCleaner || fullDescriptionOpen));
+  const paginationLabels = useMemo(
+    () =>
+      language === 'fr'
+        ? { previous: 'Precedent', next: 'Suivant', page: 'Page' }
+        : language === 'es'
+          ? { previous: 'Anterior', next: 'Siguiente', page: 'Pagina' }
+          : { previous: 'Previous', next: 'Next', page: 'Page' },
+    [language]
+  );
   const minBookDate = useMemo(() => getMontrealToday(), []);
 
   useEffect(() => {
@@ -636,6 +648,11 @@ export function ClientReservationPage() {
     });
     return indexed.map((entry) => entry.cleaner);
   }, [matched, sortBy]);
+  const cleanersTotalPages = Math.max(1, Math.ceil(sortedMatched.length / CLEANERS_PER_PAGE));
+  const paginatedCleaners = useMemo(() => {
+    const start = (cleanersPage - 1) * CLEANERS_PER_PAGE;
+    return sortedMatched.slice(start, start + CLEANERS_PER_PAGE);
+  }, [cleanersPage, sortedMatched, CLEANERS_PER_PAGE]);
 
   useEffect(() => {
     if (!DEBUG_RESERVATION_MATCHING) return;
@@ -669,6 +686,16 @@ export function ClientReservationPage() {
       setFullDescriptionOpen(false);
     }
   }, [modalCleaner]);
+
+  useEffect(() => {
+    setCleanersPage(1);
+  }, [sortedMatched]);
+
+  useEffect(() => {
+    if (cleanersPage > cleanersTotalPages) {
+      setCleanersPage(cleanersTotalPages);
+    }
+  }, [cleanersPage, cleanersTotalPages]);
 
   const reserve = async (cleaner: CleanerCandidate) => {
     if (!user?.id || !selectedSpace || !selectedDateValid || !selectedTimeValid || selectedServices.length === 0) return;
@@ -973,19 +1000,27 @@ export function ClientReservationPage() {
                   <p className="text-sm font-medium text-[#4B5563]">{t.noResult}</p>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {sortedMatched.map((cleaner) => (
-                    <CleanerCard
-                      key={cleaner.id}
-                      cleaner={cleaner}
-                      language={language}
-                      t={t}
-                      onDetails={() => setModalCleaner(cleaner)}
-                      onBook={() => openBookingFlow(cleaner)}
-                      reservingId={reservingId}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {paginatedCleaners.map((cleaner) => (
+                      <CleanerCard
+                        key={cleaner.id}
+                        cleaner={cleaner}
+                        language={language}
+                        t={t}
+                        onDetails={() => setModalCleaner(cleaner)}
+                        onBook={() => openBookingFlow(cleaner)}
+                        reservingId={reservingId}
+                      />
+                    ))}
+                  </div>
+                  <PaginationControls
+                    page={cleanersPage}
+                    totalPages={cleanersTotalPages}
+                    onPageChange={setCleanersPage}
+                    labels={paginationLabels}
+                  />
+                </>
               )}
             </section>
           </div>

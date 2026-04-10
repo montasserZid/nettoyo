@@ -1,5 +1,6 @@
 import { CalendarDays, Loader2, MessageSquare, Star, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { PaginationControls } from '../components/PaginationControls';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -176,6 +177,7 @@ function formatAddress(space: BookingSpace) {
 }
 
 export function ClientHistoryPage() {
+  const BOOKINGS_PER_PAGE = 6;
   const { language } = useLanguage();
   const { user, isClient } = useAuth();
   const content = contentByLanguage[language];
@@ -193,6 +195,21 @@ export function ClientHistoryPage() {
   const [savingReview, setSavingReview] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [bookingsPage, setBookingsPage] = useState(1);
+  const paginationLabels = useMemo(
+    () =>
+      language === 'fr'
+        ? { previous: 'Precedent', next: 'Suivant', page: 'Page' }
+        : language === 'es'
+          ? { previous: 'Anterior', next: 'Siguiente', page: 'Pagina' }
+          : { previous: 'Previous', next: 'Next', page: 'Page' },
+    [language]
+  );
+  const bookingsTotalPages = Math.max(1, Math.ceil(bookings.length / BOOKINGS_PER_PAGE));
+  const paginatedBookings = useMemo(() => {
+    const start = (bookingsPage - 1) * BOOKINGS_PER_PAGE;
+    return bookings.slice(start, start + BOOKINGS_PER_PAGE);
+  }, [bookings, bookingsPage, BOOKINGS_PER_PAGE]);
 
   useEffect(() => {
     if (!toast) return;
@@ -205,6 +222,16 @@ export function ClientHistoryPage() {
     const t = window.setTimeout(() => setErrorMessage(null), 2600);
     return () => window.clearTimeout(t);
   }, [errorMessage]);
+
+  useEffect(() => {
+    setBookingsPage(1);
+  }, [bookings.length]);
+
+  useEffect(() => {
+    if (bookingsPage > bookingsTotalPages) {
+      setBookingsPage(bookingsTotalPages);
+    }
+  }, [bookingsPage, bookingsTotalPages]);
 
   const loadHistory = async (clientId: string) => {
     const bookingRes = await supabase
@@ -357,49 +384,57 @@ export function ClientHistoryPage() {
             <p className="text-sm text-[#6B7280]">{content.empty}</p>
           </section>
         ) : (
-          <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {bookings.map((booking) => {
-              const space = getPrimarySpace(booking.spaces);
-              const review = reviewsByBookingId[booking.id];
-              const cleanerName = booking.cleaner_id ? (cleanerNames[booking.cleaner_id] ?? content.cleanerFallback) : content.cleanerFallback;
+          <>
+            <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {paginatedBookings.map((booking) => {
+                const space = getPrimarySpace(booking.spaces);
+                const review = reviewsByBookingId[booking.id];
+                const cleanerName = booking.cleaner_id ? (cleanerNames[booking.cleaner_id] ?? content.cleanerFallback) : content.cleanerFallback;
 
-              return (
-                <article key={booking.id} className="rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-[0_14px_30px_rgba(17,24,39,0.06)]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-[#1A1A2E]">{formatPropertyType(space?.type, language)}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#0284C7]">{formatService(booking.service_type, language)}</p>
+                return (
+                  <article key={booking.id} className="rounded-3xl border border-[#E5E7EB] bg-white p-4 shadow-[0_14px_30px_rgba(17,24,39,0.06)]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-[#1A1A2E]">{formatPropertyType(space?.type, language)}</p>
+                        <p className="mt-1 text-xs font-semibold text-[#0284C7]">{formatService(booking.service_type, language)}</p>
+                      </div>
+                      <span className="inline-flex rounded-full bg-[rgba(168,230,207,0.28)] px-2.5 py-1 text-[11px] font-semibold text-[#1A1A2E]">
+                        {content.cleaner}: {cleanerName}
+                      </span>
                     </div>
-                    <span className="inline-flex rounded-full bg-[rgba(168,230,207,0.28)] px-2.5 py-1 text-[11px] font-semibold text-[#1A1A2E]">
-                      {content.cleaner}: {cleanerName}
-                    </span>
-                  </div>
 
-                  <div className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#1A1A2E]">
-                    <CalendarDays size={14} className="text-[#4FC3F7]" />
-                    {formatMontrealDate(booking.scheduled_at, language)}
-                  </div>
+                    <div className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#1A1A2E]">
+                      <CalendarDays size={14} className="text-[#4FC3F7]" />
+                      {formatMontrealDate(booking.scheduled_at, language)}
+                    </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setSelectedBooking(booking)} className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] px-3 py-2 text-sm font-semibold text-[#1A1A2E]">
-                      {content.details}
-                    </button>
-                    {review ? (
-                      <button type="button" onClick={() => setReviewBooking(booking)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[rgba(79,195,247,0.12)] px-3 py-2 text-sm font-semibold text-[#0284C7]">
-                        <MessageSquare size={14} />
-                        {content.viewReview}
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setSelectedBooking(booking)} className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] px-3 py-2 text-sm font-semibold text-[#1A1A2E]">
+                        {content.details}
                       </button>
-                    ) : (
-                      <button type="button" onClick={() => setReviewBooking(booking)} className="inline-flex animate-pulse items-center justify-center gap-1.5 rounded-full bg-[#4FC3F7] px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(79,195,247,0.35)]">
-                        <Star size={14} />
-                        {followup.action}
-                      </button>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </section>
+                      {review ? (
+                        <button type="button" onClick={() => setReviewBooking(booking)} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[rgba(79,195,247,0.12)] px-3 py-2 text-sm font-semibold text-[#0284C7]">
+                          <MessageSquare size={14} />
+                          {content.viewReview}
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => setReviewBooking(booking)} className="inline-flex animate-pulse items-center justify-center gap-1.5 rounded-full bg-[#4FC3F7] px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(79,195,247,0.35)]">
+                          <Star size={14} />
+                          {followup.action}
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+            <PaginationControls
+              page={bookingsPage}
+              totalPages={bookingsTotalPages}
+              onPageChange={setBookingsPage}
+              labels={paginationLabels}
+            />
+          </>
         )}
       </div>
 

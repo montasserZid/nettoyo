@@ -1,5 +1,6 @@
 import { CalendarDays, Clock3, Loader2, MessageSquare, Phone, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { PaginationControls } from '../components/PaginationControls';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -250,6 +251,7 @@ const triggerBookingNotificationEvent = async (
 };
 
 export function CleanerReservationsPage() {
+  const BOOKINGS_PER_PAGE = 3;
   const { language } = useLanguage();
   const { user, session, isCleaner } = useAuth();
   const content = contentByLanguage[language];
@@ -267,6 +269,8 @@ export function CleanerReservationsPage() {
     const value = new URLSearchParams(window.location.search).get('view');
     return value === 'accepted' ? 'accepted' : 'pending';
   });
+  const [pendingPage, setPendingPage] = useState(1);
+  const [acceptedPage, setAcceptedPage] = useState(1);
   const pendingSectionRef = useRef<HTMLElement | null>(null);
   const acceptedSectionRef = useRef<HTMLElement | null>(null);
 
@@ -415,6 +419,45 @@ export function CleanerReservationsPage() {
 
   const pending = useMemo(() => bookings.filter((booking) => booking.status === 'pending'), [bookings]);
   const accepted = useMemo(() => bookings.filter((booking) => isAcceptedStatus(booking.status)), [bookings]);
+  const paginationLabels = useMemo(
+    () =>
+      language === 'fr'
+        ? { previous: 'Precedent', next: 'Suivant', page: 'Page' }
+        : language === 'es'
+          ? { previous: 'Anterior', next: 'Siguiente', page: 'Pagina' }
+          : { previous: 'Previous', next: 'Next', page: 'Page' },
+    [language]
+  );
+  const pendingTotalPages = Math.max(1, Math.ceil(pending.length / BOOKINGS_PER_PAGE));
+  const acceptedTotalPages = Math.max(1, Math.ceil(accepted.length / BOOKINGS_PER_PAGE));
+  const paginatedPending = useMemo(() => {
+    const start = (pendingPage - 1) * BOOKINGS_PER_PAGE;
+    return pending.slice(start, start + BOOKINGS_PER_PAGE);
+  }, [pending, pendingPage, BOOKINGS_PER_PAGE]);
+  const paginatedAccepted = useMemo(() => {
+    const start = (acceptedPage - 1) * BOOKINGS_PER_PAGE;
+    return accepted.slice(start, start + BOOKINGS_PER_PAGE);
+  }, [accepted, acceptedPage, BOOKINGS_PER_PAGE]);
+
+  useEffect(() => {
+    setPendingPage(1);
+  }, [pending.length]);
+
+  useEffect(() => {
+    setAcceptedPage(1);
+  }, [accepted.length]);
+
+  useEffect(() => {
+    if (pendingPage > pendingTotalPages) {
+      setPendingPage(pendingTotalPages);
+    }
+  }, [pendingPage, pendingTotalPages]);
+
+  useEffect(() => {
+    if (acceptedPage > acceptedTotalPages) {
+      setAcceptedPage(acceptedTotalPages);
+    }
+  }, [acceptedPage, acceptedTotalPages]);
 
   const runAction = async (booking: CleanerBooking, nextStatus: 'confirmed' | 'cancelled') => {
     if (!user?.id) return;
@@ -682,7 +725,15 @@ export function CleanerReservationsPage() {
               {pending.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#D1E7F7] bg-[#F8FCFF] px-5 py-8 text-center text-sm text-[#6B7280]">{content.pendingEmpty}</div>
               ) : (
-                <div className="space-y-3">{pending.map((booking) => renderPendingCard(booking))}</div>
+                <>
+                  <div className="space-y-3">{paginatedPending.map((booking) => renderPendingCard(booking))}</div>
+                  <PaginationControls
+                    page={pendingPage}
+                    totalPages={pendingTotalPages}
+                    onPageChange={setPendingPage}
+                    labels={paginationLabels}
+                  />
+                </>
               )}
             </section>
 
@@ -699,7 +750,15 @@ export function CleanerReservationsPage() {
               {accepted.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#D1E7F7] bg-[#F8FCFF] px-5 py-8 text-center text-sm text-[#6B7280]">{content.acceptedEmpty}</div>
               ) : (
-                <div className="space-y-3">{accepted.map((booking) => renderAcceptedCard(booking))}</div>
+                <>
+                  <div className="space-y-3">{paginatedAccepted.map((booking) => renderAcceptedCard(booking))}</div>
+                  <PaginationControls
+                    page={acceptedPage}
+                    totalPages={acceptedTotalPages}
+                    onPageChange={setAcceptedPage}
+                    labels={paginationLabels}
+                  />
+                </>
               )}
             </section>
           </div>
