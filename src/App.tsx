@@ -18,12 +18,14 @@ import { ClientHistoryPage } from './pages/ClientHistoryPage';
 import { CleanerReservationsPage } from './pages/CleanerReservationsPage';
 import { CleanerHistoryPage } from './pages/CleanerHistoryPage';
 import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import { useLanguage } from './i18n/LanguageContext';
 import { useEffect } from 'react';
 import { buildPageTitle } from './lib/pageTitle';
 
 function AppContent() {
-  const { route } = useLanguage();
+  const { route, navigateTo } = useLanguage();
+  const { user, isCleaner, loading } = useAuth();
   const pageTitleByRoute: Partial<Record<typeof route, string>> = {
     howItWorks: 'How It Works',
     services: 'Services',
@@ -44,13 +46,19 @@ function AppContent() {
     document.title = buildPageTitle(pageTitleByRoute[route]);
   }, [route]);
 
+  useEffect(() => {
+    if (route === 'services' && !loading && user && isCleaner()) {
+      navigateTo('cleanerDashboard');
+    }
+  }, [isCleaner, loading, navigateTo, route, user]);
+
   return (
     <div className="min-h-screen bg-white pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
       <Navbar />
       {route === 'howItWorks' ? (
         <HowItWorksPage />
       ) : route === 'services' ? (
-        <ServicesPage />
+        user && (loading || isCleaner()) ? null : <ServicesPage />
       ) : route === 'login' ? (
         <LoginPage />
       ) : route === 'signup' ? (

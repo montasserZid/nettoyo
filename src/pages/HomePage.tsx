@@ -45,16 +45,30 @@ interface ServiceCard {
 
 export function HomePage() {
   const { t, navigateTo } = useLanguage();
-  const { user, isClient } = useAuth();
+  const { user, isClient, isCleaner } = useAuth();
+  const loggedIn = Boolean(user);
+  const canReserveFromHome = !loggedIn || isClient();
+  const canBecomeCleanerFromHome = !loggedIn;
 
   const goToReservation = () => {
-    if (user && isClient()) {
+    if (!user) {
+      navigateTo('login');
+      return;
+    }
+    if (isClient()) {
       navigateTo('clientReservation');
       return;
     }
-    navigateTo('login');
+    if (isCleaner()) {
+      return;
+    }
   };
-  const goToSignup = () => navigateTo('signup');
+  const goToSignup = () => {
+    if (!user) {
+      navigateTo('signup');
+      return;
+    }
+  };
 
   const services: ServiceCard[] = [
     { icon: <IconHome />, title: t.home.servicesSection.residentialTitle, desc: t.home.servicesSection.residentialDesc },
@@ -146,6 +160,8 @@ export function HomePage() {
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={goToReservation}
+              disabled={!canReserveFromHome}
+              aria-disabled={!canReserveFromHome}
               style={{
                 background: 'linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%)',
                 color: '#fff',
@@ -154,16 +170,19 @@ export function HomePage() {
                 padding: '16px 40px',
                 borderRadius: '14px',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: canReserveFromHome ? 'pointer' : 'not-allowed',
+                opacity: canReserveFromHome ? 1 : 0.55,
                 boxShadow: '0 8px 32px rgba(79,195,247,0.45)',
                 transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                 letterSpacing: '0.01em'
               }}
               onMouseEnter={(e) => {
+                if (!canReserveFromHome) return;
                 (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
                 (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 12px 40px rgba(79,195,247,0.55)';
               }}
               onMouseLeave={(e) => {
+                if (!canReserveFromHome) return;
                 (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
                 (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 32px rgba(79,195,247,0.45)';
               }}
@@ -275,6 +294,8 @@ export function HomePage() {
           <div style={{ textAlign: 'center', marginTop: '48px' }}>
             <button
               onClick={goToReservation}
+              disabled={!canReserveFromHome}
+              aria-disabled={!canReserveFromHome}
               style={{
                 background: 'linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%)',
                 color: '#fff',
@@ -283,12 +304,19 @@ export function HomePage() {
                 padding: '15px 36px',
                 borderRadius: '14px',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: canReserveFromHome ? 'pointer' : 'not-allowed',
+                opacity: canReserveFromHome ? 1 : 0.55,
                 boxShadow: '0 6px 24px rgba(79,195,247,0.4)',
                 transition: 'transform 0.15s ease'
               }}
-              onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'}
-              onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'}
+              onMouseEnter={(e) => {
+                if (!canReserveFromHome) return;
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                if (!canReserveFromHome) return;
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+              }}
             >
               {t.home.steps.cta}
             </button>
@@ -319,23 +347,28 @@ export function HomePage() {
               <button
                 key={title}
                 onClick={goToReservation}
+                disabled={!canReserveFromHome}
+                aria-disabled={!canReserveFromHome}
                 style={{
                   background: '#fff',
                   border: '1.5px solid #EAEAEA',
                   borderRadius: '20px',
                   padding: '28px 22px',
-                  cursor: 'pointer',
+                  cursor: canReserveFromHome ? 'pointer' : 'not-allowed',
+                  opacity: canReserveFromHome ? 1 : 0.65,
                   textAlign: 'left',
                   position: 'relative',
                   transition: 'border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease'
                 }}
                 onMouseEnter={(e) => {
+                  if (!canReserveFromHome) return;
                   const el = e.currentTarget as HTMLButtonElement;
                   el.style.borderColor = '#4FC3F7';
                   el.style.boxShadow = '0 8px 32px rgba(79,195,247,0.12)';
                   el.style.transform = 'translateY(-3px)';
                 }}
                 onMouseLeave={(e) => {
+                  if (!canReserveFromHome) return;
                   const el = e.currentTarget as HTMLButtonElement;
                   el.style.borderColor = '#EAEAEA';
                   el.style.boxShadow = 'none';
@@ -389,6 +422,8 @@ export function HomePage() {
           </p>
           <button
             onClick={goToReservation}
+            disabled={!canReserveFromHome}
+            aria-disabled={!canReserveFromHome}
             style={{
               background: 'linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%)',
               color: '#fff',
@@ -397,15 +432,18 @@ export function HomePage() {
               padding: '17px 44px',
               borderRadius: '14px',
               border: 'none',
-              cursor: 'pointer',
+              cursor: canReserveFromHome ? 'pointer' : 'not-allowed',
+              opacity: canReserveFromHome ? 1 : 0.55,
               boxShadow: '0 8px 40px rgba(79,195,247,0.35)',
               transition: 'transform 0.15s ease, box-shadow 0.15s ease'
             }}
             onMouseEnter={(e) => {
+              if (!canReserveFromHome) return;
               (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
               (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 14px 48px rgba(79,195,247,0.5)';
             }}
             onMouseLeave={(e) => {
+              if (!canReserveFromHome) return;
               (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
               (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 40px rgba(79,195,247,0.35)';
             }}
@@ -433,6 +471,8 @@ export function HomePage() {
           </p>
           <button
             onClick={goToSignup}
+            disabled={!canBecomeCleanerFromHome}
+            aria-disabled={!canBecomeCleanerFromHome}
             style={{
               background: 'transparent',
               color: '#1A1A2E',
@@ -441,15 +481,18 @@ export function HomePage() {
               padding: '13px 28px',
               borderRadius: '12px',
               border: '1.5px solid rgba(26,26,46,0.2)',
-              cursor: 'pointer',
+              cursor: canBecomeCleanerFromHome ? 'pointer' : 'not-allowed',
+              opacity: canBecomeCleanerFromHome ? 1 : 0.55,
               transition: 'border-color 0.15s ease, background 0.15s ease'
             }}
             onMouseEnter={(e) => {
+              if (!canBecomeCleanerFromHome) return;
               const el = e.currentTarget as HTMLButtonElement;
               el.style.borderColor = '#4FC3F7';
               el.style.background = 'rgba(79,195,247,0.05)';
             }}
             onMouseLeave={(e) => {
+              if (!canBecomeCleanerFromHome) return;
               const el = e.currentTarget as HTMLButtonElement;
               el.style.borderColor = 'rgba(26,26,46,0.2)';
               el.style.background = 'transparent';

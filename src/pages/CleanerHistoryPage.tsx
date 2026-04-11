@@ -98,11 +98,11 @@ const contentByLanguage = {
   },
   es: {
     title: 'Historial',
-    subtitle: 'Consulta limpiezas pasadas y deja una reseÃ±a simple para cada cliente.',
+    subtitle: 'Consulta limpiezas pasadas y deja una reseña simple para cada cliente.',
     empty: 'Aun no hay limpiezas pasadas.',
     details: 'Detalles',
-    leaveReview: 'Dejar reseÃ±a',
-    viewReview: 'Ver tu reseÃ±a',
+    leaveReview: 'Dejar reseña',
+    viewReview: 'Ver tu reseña',
     serviceDate: 'Fecha de servicio',
     serviceTime: 'Hora',
     serviceType: 'Servicio',
@@ -120,8 +120,8 @@ const contentByLanguage = {
     commentLabel: 'Comentario (opcional)',
     commentPlaceholder: 'Comentario opcional...',
     submitReview: 'Publicar',
-    reviewSaved: 'ReseÃ±a guardada.',
-    reviewError: 'No se pudo guardar la reseÃ±a.',
+    reviewSaved: 'Reseña guardada.',
+    reviewError: 'No se pudo guardar la reseña.',
     loading: 'Cargando historial...',
     firstNameFallback: 'Cliente'
   }

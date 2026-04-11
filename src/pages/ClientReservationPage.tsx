@@ -66,15 +66,17 @@ const labels = {
     missingTimeInvalid: 'heure valide',
     missingLeadTime: "heure (minimum 2h d'avance aujourd'hui)",
     sortBy: 'Trier par',
-    sortPriceAsc: 'Moins cher d\u2019abord',
-    sortPriceDesc: 'Plus cher d\u2019abord',
+    sortPriceAsc: 'Lowest price first',
+    sortPriceDesc: 'Highest price first',
     sortJobsDesc: 'Plus de nettoyages',
-    sortRatingDesc: 'Mieux not\u00e9s',
+    sortRatingDesc: 'Best rated',
     descriptionTitle: 'Description',
     descriptionEmpty: 'Aucune description disponible.',
     seeMore: 'Voir plus',
     fullDescriptionTitle: 'Description complete',
     trust: 'Nouveau sur Nettoyo', zoneMatch: 'Zone compatible', avail: 'Disponible',
+    cleanerNameFallback: 'Nettoyeur Nettoyo',
+    cleanerDescriptionFallback: 'Nettoyeur professionnel disponible localement.',
     close: 'Fermer',
     reserveSuccess: 'Reservation creee.', reserveError: 'Impossible de reserver pour le moment.', loading: 'Chargement...',
     timeRequired: 'Veuillez choisir une heure.', timeInvalid: 'Format d heure invalide.',
@@ -92,7 +94,7 @@ const labels = {
     dateLabel: 'Date', timeLabel: 'Time', dateRequired: 'Please choose a date.', dateInvalid: 'Invalid date.',
     addSpace: 'Add a space', noSpace: 'Add a space to get started.',
     details: 'Details', reserve: 'Book now', selected: 'Selected', noResult: 'No matching cleaner yet.',
-    hint: 'Complete steps 1Ã¢â‚¬â€œ3 to see available cleaners.',
+    hint: 'Complete steps 1–3 to see available cleaners.',
     missingIntro: 'To see cleaners, complete:',
     missingAddress: 'address',
     missingService: 'cleaning type',
@@ -102,15 +104,17 @@ const labels = {
     missingTimeInvalid: 'valid time',
     missingLeadTime: 'time (at least 2h ahead for today)',
     sortBy: 'Sort by',
-    sortPriceAsc: 'Moins cher d\u2019abord',
-    sortPriceDesc: 'Plus cher d\u2019abord',
+    sortPriceAsc: 'Menor precio primero',
+    sortPriceDesc: 'Mayor precio primero',
     sortJobsDesc: 'Most jobs done',
-    sortRatingDesc: 'Mieux not\u00e9s',
+    sortRatingDesc: 'Mejor valorados',
     descriptionTitle: 'Description',
     descriptionEmpty: 'No description available.',
     seeMore: 'See more',
     fullDescriptionTitle: 'Full description',
     trust: 'New on Nettoyo', zoneMatch: 'Zone match', avail: 'Available',
+    cleanerNameFallback: 'Nettoyo cleaner',
+    cleanerDescriptionFallback: 'Professional cleaner available locally.',
     close: 'Close',
     reserveSuccess: 'Booking created.', reserveError: 'Unable to book right now.', loading: 'Loading...',
     timeRequired: 'Please choose a time.', timeInvalid: 'Invalid time format.',
@@ -147,6 +151,8 @@ const labels = {
     seeMore: 'Ver mas',
     fullDescriptionTitle: 'Descripcion completa',
     trust: 'Nuevo en Nettoyo', zoneMatch: 'Zona compatible', avail: 'Disponible',
+    cleanerNameFallback: 'Limpiador de Nettoyo',
+    cleanerDescriptionFallback: 'Limpiador profesional disponible en tu zona.',
     close: 'Cerrar',
     reserveSuccess: 'Reserva creada.', reserveError: 'No se pudo reservar.', loading: 'Cargando...',
     timeRequired: 'Selecciona una hora.', timeInvalid: 'Formato de hora invalido.',
@@ -228,7 +234,7 @@ const triggerBookingCreatedNotification = async (bookingId: string, accessToken:
   }
 };
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Step Progress Indicator Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// Step progress indicator
 function StepProgress({ steps, current }: { steps: string[]; current: number }) {
   return (
     <div className="flex items-center gap-0">
@@ -282,7 +288,7 @@ function reservationPageStyles() {
   );
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Cleaner Card Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// Cleaner card
 function CleanerCard({
   cleaner,
   language,
@@ -397,7 +403,7 @@ function CleanerCard({
   );
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// Main component
 export function ClientReservationPage() {
   const CLEANERS_PER_PAGE = 6;
   const { language, navigateTo } = useLanguage();
@@ -494,14 +500,14 @@ export function ClientReservationPage() {
         const identity = idMap.get(row.id);
         const first = identity?.first_name?.trim();
         const initial = identity?.last_name?.trim()?.[0]?.toUpperCase();
-        const name = first ? `${first}${initial ? ` ${initial}.` : ''}` : 'Nettoyo Cleaner';
+        const name = first ? `${first}${initial ? ` ${initial}.` : ''}` : t.cleanerNameFallback;
         const normalizedServices = (Array.isArray(row.services) ? row.services : [])
           .map(normalizeServiceId).filter((s): s is ServiceId => Boolean(s));
         const ratingStats = ratingsMap.get(row.id);
         const ratingCount = ratingStats?.count ?? 0;
         return {
           id: row.id, displayName: name,
-          description: row.description?.trim() || 'Nettoyeur professionnel disponible localement.',
+          description: row.description?.trim() || t.cleanerDescriptionFallback,
           photoUrl: identity?.avatar_url ?? row.photo_url,
           hourlyRate: typeof row.hourly_rate === 'number' ? row.hourly_rate : null,
           services: normalizedServices,
@@ -780,7 +786,7 @@ export function ClientReservationPage() {
         {/* Page header */}
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#4FC3F7]">NettoyÃƒÂ³</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#4FC3F7]">Nettoyó</p>
             <h1 className="mt-1 text-2xl font-bold text-[#1A1A2E] sm:text-3xl">{t.title}</h1>
             <p className="mt-1 text-sm text-[#6B7280]">{t.subtitle}</p>
           </div>
@@ -799,7 +805,7 @@ export function ClientReservationPage() {
         ) : (
           <div className="flex flex-col gap-4">
 
-            {/* Ã¢â€â‚¬Ã¢â€â‚¬ Step 1: Address Ã¢â€â‚¬Ã¢â€â‚¬ */}
+            {/* Step 1: Address */}
             <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
               <div className="mb-4 flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">1</span>
@@ -855,7 +861,7 @@ export function ClientReservationPage() {
               )}
             </section>
 
-            {/* Ã¢â€â‚¬Ã¢â€â‚¬ Step 2: Services Ã¢â€â‚¬Ã¢â€â‚¬ */}
+            {/* Step 2: Services */}
             <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
               <div className="mb-4 flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">2</span>
@@ -886,7 +892,7 @@ export function ClientReservationPage() {
               </div>
             </section>
 
-            {/* Ã¢â€â‚¬Ã¢â€â‚¬ Step 3: Date & Time Ã¢â€â‚¬Ã¢â€â‚¬ */}
+            {/* Step 3: Date & Time */}
             <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
               <div className="mb-4 flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(79,195,247,0.15)] text-xs font-bold text-[#0284C7]">3</span>
@@ -933,7 +939,7 @@ export function ClientReservationPage() {
               </div>
             </section>
 
-            {/* Ã¢â€â‚¬Ã¢â€â‚¬ Step 4: Cleaners Ã¢â€â‚¬Ã¢â€â‚¬ */}
+            {/* Step 4: Cleaners */}
             <section className="rounded-3xl bg-white p-6 shadow-[0_4px_24px_rgba(17,24,39,0.06)] sm:p-7">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -1027,7 +1033,7 @@ export function ClientReservationPage() {
         )}
       </div>
 
-      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cleaner Details Modal Ã¢â€â‚¬Ã¢â€â‚¬ */}
+      {/* Cleaner details modal */}
       {modalCleaner && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/40 p-4"
@@ -1131,7 +1137,7 @@ export function ClientReservationPage() {
         </div>
       ) : null}
 
-      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Booking Flow Modal Ã¢â€â‚¬Ã¢â€â‚¬ */}
+      {/* Booking flow modal */}
       {bookingCleaner && (
         <div
           className="fixed inset-0 z-[80] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/45 px-4 pb-4 sm:items-center sm:pb-0"

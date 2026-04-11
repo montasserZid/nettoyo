@@ -4,7 +4,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const { navigateTo } = useLanguage();
+  const { navigateTo, language } = useLanguage();
+  const loadingLabel = language === 'fr' ? 'Chargement...' : language === 'es' ? 'Cargando...' : 'Loading...';
 
   useEffect(() => {
     if (!loading && !user) {
@@ -17,7 +18,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
       <div className="flex min-h-[60vh] items-center justify-center bg-[#F7F7F7]">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#E5E7EB] border-t-[#4FC3F7]" />
-          <p className="text-sm text-[#6B7280]">Loading...</p>
+          <p className="text-sm text-[#6B7280]">{loadingLabel}</p>
         </div>
       </div>
     );

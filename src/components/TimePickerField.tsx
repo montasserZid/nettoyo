@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp, Clock3, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useLanguage } from '../i18n/LanguageContext';
 
 type Meridiem = 'AM' | 'PM';
 
@@ -57,6 +58,16 @@ type TimePickerFieldProps = {
 };
 
 export function TimePickerField({ value, onChange, label, disabled = false }: TimePickerFieldProps) {
+  const { language } = useLanguage();
+  const i18n = useMemo(
+    () =>
+      language === 'fr'
+        ? { hour: 'Heure', min: 'Min', ampm: 'AM/PM', cancel: 'Annuler', confirm: 'Confirmer' }
+        : language === 'es'
+          ? { hour: 'Hora', min: 'Min', ampm: 'AM/PM', cancel: 'Cancelar', confirm: 'Confirmar' }
+          : { hour: 'Hour', min: 'Min', ampm: 'AM/PM', cancel: 'Cancel', confirm: 'Confirm' },
+    [language]
+  );
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<TimeParts>(() => {
     const parsed = toTimeParts(value);
@@ -122,7 +133,7 @@ export function TimePickerField({ value, onChange, label, disabled = false }: Ti
             <div className="px-5 py-5">
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-3 text-center">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6B7280]">Hour</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6B7280]">{i18n.hour}</p>
                   <div className="mt-2 flex flex-col items-center gap-1">
                     <button type="button" className={controlBase} onClick={() => setDraft((cur) => ({ ...cur, hour12: adjustHour(cur.hour12, 1) }))}>
                       <ChevronUp size={14} strokeWidth={2.5} />
@@ -135,7 +146,7 @@ export function TimePickerField({ value, onChange, label, disabled = false }: Ti
                 </div>
 
                 <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-3 text-center">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6B7280]">Min</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6B7280]">{i18n.min}</p>
                   <div className="mt-2 flex flex-col items-center gap-1">
                     <button type="button" className={controlBase} onClick={() => setDraft((cur) => ({ ...cur, minute: nextMinute(normalizeModalMinute(cur.minute), 1) }))}>
                       <ChevronUp size={14} strokeWidth={2.5} />
@@ -148,7 +159,7 @@ export function TimePickerField({ value, onChange, label, disabled = false }: Ti
                 </div>
 
                 <div className="rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] p-3 text-center">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6B7280]">AM/PM</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6B7280]">{i18n.ampm}</p>
                   <div className="mt-2 flex flex-col items-center gap-1">
                     <button type="button" className={controlBase} onClick={() => setDraft((cur) => ({ ...cur, meridiem: cur.meridiem === 'AM' ? 'PM' : 'AM' }))}>
                       <ChevronUp size={14} strokeWidth={2.5} />
@@ -168,7 +179,7 @@ export function TimePickerField({ value, onChange, label, disabled = false }: Ti
                 onClick={() => setOpen(false)}
                 className="rounded-full border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#6B7280] hover:bg-white"
               >
-                Cancel
+                {i18n.cancel}
               </button>
               <button
                 type="button"
@@ -179,7 +190,7 @@ export function TimePickerField({ value, onChange, label, disabled = false }: Ti
                 }}
                 className="rounded-full bg-[#4FC3F7] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#3FAAD4]"
               >
-                Confirm
+                {i18n.confirm}
               </button>
             </div>
           </div>

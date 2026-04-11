@@ -2,9 +2,11 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { Language } from '../i18n/translations';
 import { getLocalizedSectionPath, getPathForRoute } from '../i18n/routes';
 import { NettoyoLogo } from './NettoyoLogo';
+import { useAuth } from '../context/AuthContext';
 
 export function Footer() {
   const { language, setLanguage, route, navigateTo, t } = useLanguage();
+  const { isCleaner } = useAuth();
 
   const flags: Record<Language, string> = {
     fr: '🇫🇷',
@@ -56,18 +58,20 @@ export function Footer() {
               >
                 {t.nav.howItWorks}
               </a>
-              <a
-                href={servicesPath}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigateTo('services');
-                }}
-                className={`text-sm transition-colors ${
-                  route === 'services' ? 'font-semibold text-[#4FC3F7]' : 'text-[#6B7280] hover:text-[#4FC3F7]'
-                }`}
-              >
-                {t.nav.services}
-              </a>
+              {!isCleaner() ? (
+                <a
+                  href={servicesPath}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigateTo('services');
+                  }}
+                  className={`text-sm transition-colors ${
+                    route === 'services' ? 'font-semibold text-[#4FC3F7]' : 'text-[#6B7280] hover:text-[#4FC3F7]'
+                  }`}
+                >
+                  {t.nav.services}
+                </a>
+              ) : null}
               <a href={cleanerPath} className="text-sm text-[#6B7280] transition-colors hover:text-[#4FC3F7]">
                 {t.nav.becomeCleaner}
               </a>
