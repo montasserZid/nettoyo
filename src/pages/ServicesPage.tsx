@@ -170,6 +170,7 @@ const UI = {
     sameDayLeadError: "Pour aujourd'hui, choisissez une heure au moins 2h plus tard (heure de Montreal).",
     bookingError: 'Impossible de reserver pour le moment.',
     date: 'Date',
+    datePlaceholder: 'Choisir une date',
     time: 'Heure',
     hours: 'Heures estimees',
     address: 'Adresse',
@@ -244,6 +245,7 @@ const UI = {
     sameDayLeadError: 'For same-day bookings, choose a time at least 2 hours later (Montreal time).',
     bookingError: 'Unable to book right now.',
     date: 'Date',
+    datePlaceholder: 'Choose a date',
     time: 'Time',
     hours: 'Estimated hours',
     address: 'Address',
@@ -318,6 +320,7 @@ const UI = {
     sameDayLeadError: 'Para reservas del mismo dia, elige una hora al menos 2h mas tarde (hora de Montreal).',
     bookingError: 'No se pudo reservar.',
     date: 'Fecha',
+    datePlaceholder: 'Elige una fecha',
     time: 'Hora',
     hours: 'Horas estimadas',
     address: 'Direccion',
@@ -1496,13 +1499,20 @@ export function ServicesPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block text-sm font-semibold text-[#1A1A2E]">
                       {ui.date}
-                      <input
-                        type="date"
-                        min={minBookDate}
-                        value={selectedDate}
-                        onChange={(event) => setSelectedDate(event.target.value)}
-                        className="mt-2 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm outline-none focus:border-[#4FC3F7]"
-                      />
+                      <div className="relative mt-2">
+                        <input
+                          type="date"
+                          min={minBookDate}
+                          value={selectedDate}
+                          onChange={(event) => setSelectedDate(event.target.value)}
+                          className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#1A1A2E] outline-none focus:border-[#4FC3F7]"
+                        />
+                        {!selectedDate ? (
+                          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-medium text-[#9CA3AF]">
+                            {ui.datePlaceholder}
+                          </span>
+                        ) : null}
+                      </div>
                     </label>
                     <TimePickerField value={selectedTime} onChange={setSelectedTime} label={ui.time} />
                   </div>

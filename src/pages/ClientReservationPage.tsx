@@ -21,6 +21,13 @@ type SpaceRecord = { id: string; name: string; address: string | null; city: str
 type CleanerProfileRecord = { id: string; description: string | null; hourly_rate: number | null; services: string[] | null; photo_url: string | null; service_areas: unknown; weekly_availability: unknown; availability_exceptions: unknown };
 type CleanerReviewRecord = { cleaner_id: string; rating: number | null };
 type CleanerCompletedBookingRecord = { cleaner_id: string | null };
+type RecentClientBookingRecord = {
+  cleaner_id: string | null;
+  service_type: string | null;
+  status: 'completed' | 'confirmed' | string;
+  scheduled_at: string | null;
+  created_at: string;
+};
 type AreaSelection = { id: string; zone: string; name: string; lat: number; lng: number };
 type CleanerIdentity = { id: string; first_name: string | null; last_name: string | null; avatar_url: string | null };
 type CleanerCandidate = {
@@ -86,7 +93,13 @@ const labels = {
     bookingAdjustDisclaimer: 'Cette estimation n est pas finale. Vous pourrez ajuster avec le nettoyeur selon le travail reel.', bookingHoursLabel: 'Heures estimees',
     bookingSummaryTitle: 'Resume de la reservation', bookingSummaryAddress: 'Adresse', bookingSummaryRate: 'Taux horaire', bookingSummaryHours: 'Heures estimees', bookingSummaryDate: 'Date', bookingSummaryTime: 'Heure',
     bookingApproxTotal: 'Total approximatif', paymentDisclaimer1: 'Le paiement se fait directement avec le nettoyeur (cash ou Interac).', paymentDisclaimer2: 'Le montant affiche est approximatif et peut varier selon le travail reel.',
-    back: 'Retour', continue: 'Continuer', finish: 'Confirmer la reservation'
+    bookingUnavailable: 'Ce nettoyeur n est pas disponible a cette date/heure. Essayez un autre jour ou horaire.',
+    back: 'Retour', continue: 'Continuer', finish: 'Confirmer la reservation',
+    rebookTitlePrefix: 'Reserver a nouveau avec',
+    rebookTitleSuffix: '?',
+    rebookSubtitle: 'Gagnez du temps en reservant avec un nettoyeur deja utilise.',
+    rebookCta: 'Reserver',
+    rebookLater: 'Plus tard'
   },
   en: {
     title: 'Book', subtitle: 'Choose address, service, date and time before results.',
@@ -124,7 +137,13 @@ const labels = {
     bookingAdjustDisclaimer: 'This estimate is not final. You can adjust with the cleaner based on actual work.', bookingHoursLabel: 'Estimated hours',
     bookingSummaryTitle: 'Booking summary', bookingSummaryAddress: 'Address', bookingSummaryRate: 'Hourly rate', bookingSummaryHours: 'Estimated hours', bookingSummaryDate: 'Date', bookingSummaryTime: 'Time',
     bookingApproxTotal: 'Approximate total', paymentDisclaimer1: 'Payment is made directly to the cleaner (cash or Interac).', paymentDisclaimer2: 'Displayed amount is approximate and may vary based on actual work.',
-    back: 'Back', continue: 'Continue', finish: 'Confirm booking'
+    bookingUnavailable: 'This cleaner is not available at that date/time. Please try another day or time.',
+    back: 'Back', continue: 'Continue', finish: 'Confirm booking',
+    rebookTitlePrefix: 'Book again with',
+    rebookTitleSuffix: '?',
+    rebookSubtitle: 'Save time by booking a cleaner you already used.',
+    rebookCta: 'Book',
+    rebookLater: 'Later'
   },
   es: {
     title: 'Reservar', subtitle: 'Elige direccion, servicio, fecha y hora antes de ver resultados.',
@@ -162,7 +181,13 @@ const labels = {
     bookingAdjustDisclaimer: 'Esta estimacion no es final. Podras ajustarla con el limpiador segun el trabajo real.', bookingHoursLabel: 'Horas estimadas',
     bookingSummaryTitle: 'Resumen de reserva', bookingSummaryAddress: 'Direccion', bookingSummaryRate: 'Tarifa por hora', bookingSummaryHours: 'Horas estimadas', bookingSummaryDate: 'Fecha', bookingSummaryTime: 'Hora',
     bookingApproxTotal: 'Total aproximado', paymentDisclaimer1: 'El pago se realiza directamente con el limpiador (efectivo o Interac).', paymentDisclaimer2: 'El monto mostrado es aproximado y puede variar segun el trabajo real.',
-    back: 'Atras', continue: 'Continuar', finish: 'Confirmar reserva'
+    bookingUnavailable: 'Este limpiador no esta disponible en esa fecha/hora. Prueba otro dia u horario.',
+    back: 'Atras', continue: 'Continuar', finish: 'Confirmar reserva',
+    rebookTitlePrefix: 'Reservar de nuevo con',
+    rebookTitleSuffix: '?',
+    rebookSubtitle: 'Ahorra tiempo reservando con un limpiador que ya usaste.',
+    rebookCta: 'Reservar',
+    rebookLater: 'Mas tarde'
   }
 } as const;
 
@@ -194,6 +219,19 @@ const serviceAliasMap: Record<string, ServiceId> = {
   airbnb: 'airbnb'
 };
 const normalizeServiceId = (value: string): ServiceId | null => serviceAliasMap[normalizeMatch(value)] ?? null;
+const parseServiceType = (value: string | null): ServiceId[] => {
+  if (!value) return [];
+  const seen = new Set<ServiceId>();
+  return value
+    .split(',')
+    .map((entry) => normalizeServiceId(entry))
+    .filter((entry): entry is ServiceId => Boolean(entry))
+    .filter((entry) => {
+      if (seen.has(entry)) return false;
+      seen.add(entry);
+      return true;
+    });
+};
 const toMinutes = (v: string) => {
   const m = v.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
   if (!m) return null;
@@ -429,6 +467,8 @@ export function ClientReservationPage() {
   const [reservingId, setReservingId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('price_asc');
   const [cleanersPage, setCleanersPage] = useState(1);
+  const [rebookSuggestion, setRebookSuggestion] = useState<{ cleanerId: string; services: ServiceId[] } | null>(null);
+  const [rebookDismissed, setRebookDismissed] = useState(false);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   useBodyScrollLock(Boolean(modalCleaner || bookingCleaner || fullDescriptionOpen));
   const paginationLabels = useMemo(
@@ -441,6 +481,10 @@ export function ClientReservationPage() {
     [language]
   );
   const minBookDate = useMemo(() => getMontrealToday(), []);
+  const rebookDismissKey = useMemo(
+    () => (user?.id && rebookSuggestion ? `nettoyo:rebook-dismissed:${user.id}:${rebookSuggestion.cleanerId}` : null),
+    [rebookSuggestion, user?.id]
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -450,13 +494,21 @@ export function ClientReservationPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user?.id || !isClient()) { setLoading(false); return; }
+    if (!user?.id || !isClient()) { setLoading(false); setRebookSuggestion(null); setRebookDismissed(false); return; }
     let active = true;
     const load = async () => {
       setLoading(true);
-      const [spacesRes, cleanersRes] = await Promise.all([
+      const [spacesRes, cleanersRes, recentBookingsRes] = await Promise.all([
         supabase.from('spaces').select('id,name,address,city,derived_zone,is_favorite,is_active').eq('client_id', user.id).eq('is_active', true).order('is_favorite', { ascending: false }).order('created_at', { ascending: false }),
-        supabase.from('cleaner_profiles').select('id,description,hourly_rate,services,photo_url,service_areas,weekly_availability,availability_exceptions')
+        supabase.from('cleaner_profiles').select('id,description,hourly_rate,services,photo_url,service_areas,weekly_availability,availability_exceptions'),
+        supabase
+          .from('bookings')
+          .select('cleaner_id,service_type,status,scheduled_at,created_at')
+          .eq('client_id', user.id)
+          .in('status', ['completed', 'confirmed'])
+          .order('scheduled_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .limit(30)
       ]);
       if (!active) return;
       if (spacesRes.error) { setErrorMessage(spacesRes.error.message); setLoading(false); return; }
@@ -496,7 +548,7 @@ export function ClientReservationPage() {
         }
         completedJobsMap.set(row.cleaner_id, (completedJobsMap.get(row.cleaner_id) ?? 0) + 1);
       });
-      setCleaners(rows.map((row) => {
+      const mappedCleaners = rows.map((row) => {
         const identity = idMap.get(row.id);
         const first = identity?.first_name?.trim();
         const initial = identity?.last_name?.trim()?.[0]?.toUpperCase();
@@ -518,7 +570,23 @@ export function ClientReservationPage() {
           averageRating: ratingCount > 0 && ratingStats ? ratingStats.sum / ratingCount : null,
           ratingCount
         };
-      }));
+      });
+      setCleaners(mappedCleaners);
+
+      const recentBookings = ((recentBookingsRes.data as RecentClientBookingRecord[] | null) ?? []).filter(
+        (entry): entry is RecentClientBookingRecord & { cleaner_id: string } => Boolean(entry.cleaner_id)
+      );
+      const lastCompleted = recentBookings.find((entry) => entry.status === 'completed');
+      const lastConfirmed = recentBookings.find((entry) => entry.status === 'confirmed');
+      const lastBooking = lastCompleted ?? lastConfirmed ?? null;
+      if (lastBooking && mappedCleaners.some((cleaner) => cleaner.id === lastBooking.cleaner_id)) {
+        setRebookSuggestion({
+          cleanerId: lastBooking.cleaner_id,
+          services: parseServiceType(lastBooking.service_type)
+        });
+      } else {
+        setRebookSuggestion(null);
+      }
       setLoading(false);
     };
     void load();
@@ -530,7 +598,26 @@ export function ClientReservationPage() {
     if (!spaces.some((s) => s.id === selectedSpaceId)) setSelectedSpaceId(spaces[0].id);
   }, [selectedSpaceId, spaces]);
 
+  useEffect(() => {
+    if (!rebookDismissKey) {
+      setRebookDismissed(false);
+      return;
+    }
+    setRebookDismissed(window.localStorage.getItem(rebookDismissKey) === '1');
+  }, [rebookDismissKey]);
+
   const selectedSpace = useMemo(() => spaces.find((s) => s.id === selectedSpaceId) ?? null, [spaces, selectedSpaceId]);
+  const rebookCleaner = useMemo(
+    () => (rebookSuggestion ? cleaners.find((cleaner) => cleaner.id === rebookSuggestion.cleanerId) ?? null : null),
+    [cleaners, rebookSuggestion]
+  );
+
+  useEffect(() => {
+    if (!loading && rebookSuggestion && !rebookCleaner) {
+      setRebookSuggestion(null);
+      setRebookDismissed(false);
+    }
+  }, [loading, rebookCleaner, rebookSuggestion]);
   const selectedZone = useMemo(() => selectedSpace ? (selectedSpace.derived_zone || deriveZoneFromCityName(selectedSpace.city) || '') : '', [selectedSpace]);
   const selectedDateValid = useMemo(() => /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) && selectedDate >= minBookDate, [minBookDate, selectedDate]);
   const selectedTimeMinutes = useMemo(() => (selectedTime ? toMinutes(selectedTime) : null), [selectedTime]);
@@ -679,7 +766,11 @@ export function ClientReservationPage() {
     console.groupEnd();
   }, [matched.length, matchingPipeline.afterAvailability.length, matchingPipeline.afterService.length, matchingPipeline.afterZone.length, matchingPipeline.availabilityFailures, matchingPipeline.raw, matchingPipeline.serviceFailures, matchingPipeline.zoneFailures, ready, selectedDate, selectedDateValid, selectedServices, selectedSpace?.address, selectedSpace?.city, selectedSpace?.name, selectedTime, selectedTimeValid, selectedZone]);
 
-  const openBookingFlow = (cleaner: CleanerCandidate) => {
+  const openBookingFlow = (cleaner: CleanerCandidate, options?: { presetServices?: ServiceId[] }) => {
+    if (options?.presetServices && options.presetServices.length > 0) {
+      setSelectedServices(options.presetServices);
+    }
+    setErrorMessage(null);
     setBookingCleaner(cleaner);
     setBookingStep(1);
     setEstimatedHours(3);
@@ -703,14 +794,45 @@ export function ClientReservationPage() {
     }
   }, [cleanersPage, cleanersTotalPages]);
 
+  const dismissRebookBanner = () => {
+    if (rebookDismissKey) window.localStorage.setItem(rebookDismissKey, '1');
+    setRebookDismissed(true);
+  };
+
+  const handleRebookNow = () => {
+    if (!rebookCleaner) {
+      setRebookSuggestion(null);
+      return;
+    }
+    const presetServices =
+      rebookSuggestion?.services && rebookSuggestion.services.length > 0
+        ? rebookSuggestion.services
+        : selectedServices.length > 0
+          ? selectedServices
+          : rebookCleaner.services.slice(0, 1);
+    openBookingFlow(rebookCleaner, { presetServices });
+  };
+
   const reserve = async (cleaner: CleanerCandidate) => {
-    if (!user?.id || !selectedSpace || !selectedDateValid || !selectedTimeValid || selectedServices.length === 0) return;
+    if (!user?.id) return;
+    if (!selectedSpace || selectedServices.length === 0 || !selectedDateValid || !selectedTimeValid) {
+      setErrorMessage(`${t.missingIntro} ${missingRequirements.join(', ')}`);
+      return;
+    }
     if (!hasMinimumLeadHoursFromMontrealDateTime(selectedDate, selectedTime, 2)) {
       setErrorMessage(t.sameDayLeadError);
       return;
     }
     const scheduledDate = combineMontrealDateTimeToUtc(selectedDate, selectedTime);
     if (!scheduledDate) { setErrorMessage(t.timeInvalid); return; }
+    const weekly = cleaner.availability as Record<string, { enabled: boolean; start: string; end: string }> | null;
+    if (weekly && typeof weekly === 'object') {
+      const day = weekly[weekday[scheduledDate.getDay()]];
+      if (!day?.enabled || !isWithin(selectedTime, day.start, day.end)) {
+        setErrorMessage(t.bookingUnavailable);
+        return;
+      }
+    }
     setReservingId(cleaner.id);
     const scheduledAt = scheduledDate.toISOString();
     let insertRes = await supabase
@@ -795,6 +917,36 @@ export function ClientReservationPage() {
             current={currentStep}
           />
         </div>
+
+        {!loading && rebookCleaner && !rebookDismissed ? (
+          <section className="mb-5 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3.5 shadow-[0_6px_20px_rgba(17,24,39,0.06)] sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#1A1A2E]">
+                  {t.rebookTitlePrefix} {rebookCleaner.displayName}
+                  {t.rebookTitleSuffix}
+                </p>
+                <p className="mt-0.5 text-xs text-[#6B7280]">{t.rebookSubtitle}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRebookNow}
+                  className="rounded-xl bg-[#4FC3F7] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#3FAAD4]"
+                >
+                  {t.rebookCta}
+                </button>
+                <button
+                  type="button"
+                  onClick={dismissRebookBanner}
+                  className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-xs font-semibold text-[#6B7280] transition-colors hover:border-[#CBD5E1] hover:text-[#4B5563]"
+                >
+                  {t.rebookLater}
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {loading ? (
           /* Loading state */
@@ -1225,13 +1377,42 @@ export function ClientReservationPage() {
               <div className="p-6">
                 <h4 className="mb-4 text-sm font-bold text-[#1A1A2E]">{t.bookingSummaryTitle}</h4>
 
+                <div className="mb-3 grid gap-2.5 sm:grid-cols-2">
+                  <label className="rounded-2xl border border-[#E5E7EB] px-4 py-3 transition-colors focus-within:border-[#4FC3F7] focus-within:shadow-[0_0_0_1px_rgba(79,195,247,0.3)]">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                      <Calendar size={12} />
+                      {t.dateLabel}
+                    </div>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      min={minBookDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="min-h-[40px] w-full bg-transparent text-sm font-semibold text-[#1A1A2E] outline-none"
+                    />
+                    {dateValidationMessage && (
+                      <p className="mt-2 text-xs font-medium text-[#DC2626]">{dateValidationMessage}</p>
+                    )}
+                  </label>
+                  <div className="rounded-2xl border border-[#E5E7EB] px-4 py-3 transition-colors focus-within:border-[#4FC3F7] focus-within:shadow-[0_0_0_1px_rgba(79,195,247,0.3)]">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                      <Clock3 size={12} />
+                      {t.timeLabel}
+                    </div>
+                    <TimePickerField value={selectedTime} onChange={setSelectedTime} label={t.timeLabel} />
+                    {timeValidationMessage && (
+                      <p className="mt-2 text-xs font-medium text-[#DC2626]">{timeValidationMessage}</p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   {[
                     { label: t.bookingSummaryAddress, value: [selectedSpace?.address, selectedSpace?.city].filter(Boolean).join(', ') || '--' },
                     { label: t.bookingSummaryRate, value: formatHourlyRate(bookingCleaner.hourlyRate) },
                     { label: t.bookingSummaryHours, value: `${estimatedHours}h` },
-                    { label: t.bookingSummaryDate, value: selectedDate },
-                    { label: t.bookingSummaryTime, value: selectedTime },
+                    { label: t.bookingSummaryDate, value: selectedDate || '--' },
+                    { label: t.bookingSummaryTime, value: selectedTime || '--' },
                   ].map(({ label, value }) => (
                     <div key={label} className="rounded-2xl border border-[#EEF2F7] bg-[#F8FAFC] p-3.5">
                       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">{label}</p>
@@ -1255,6 +1436,11 @@ export function ClientReservationPage() {
                   <p>{t.paymentDisclaimer1}</p>
                   <p className="mt-1">{t.paymentDisclaimer2}</p>
                 </div>
+                {errorMessage && (
+                  <div className="mt-3 rounded-2xl bg-[rgba(220,38,38,0.08)] px-4 py-3 text-sm font-medium text-[#DC2626]">
+                    {errorMessage}
+                  </div>
+                )}
 
                 <div className="mt-5 flex items-center gap-3">
                   <button
