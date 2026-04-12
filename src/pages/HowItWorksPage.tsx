@@ -121,11 +121,6 @@ const pageContent: Record<
     trustTitle: 'Pourquoi utiliser Nettoyó ?',
     trustCards: [
       {
-        title: 'Profils vérifiés',
-        description:
-          "Les nettoyeurs présents sur la plateforme passent une vérification de profil avant d'être visibles."
-      },
-      {
         title: 'Transparence des informations',
         description:
           'Disponibilités, zones, prix et avis sont visibles pour vous aider à comparer avant de réserver.'
@@ -146,7 +141,7 @@ const pageContent: Record<
       {
         title: 'Frais de plateforme',
         description:
-          "Nettoyó facture un petit frais de plateforme par réservation (exemple : 5 $) pour l'utilisation du service."
+          'Nettoyó facture un petit frais de plateforme par réservation pour faciliter la mise en relation.'
       },
       {
         title: 'Prix du nettoyeur',
@@ -271,10 +266,6 @@ const pageContent: Record<
     ],
     trustTitle: 'Why trust Nettoyó?',
     trustCards: [
-      {
-        title: 'Verified cleaners',
-        description: 'Every cleaner goes through identity verification and a background check before being accepted.'
-      },
       {
         title: 'Secure payment',
         description: 'Your banking details are protected. You only pay once the job is confirmed.'
@@ -405,10 +396,6 @@ const pageContent: Record<
     ],
     trustTitle: '¿Por qué confiar en Nettoyó?',
     trustCards: [
-      {
-        title: 'Limpiadores verificados',
-        description: 'Cada limpiador pasa una verificación de identidad y un control de antecedentes antes de ser aceptado.'
-      },
       {
         title: 'Pago seguro',
         description: 'Tus datos bancarios están protegidos. Solo pagas una vez confirmado el trabajo.'

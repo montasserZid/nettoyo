@@ -55,7 +55,7 @@ export function Navbar() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const { upcomingBookingCount, pendingBookingCount, historyPendingCount } = useNavBookingCounts();
   const { language, setLanguage, route, navigateTo, t } = useLanguage();
-  const { user, profile, signOut, isCleaner, isClient } = useAuth();
+  const { user, profile, signOut, isCleaner, isClient, isAdmin } = useAuth();
 
   const flags: Record<Language, string> = { fr: '🇫🇷', en: '🇬🇧', es: '🇪🇸' };
   const howItWorksPath = getPathForRoute(language, 'howItWorks');
@@ -66,9 +66,9 @@ export function Navbar() {
   const clientReservationsPath = getPathForRoute(language, 'clientReservations');
   const clientHistoryPath = getPathForRoute(language, 'clientHistory');
   const homePath = getPathForRoute(language, 'home');
-  const dashboardRoute = isCleaner() ? 'cleanerDashboard' : 'clientDashboard';
+  const dashboardRoute = isAdmin() ? 'adminDashboard' : isCleaner() ? 'cleanerDashboard' : 'clientDashboard';
   const dashboardPath = getPathForRoute(language, dashboardRoute);
-  const reservationRoute = user ? (isCleaner() ? 'cleanerReservations' : 'clientReservation') : 'login';
+  const reservationRoute = user ? (isAdmin() ? 'adminDashboard' : isCleaner() ? 'cleanerReservations' : 'clientReservation') : 'login';
   const reservationPath = getPathForRoute(language, reservationRoute);
   const labels = accountLabels[language];
   const reservationLabels = reservationCtaLabels[language];
@@ -90,6 +90,7 @@ export function Navbar() {
       | 'services'
       | 'login'
       | 'home'
+      | 'adminDashboard'
       | 'clientReservation'
       | 'clientReservations'
       | 'clientHistory'
@@ -114,7 +115,9 @@ export function Navbar() {
   const reservationCtaText = user
     ? isCleaner()
       ? reservationLabels.cleanerWithCount(upcomingBookingCount ?? 0)
-      : t.nav.bookNow
+      : isAdmin()
+        ? labels.profile
+        : t.nav.bookNow
     : t.nav.bookNow;
 
   return (

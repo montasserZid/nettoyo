@@ -12,7 +12,7 @@ import supabase from '../lib/supabase';
 export type Profile = {
   id: string;
   email: string;
-  role: 'client' | 'nettoyeur';
+  role: 'client' | 'nettoyeur' | 'admin';
   first_name: string | null;
   last_name: string | null;
   city: string | null;
@@ -37,6 +37,7 @@ type AuthContextValue = {
   updateProfile: (patch: Partial<Profile>) => void;
   isClient: () => boolean;
   isCleaner: () => boolean;
+  isAdmin: () => boolean;
 };
 
 type AuthApi = {
@@ -53,7 +54,9 @@ const auth = supabase.auth as unknown as AuthApi;
 export async function fetchProfile(input: string | ProfileSource) {
   const source: ProfileSource = typeof input === 'string' ? { id: input } : input;
   const now = new Date().toISOString();
-  const fallbackRole = source.user_metadata?.role === 'nettoyeur' ? 'nettoyeur' : 'client';
+  const metadataRole = source.user_metadata?.role;
+  const fallbackRole: Profile['role'] =
+    metadataRole === 'nettoyeur' || metadataRole === 'admin' ? metadataRole : 'client';
   const metadataFirstName =
     typeof source.user_metadata?.first_name === 'string' && source.user_metadata.first_name.trim().length > 0
       ? source.user_metadata.first_name.trim()
@@ -245,7 +248,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       },
       isClient: () => profile?.role === 'client',
-      isCleaner: () => profile?.role === 'nettoyeur'
+      isCleaner: () => profile?.role === 'nettoyeur',
+      isAdmin: () => profile?.role === 'admin'
     }),
     [loading, profile, session, user]
   );

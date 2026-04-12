@@ -31,7 +31,7 @@ function compactBadgeCount(value: number) {
 
 export function MobileBottomNav() {
   const { language, route, navigateTo } = useLanguage();
-  const { user, isClient, isCleaner } = useAuth();
+  const { user, isClient, isCleaner, isAdmin } = useAuth();
   const { pendingBookingCount } = useNavBookingCounts();
   const [cleanerView, setCleanerView] = useState<CleanerReservationsView>(() => getCleanerViewFromSearch());
 
@@ -128,6 +128,35 @@ export function MobileBottomNav() {
       ];
     }
 
+    if (user && isAdmin()) {
+      return [
+        {
+          key: 'admin-home',
+          label: language === 'fr' ? 'Accueil' : language === 'es' ? 'Inicio' : 'Home',
+          icon: Home,
+          href: getPathForRoute(language, 'home'),
+          onClick: goToRoute('home'),
+          isActive: route === 'home'
+        },
+        {
+          key: 'admin-how',
+          label: language === 'fr' ? 'Comment ça marche' : language === 'es' ? 'Como funciona' : 'How it works',
+          icon: Info,
+          href: getPathForRoute(language, 'howItWorks'),
+          onClick: goToRoute('howItWorks'),
+          isActive: route === 'howItWorks'
+        },
+        {
+          key: 'admin-profile',
+          label: language === 'fr' ? 'Admin' : language === 'es' ? 'Admin' : 'Admin',
+          icon: UserRound,
+          href: getPathForRoute(language, 'adminDashboard'),
+          onClick: goToRoute('adminDashboard'),
+          isActive: route === 'adminDashboard'
+        }
+      ];
+    }
+
     return [
       {
         key: 'guest-home',
@@ -154,7 +183,7 @@ export function MobileBottomNav() {
         isActive: route === 'login' || route === 'signup'
       }
     ];
-  }, [cleanerView, isCleaner, isClient, language, pendingBookingCount, route, user]);
+  }, [cleanerView, isAdmin, isCleaner, isClient, language, pendingBookingCount, route, user]);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-[70] border-t border-[#E5E7EB] bg-white/95 shadow-[0_-10px_24px_rgba(17,24,39,0.08)] backdrop-blur-sm md:hidden">

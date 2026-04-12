@@ -477,3 +477,47 @@ CREATE POLICY "Cleaners can expire own pending bookings"
   TO authenticated
   USING (auth.uid() = cleaner_id AND status = 'pending')
   WITH CHECK (auth.uid() = cleaner_id AND status = 'expired');
+
+15) AdminDashboard SQL Commands (Supabase)
+-- Run in Supabase SQL Editor
+
+-- 15.1 Promote existing account to admin role
+UPDATE public.profiles
+SET role = 'admin', updated_at = now()
+WHERE email = 'admin@nettoyo.ca';
+
+-- 15.2 Create admin_settings table if missing
+CREATE TABLE IF NOT EXISTS public.admin_settings (
+  key TEXT PRIMARY KEY,
+  value_json JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.admin_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "No direct client access to admin settings" ON public.admin_settings;
+CREATE POLICY "No direct client access to admin settings"
+  ON public.admin_settings
+  FOR ALL
+  TO authenticated
+  USING (false)
+  WITH CHECK (false);
+
+-- 15.3 Seed default admin settings
+INSERT INTO public.admin_settings (key, value_json)
+VALUES
+  ('platform_fee_amount', '5'::jsonb),
+  ('same_day_lead_hours', '2'::jsonb),
+  ('feature_toggles', '{"bookingEnabled": true, "cleanerSignupEnabled": true}'::jsonb)
+ON CONFLICT (key) DO UPDATE
+SET value_json = EXCLUDED.value_json,
+    updated_at = now();
+
+-- 15.4 Quick verification
+SELECT id, email, role
+FROM public.profiles
+WHERE email = 'admin@nettoyo.ca';
+
+SELECT
+  (SELECT count(*) FROM public.profiles) AS total_users,
+  (SELECT count(*) FROM public.bookings) AS total_bookings;

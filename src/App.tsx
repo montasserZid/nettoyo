@@ -10,6 +10,7 @@ import { ServicesPage } from './pages/ServicesPage';
 import { LoginPage, SignupPage } from './pages/AuthPages';
 import { AuthCallbackPage } from './pages/AuthCallback';
 import { CleanerDashboardPage } from './pages/CleanerDashboard';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ClientAddSpacePage, ClientDashboardPage } from './pages/ClientDashboardPage';
 import { ClientReservationPage } from './pages/ClientReservationPage';
 import { ClientReservationSuccessPage } from './pages/ClientReservationSuccessPage';
@@ -25,7 +26,8 @@ import { buildPageTitle } from './lib/pageTitle';
 
 function AppContent() {
   const { route, navigateTo } = useLanguage();
-  const { user, isCleaner, loading } = useAuth();
+  const { user, isCleaner, isAdmin, loading } = useAuth();
+  const isAdminRoute = route === 'adminDashboard';
   const pageTitleByRoute: Partial<Record<typeof route, string>> = {
     howItWorks: 'How It Works',
     services: 'Services',
@@ -37,6 +39,7 @@ function AppContent() {
     clientHistory: 'Client History',
     clientReservation: 'Reservation',
     clientReservationSuccess: 'Reservation Sent',
+    adminDashboard: 'Admin Dashboard',
     cleanerDashboard: 'Cleaner Dashboard',
     cleanerReservations: 'Cleaner Reservations',
     cleanerHistory: 'Cleaner History'
@@ -52,9 +55,18 @@ function AppContent() {
     }
   }, [isCleaner, loading, navigateTo, route, user]);
 
+  useEffect(() => {
+    if (route !== 'adminDashboard' || loading || !user) {
+      return;
+    }
+    if (!isAdmin()) {
+      navigateTo(isCleaner() ? 'cleanerDashboard' : 'clientDashboard');
+    }
+  }, [isAdmin, isCleaner, loading, navigateTo, route, user]);
+
   return (
-    <div className="min-h-screen bg-white pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
-      <Navbar />
+    <div className={isAdminRoute ? 'min-h-screen bg-white' : 'min-h-screen bg-white pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0'}>
+      {!isAdminRoute && <Navbar />}
       {route === 'howItWorks' ? (
         <HowItWorksPage />
       ) : route === 'services' ? (
@@ -93,6 +105,10 @@ function AppContent() {
         <ProtectedRoute>
           <CleanerDashboardPage />
         </ProtectedRoute>
+      ) : route === 'adminDashboard' ? (
+        <ProtectedRoute>
+          <AdminDashboardPage />
+        </ProtectedRoute>
       ) : route === 'cleanerReservations' ? (
         <ProtectedRoute>
           <CleanerReservationsPage />
@@ -104,9 +120,9 @@ function AppContent() {
       ) : (
         <HomePage />
       )}
-      <FloatingReserveCTA />
-      <MobileBottomNav />
-      <Footer />
+      {!isAdminRoute && <FloatingReserveCTA />}
+      {!isAdminRoute && <MobileBottomNav />}
+      {!isAdminRoute && <Footer />}
     </div>
   );
 }

@@ -1,0 +1,317 @@
+Nettoyo App Summary
+===================
+
+1) Product purpose
+- Nettoyo is a local two-sided marketplace app.
+- It connects clients who need cleaning services with independent cleaners (not employees of Nettoyo).
+- The platform acts as an intermediary for discovery, booking requests, matching, and communication timing rules.
+- The app supports French, English, and Spanish UI.
+
+2) Tech stack and architecture
+- Frontend: React + Vite + TypeScript.
+- Backend logic: Supabase (Auth, Postgres, Storage) plus serverless API routes under /api.
+- Admin server routes use Supabase service role key and explicit admin role verification.
+- Routing is localized through the i18n route mapping layer.
+
+3) User types and access model
+- Guest (not logged in)
+  - Can browse Home, How It Works, Services.
+  - Can start auth flow from CTAs.
+- Client (profile.role = client)
+  - Has client dashboard and booking flows.
+  - Can manage spaces, create bookings, manage active bookings, leave history reviews.
+- Cleaner (profile.role = nettoyeur)
+  - Has cleaner dashboard and cleaner reservation workflow.
+  - Manages profile, services, zones, weekly availability, and incoming requests.
+- Admin (profile.role = admin)
+  - Has admin dashboard with stats and management tools (bookings/users/settings).
+
+4) Main routes/pages (functional)
+Public/core
+- / (Home)
+- /comment-ca-marche (How It Works; localized)
+- /services
+- /connexion (login)
+- /inscription (signup)
+- /auth/callback
+
+Client
+- /dashboard/client
+- /dashboard/client/ajouter-espace
+- /dashboard/client/reservation
+- /dashboard/client/reservation/succes
+- /dashboard/client/reservations
+- /dashboard/client/historique
+
+Cleaner
+- /dashboard/nettoyeur
+- /dashboard/nettoyeur/reservations
+- /dashboard/nettoyeur/historique
+
+Admin
+- /dashboard/admin
+
+5) Global navigation and role-based behavior
+- Navbar + mobile bottom nav change items by role.
+- Guests: Home, How It Works, Services, Login.
+- Clients: Dashboard, My bookings, History, Reservation CTA.
+- Cleaners: Requests, Reservations, History, Profile.
+- Admin: Home, How It Works, Admin dashboard.
+- Cleaners are blocked from /services (hidden in UI and redirected at route level).
+
+6) Authentication and account onboarding
+- Email/password login and signup via Supabase Auth.
+- Google OAuth login supported.
+- Signup captures role, first name, last name, city.
+- Profile is loaded/merged from profiles table and user metadata fallback.
+- Role-based post-login redirect:
+  - admin -> admin dashboard
+  - nettoyeur -> cleaner dashboard
+  - client -> client dashboard
+- Welcome email trigger exists (/api/notifications/welcome-email).
+
+7) Public marketing/discovery pages
+Home page
+- Marketplace positioning, service highlights, CTA logic by role.
+- CTA rules:
+  - Guest reserve -> login
+  - Client reserve -> client reservation page
+  - Cleaner reserve CTA is non-action/no booking redirect.
+
+How It Works page
+- Separate explanation tracks for clients and cleaners.
+- Trust/pricing/FAQ/community sections.
+- Clarifies marketplace model and direct service payment between client and cleaner.
+
+Services page (/services)
+- Interactive discovery page (not static brochure).
+- Inputs: service category + city search.
+- Fetches real cleaner profiles and filters by service/zone/availability.
+- Displays cleaner cards with:
+  - profile info
+  - details modal
+  - availability modal
+  - booking modal entry
+- Pagination: 6 cleaner cards/page.
+- Includes 2-step booking modal (hours estimate + summary/date/time/confirm).
+- Uses same-day minimum lead-time checks in Montreal timezone.
+- Uses body scroll lock when modals are open.
+
+8) Client dashboard and space management
+Client dashboard (/dashboard/client)
+- Profile greeting and account info.
+- Phone number management with validation (+1 + 10 digits).
+- Metrics cards (including cleanings completed).
+- Space list with pagination and favorite toggle.
+- Edit/delete space actions.
+- Account deletion flow trigger.
+
+Add/Edit space (/dashboard/client/ajouter-espace)
+- Multi-step form with validations (address, city, details).
+- Zone derivation from city.
+- Optional photo upload to Supabase Storage bucket (space-photos).
+- Phone gate: first space creation requires valid client phone.
+- Supports favorite and active flags.
+
+9) Client reservation flow (/dashboard/client/reservation)
+- Structured 4-step flow:
+  1. Address
+  2. Service selection
+  3. Date/time
+  4. Cleaner list
+- Matching pipeline:
+  - service filter
+  - zone filter
+  - cleaner weekly availability filter
+- Sorting options:
+  - price asc
+  - price desc
+  - most jobs
+  - best rating
+- Pagination for cleaner cards.
+- Cleaner details modal and full description modal.
+- Booking modal uses 2-step process:
+  - step 1: estimated hours guidance
+  - step 2: summary + date/time + final confirm
+- Booking insert writes to bookings with status pending.
+- Triggers booking_created notification event API.
+- Rebook feature:
+  - shows top banner for latest valid past cleaner (completed fallback confirmed)
+  - opens same booking modal preselecting cleaner
+  - dismiss option persisted in localStorage per user/cleaner.
+
+10) Client active bookings (/dashboard/client/reservations)
+- Split sections:
+  - pending bookings
+  - confirmed bookings
+- Booking cards and details modal.
+- Cancel booking action with confirmation modal.
+- Cancellation rule: available only until 24h before scheduled time.
+- Contact visibility rule:
+  - cleaner contact shown only within 24h before service.
+- Cancellation triggers booking_cancelled notification event API.
+
+11) Client history (/dashboard/client/historique)
+- Past bookings listing (completed/confirmed/accepted that are in the past).
+- Pagination.
+- Details modal.
+- Review modal to rate cleaner and leave optional comment.
+- Stores reviews in client_cleaner_reviews.
+
+12) Cleaner dashboard (/dashboard/nettoyeur)
+- Cleaner profile editor:
+  - professional description
+  - hourly rate
+  - selected services (domicile, deep_cleaning, office, moving, post_renovation, airbnb)
+  - weekly availability
+  - availability exceptions
+  - service areas/zones
+  - phone number validation
+  - profile photo/avatar support
+- Persists in cleaner_profiles and profiles.
+- Uses map/zone tools for area management.
+- Save flow includes compatibility fallback when optional columns are missing.
+- Account deletion option exists.
+
+13) Cleaner reservations (/dashboard/nettoyeur/reservations)
+- Two independent sections with independent pagination:
+  - pending cleaning requests
+  - accepted/confirmed reservations
+- Cleaner actions on pending request:
+  - accept (status -> confirmed)
+  - decline (status -> cancelled)
+- Details modal for request/reservation.
+- Contact modal and privacy windows:
+  - client contact + full address become available 24h before service.
+- Accept action triggers booking_confirmed notification event API.
+
+14) Cleaner history (/dashboard/nettoyeur/historique)
+- Past jobs list.
+- Address visibility limited to 3-day window after service date.
+- Details modal with place/client info.
+- Review workflow for cleaner -> client:
+  - completion confirmation (yes/no)
+  - rating + optional comment
+- Stores reviews in cleaner_client_reviews.
+
+15) Admin dashboard (/dashboard/admin)
+Implemented sections (real data, not static):
+- Overview / stats
+  - total users/clients/cleaners
+  - total bookings
+  - pending/confirmed/completed/cancelled/expired
+  - new users this month
+  - platform fee revenue (auto-detected fee column if present)
+- Bookings management
+  - table + filters (status/date/city/booking id) + pagination
+  - actions: details, cancel, status update
+- Clients management
+  - searchable paginated table
+  - actions: view profile, deactivate/reactivate, delete
+- Cleaners management
+  - searchable paginated table
+  - actions: view profile, inspect activity, deactivate/reactivate, delete
+- Settings
+  - platform fee amount
+  - same-day lead time hours
+  - feature toggles
+  - graceful fallback with SQL creation snippet if admin_settings table is missing.
+
+16) Server APIs included in project
+- /api/admin/_auth: bearer token + profile.role=admin gate.
+- /api/admin/overview: stats and fee revenue summary.
+- /api/admin/bookings: list/filter/paginate bookings + status update.
+- /api/admin/users: list clients/cleaners + mutate active state + delete user.
+- /api/admin/settings: get/update admin settings table.
+- /api/notifications/booking-event: booking lifecycle email notifications.
+- /api/notifications/welcome-email: onboarding emails.
+- /api/account/delete: authenticated account deletion and storage cleanup.
+
+17) Booking lifecycle and time/business rules
+- Montreal timezone is used for scheduling rules.
+- Same-day booking requires minimum lead time (2 hours).
+- Pending bookings can be auto-marked expired when no longer valid.
+- Client cancellation allowed only up to 24h before service.
+- Contact details and full address are time-gated for privacy in active reservations.
+- Cleaner history hides full address after defined window (3 days).
+
+18) Data model used (main tables)
+- profiles (role, identity, phone, avatar)
+- cleaner_profiles (services, rates, areas, availability, description)
+- spaces (client places/properties)
+- bookings (client-cleaner reservation records + status)
+- client_cleaner_reviews (client -> cleaner history feedback)
+- cleaner_client_reviews (cleaner -> client history feedback)
+- admin_settings (optional operational configuration)
+- Supabase storage bucket: space-photos
+
+19) Services supported in booking/discovery
+- domicile
+- deep_cleaning
+- office
+- moving
+- post_renovation
+- airbnb
+
+20) Language and localization
+- App supports FR / EN / ES.
+- Localized route mapping and translated labels across pages/modals/navigation.
+
+21) Security and safeguards in current implementation
+- ProtectedRoute blocks authenticated-only pages.
+- Role checks in auth context and route-level redirects.
+- Admin APIs require valid bearer session + admin role in profiles.
+- Admin user mutation protections (cannot self-delete/deactivate, admin target protections).
+- Server-side account delete uses service role and token validation.
+
+22) Operational model (how Nettoyo works end-to-end)
+- Clients create spaces and submit booking requests to independent cleaners.
+- Cleaners choose their zones/services/availability and accept/decline requests.
+- Booking status evolves through pending/confirmed/completed/cancelled/expired.
+- Reviews build trust in both directions (client<->cleaner).
+- Platform fee analytics and operational controls are exposed to admin.
+- Service payment is coordinated directly between client and cleaner; platform handles matching/orchestration.
+
+15) AdminDashboard SQL Commands (Supabase)
+- Run these in Supabase SQL Editor.
+
+-- 15.1 Promote existing account to admin role
+update public.profiles
+set role = 'admin', updated_at = now()
+where email = 'admin@nettoyo.ca';
+
+-- 15.2 Create admin_settings table if missing
+create table if not exists public.admin_settings (
+  key text primary key,
+  value_json jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.admin_settings enable row level security;
+
+drop policy if exists "No direct client access to admin settings" on public.admin_settings;
+create policy "No direct client access to admin settings"
+  on public.admin_settings
+  for all
+  to authenticated
+  using (false)
+  with check (false);
+
+-- 15.3 Seed default admin settings
+insert into public.admin_settings (key, value_json)
+values
+  ('platform_fee_amount', '5'::jsonb),
+  ('same_day_lead_hours', '2'::jsonb),
+  ('feature_toggles', '{"bookingEnabled": true, "cleanerSignupEnabled": true}'::jsonb)
+on conflict (key) do update
+set value_json = excluded.value_json,
+    updated_at = now();
+
+-- 15.4 Verification queries
+select id, email, role
+from public.profiles
+where email = 'admin@nettoyo.ca';
+
+select
+  (select count(*) from public.profiles) as total_users,
+  (select count(*) from public.bookings) as total_bookings;

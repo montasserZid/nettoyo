@@ -61,11 +61,13 @@ export function AuthCallbackPage() {
         }
 
         const nextPath =
-          profile.role === 'nettoyeur'
-            ? '/dashboard/nettoyeur'
-            : getPathForRoute(language, 'clientDashboard');
+          profile.role === 'admin'
+            ? getPathForRoute(language, 'adminDashboard')
+            : profile.role === 'nettoyeur'
+              ? getPathForRoute(language, 'cleanerDashboard')
+              : getPathForRoute(language, 'clientDashboard');
 
-        if (profile.role === 'nettoyeur') {
+        if (profile.role === 'admin' || profile.role === 'nettoyeur') {
           window.history.replaceState({}, '', nextPath);
           window.dispatchEvent(new PopStateEvent('popstate'));
           return;
@@ -100,9 +102,11 @@ export function AuthCallbackPage() {
         }
 
         const nextPath =
-          profile.role === 'nettoyeur'
-            ? '/dashboard/nettoyeur'
-            : getPathForRoute(language, 'clientDashboard');
+          profile.role === 'admin'
+            ? getPathForRoute(language, 'adminDashboard')
+            : profile.role === 'nettoyeur'
+              ? getPathForRoute(language, 'cleanerDashboard')
+              : getPathForRoute(language, 'clientDashboard');
 
         window.history.replaceState(
           {},

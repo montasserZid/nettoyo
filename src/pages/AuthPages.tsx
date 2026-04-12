@@ -328,7 +328,13 @@ export function LoginPage() {
         email: data.user.email ?? null,
         user_metadata: data.user.user_metadata ?? null
       });
-      navigateTo(profile?.role === 'nettoyeur' ? 'cleanerDashboard' : 'clientDashboard');
+      navigateTo(
+        profile?.role === 'admin'
+          ? 'adminDashboard'
+          : profile?.role === 'nettoyeur'
+            ? 'cleanerDashboard'
+            : 'clientDashboard'
+      );
     } catch (profileError) {
       setErrorMessage(profileError instanceof Error ? profileError.message : 'Unable to load profile.');
     } finally {
@@ -356,6 +362,7 @@ export function LoginPage() {
           <div className="text-right"><a href={forgotPath} className="text-sm text-[#4FC3F7] underline underline-offset-2">{content.forgotPassword}</a></div>
           <AuthFeedback message={errorMessage} tone="error" />
           <button type="submit" disabled={loadingMode !== null} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#4FC3F7] px-6 py-3.5 font-bold text-white shadow-[0_14px_28px_rgba(79,195,247,0.28)] transition-all hover:bg-[#3FAAD4] hover:shadow-[0_18px_30px_rgba(79,195,247,0.34)] disabled:cursor-not-allowed disabled:opacity-70">{loadingMode === 'password' ? <Spinner /> : null}{loadingMode === 'password' ? content.submitLoading : content.submit}</button>
+          <div className="pt-1 text-center"><p className="text-[#6B7280]">{content.noAccount}</p><a href={signupPath} className="mt-3 inline-flex w-full items-center justify-center rounded-full border-[1.5px] border-[#4FC3F7] bg-white px-6 py-3.5 font-bold text-[#4FC3F7] transition-colors hover:bg-[rgba(79,195,247,0.05)]">{content.createAccount}</a></div>
         </form>
         <div className="mt-8"><Divider label={content.divider} /></div>
         <div className="mt-8 space-y-3">
@@ -363,8 +370,6 @@ export function LoginPage() {
           <SocialButton label={content.facebook} icon={<FacebookIcon />} />
           <SocialButton label={content.apple} icon={<AppleIcon />} />
         </div>
-        <div className="my-8 h-px bg-[#E5E7EB]" />
-        <div className="text-center"><p className="text-[#6B7280]">{content.noAccount}</p><a href={signupPath} className="mt-4 inline-flex w-full items-center justify-center rounded-full border-[1.5px] border-[#4FC3F7] bg-white px-6 py-3.5 font-bold text-[#4FC3F7] transition-colors hover:bg-[rgba(79,195,247,0.05)]">{content.createAccount}</a></div>
       </AuthCard>
     </div>
   );
@@ -441,7 +446,7 @@ export function SignupPage() {
         email: userEmail ?? null,
         user_metadata: userMetadata ?? null
       });
-      return profile.role === 'nettoyeur' ? 'cleanerDashboard' : 'clientDashboard';
+      return profile.role === 'admin' ? 'adminDashboard' : profile.role === 'nettoyeur' ? 'cleanerDashboard' : 'clientDashboard';
     };
 
     if (data.session?.user?.id) {
