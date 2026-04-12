@@ -1,4 +1,4 @@
-import { parseBody, requireAdmin } from './_auth';
+import { parseBody, requireAdmin } from './_auth.js';
 
 const allowedStatuses = ['pending', 'confirmed', 'completed', 'cancelled', 'expired', 'accepted'] as const;
 

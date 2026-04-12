@@ -1,4 +1,4 @@
-import { parseBody, requireAdmin } from './_auth';
+import { parseBody, requireAdmin } from './_auth.js';
 
 type ListMode = 'clients' | 'cleaners';
 

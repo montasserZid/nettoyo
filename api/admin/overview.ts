@@ -1,4 +1,4 @@
-import { requireAdmin } from './_auth';
+import { requireAdmin } from './_auth.js';
 
 const bookingStatuses = ['pending', 'confirmed', 'completed', 'cancelled', 'expired'] as const;
 const feeColumns = ['platform_fee_amount', 'platform_fee', 'fee_amount'] as const;

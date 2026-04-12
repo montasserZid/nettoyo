@@ -1,4 +1,4 @@
-import { parseBody, requireAdmin } from './_auth';
+import { parseBody, requireAdmin } from './_auth.js';
 
 const createSettingsTableSql = `CREATE TABLE IF NOT EXISTS public.admin_settings (
   key TEXT PRIMARY KEY,
