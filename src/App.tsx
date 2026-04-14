@@ -28,6 +28,7 @@ function AppContent() {
   const { route, navigateTo } = useLanguage();
   const { user, isCleaner, isAdmin, loading } = useAuth();
   const isAdminRoute = route === 'adminDashboard';
+  const seoManagedRoutes = ['home', 'howItWorks', 'services', 'login', 'signup'] as const;
   const pageTitleByRoute: Partial<Record<typeof route, string>> = {
     howItWorks: 'How It Works',
     services: 'Services',
@@ -46,6 +47,9 @@ function AppContent() {
   };
 
   useEffect(() => {
+    if (seoManagedRoutes.includes(route as (typeof seoManagedRoutes)[number])) {
+      return;
+    }
     document.title = buildPageTitle(pageTitleByRoute[route]);
   }, [route]);
 

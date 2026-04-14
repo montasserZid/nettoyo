@@ -1,5 +1,8 @@
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { SEOHead } from '../components/SEOHead';
+import { getSeoMeta } from '../seo/metadata';
+import { getHreflangAlternates } from '../seo/hreflang';
 
 const IconZap = () => (
   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -44,11 +47,13 @@ interface ServiceCard {
 }
 
 export function HomePage() {
-  const { t, navigateTo } = useLanguage();
+  const { language, t, navigateTo } = useLanguage();
   const { user, isClient, isCleaner } = useAuth();
   const loggedIn = Boolean(user);
   const canReserveFromHome = !loggedIn || isClient();
   const canBecomeCleanerFromHome = !loggedIn;
+  const seo = getSeoMeta('home', language);
+  const hreflang = getHreflangAlternates('home');
 
   const goToReservation = () => {
     if (!user) {
@@ -88,8 +93,28 @@ export function HomePage() {
     { icon: <IconStar />, title: t.home.trust.transparentTitle, desc: t.home.trust.transparentDesc }
   ];
 
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': ['LocalBusiness', 'CleaningService'],
+    name: 'Nettoyó',
+    url: seo.canonical,
+    image: 'https://nettoyo.ca/og-default.jpg',
+    areaServed: ['Montréal', 'Laval', 'Longueuil', 'Rive-Nord', 'Rive-Sud'],
+    serviceType: ['Nettoyage domicile', 'Nettoyage en profondeur', 'Bureau', 'Déménagement', 'Airbnb']
+  };
+
   return (
     <main style={{ fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", color: '#1A1A2E', overflowX: 'hidden' }}>
+      <SEOHead
+        title={seo.title}
+        description={seo.description}
+        canonical={seo.canonical}
+        ogTitle={seo.ogTitle}
+        ogDescription={seo.ogDescription}
+        ogImage={seo.ogImage}
+        hreflang={hreflang}
+        structuredData={structuredData}
+      />
       <section style={{
         position: 'relative',
         background: 'linear-gradient(135deg, #f0fbff 0%, #e8faf3 55%, #f8fffc 100%)',

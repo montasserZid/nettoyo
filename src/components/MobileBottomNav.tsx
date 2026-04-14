@@ -186,7 +186,7 @@ export function MobileBottomNav() {
   }, [cleanerView, isAdmin, isCleaner, isClient, language, pendingBookingCount, route, user]);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-[70] border-t border-[#E5E7EB] bg-white/95 shadow-[0_-10px_24px_rgba(17,24,39,0.08)] backdrop-blur-sm md:hidden">
+    <nav aria-label="Navigation mobile" className="fixed inset-x-0 bottom-0 z-[70] border-t border-[#E5E7EB] bg-white/95 shadow-[0_-10px_24px_rgba(17,24,39,0.08)] backdrop-blur-sm md:hidden">
       <div className="mx-auto grid max-w-2xl grid-cols-3 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {items.map((item) => {
           const Icon = item.icon;

@@ -15,8 +15,11 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { Language } from '../i18n/translations';
 import { getPathForRoute } from '../i18n/routes';
 import { NettoyoLogo } from '../components/NettoyoLogo';
+import { SEOHead } from '../components/SEOHead';
 import supabase from '../lib/supabase';
 import { fetchProfile } from '../context/AuthContext';
+import { getSeoMeta } from '../seo/metadata';
+import { getHreflangAlternates } from '../seo/hreflang';
 
 type Role = 'client' | 'nettoyeur';
 
@@ -308,6 +311,8 @@ function AuthFeedback({ message, tone }: { message: string | null; tone: 'error'
 export function LoginPage() {
   const { language, navigateTo } = useLanguage();
   const content = loginContent[language];
+  const seo = getSeoMeta('login', language);
+  const hreflang = getHreflangAlternates('login');
   const signupPath = getPathForRoute(language, 'signup');
   const forgotPath = `/${language}/${forgotPasswordSlugs[language]}`;
   const [email, setEmail] = useState('');
@@ -354,6 +359,16 @@ export function LoginPage() {
 
   return (
     <div className="flex flex-1 items-center justify-center bg-[#F7F7F7] px-4 py-10 sm:px-6 lg:px-8">
+      <SEOHead
+        title={seo.title}
+        description={seo.description}
+        canonical={seo.canonical}
+        ogTitle={seo.ogTitle}
+        ogDescription={seo.ogDescription}
+        ogImage={seo.ogImage}
+        hreflang={hreflang}
+        noIndex
+      />
       <AuthCard>
         <div className="flex flex-col items-center text-center"><div className="overflow-visible px-6 pt-2"><NettoyoLogo className="h-16 sm:h-18" /></div><h1 className="mt-5 text-3xl font-bold text-[#1A1A2E]">{content.title}</h1><p className="mt-2 text-[#6B7280]">{content.subtitle}</p></div>
         <form className="mt-8 space-y-4" onSubmit={(event) => { event.preventDefault(); void handlePasswordLogin(); }}>
@@ -383,6 +398,8 @@ function RoleCard({ title, description, tone, selected, faded, buttonLabel, icon
 export function SignupPage() {
   const { language, navigateTo } = useLanguage();
   const content = signupContent[language];
+  const seo = getSeoMeta('signup', language);
+  const hreflang = getHreflangAlternates('signup');
   const loginPath = getPathForRoute(language, 'login');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -479,6 +496,16 @@ export function SignupPage() {
 
   return (
     <div className="flex flex-1 items-center justify-center bg-[#F7F7F7] px-4 py-10 sm:px-6 lg:px-8">
+      <SEOHead
+        title={seo.title}
+        description={seo.description}
+        canonical={seo.canonical}
+        ogTitle={seo.ogTitle}
+        ogDescription={seo.ogDescription}
+        ogImage={seo.ogImage}
+        hreflang={hreflang}
+        noIndex
+      />
       <AuthCard maxWidth="max-w-[520px]">
         <div className="flex flex-col items-center text-center"><div className="overflow-visible px-6 pt-2"><NettoyoLogo className="h-16 sm:h-18" /></div><h1 className="mt-5 text-3xl font-bold text-[#1A1A2E]">{content.title}</h1><p className="mt-2 text-[#6B7280]">{content.subtitle}</p></div>
         <div className="mt-8 grid gap-4 md:grid-cols-2">

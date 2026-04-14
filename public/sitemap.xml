@@ -1,0 +1,142 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://nettoyo.ca/fr</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/en</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/es</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es" />
+  </url>
+
+  <url>
+    <loc>https://nettoyo.ca/fr/services</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/services" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/services" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/servicios" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/en/services</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/services" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/services" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/servicios" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/es/servicios</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/services" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/services" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/servicios" />
+  </url>
+
+  <url>
+    <loc>https://nettoyo.ca/fr/comment-ca-marche</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/comment-ca-marche" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/how-it-works" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/como-funciona" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/en/how-it-works</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/comment-ca-marche" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/how-it-works" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/como-funciona" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/es/como-funciona</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/comment-ca-marche" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/how-it-works" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/como-funciona" />
+  </url>
+
+  <url>
+    <loc>https://nettoyo.ca/fr/inscription</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/inscription" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/signup" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/registro" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/en/signup</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/inscription" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/signup" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/registro" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/es/registro</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/inscription" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/signup" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/registro" />
+  </url>
+
+  <url>
+    <loc>https://nettoyo.ca/fr/connexion</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/connexion" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/login" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/iniciar-sesion" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/en/login</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/connexion" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/login" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/iniciar-sesion" />
+  </url>
+  <url>
+    <loc>https://nettoyo.ca/es/iniciar-sesion</loc>
+    <lastmod>2026-04-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nettoyo.ca/fr/connexion" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://nettoyo.ca/en/login" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://nettoyo.ca/es/iniciar-sesion" />
+  </url>
+</urlset>

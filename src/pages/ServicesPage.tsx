@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { PaginationControls } from '../components/PaginationControls';
+import { SEOHead } from '../components/SEOHead';
 import { TimePickerField } from '../components/TimePickerField';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
@@ -32,6 +33,8 @@ import {
 } from '../lib/montrealDate';
 import { areaPoints, deriveZoneFromCityName } from '../lib/zoneMapping';
 import supabase from '../lib/supabase';
+import { getSeoMeta } from '../seo/metadata';
+import { getHreflangAlternates } from '../seo/hreflang';
 
 type ServiceCategory = 'all' | 'home' | 'deep' | 'office' | 'move' | 'renovation' | 'airbnb';
 type ServiceId = 'domicile' | 'deep_cleaning' | 'office' | 'moving' | 'post_renovation' | 'airbnb';
@@ -510,6 +513,8 @@ export function ServicesPage() {
   const { user, session, loading: authLoading, isClient, isCleaner } = useAuth();
   const ui = UI[language];
   const filters = FILTERS[language];
+  const seo = getSeoMeta('services', language);
+  const hreflang = getHreflangAlternates('services');
   const addSpacePath = getPathForRoute(language, 'clientAddSpace');
   const successPath = getPathForRoute(language, 'clientReservationSuccess');
   const cityOptions = useMemo(
@@ -827,8 +832,32 @@ export function ServicesPage() {
     document.getElementById('search-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const itemListStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: ui.title,
+    itemListElement: (Object.entries(filters) as Array<[ServiceCategory, string]>)
+      .filter(([category]) => category !== 'all')
+      .map(([category, label], index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: label,
+        url: `${seo.canonical}#${category}`
+      }))
+  };
+
   return (
-    <div className="bg-white">
+    <main className="bg-white">
+      <SEOHead
+        title={seo.title}
+        description={seo.description}
+        canonical={seo.canonical}
+        ogTitle={seo.ogTitle}
+        ogDescription={seo.ogDescription}
+        ogImage={seo.ogImage}
+        hreflang={hreflang}
+        structuredData={itemListStructuredData}
+      />
 
       <section className="border-b border-[#E5E7EB] bg-[rgba(168,230,207,0.2)]">
         <div className="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6 lg:px-8">
@@ -1595,7 +1624,7 @@ export function ServicesPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </main>
   );
 }
 

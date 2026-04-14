@@ -22,6 +22,9 @@ import {
 import { useLanguage } from '../i18n/LanguageContext';
 import { Language } from '../i18n/translations';
 import { getLocalizedSectionPath, getPathForRoute } from '../i18n/routes';
+import { SEOHead } from '../components/SEOHead';
+import { getSeoMeta } from '../seo/metadata';
+import { getHreflangAlternates } from '../seo/hreflang';
 
 type Audience = 'client' | 'cleaner';
 
@@ -533,6 +536,8 @@ function StepSection({
 export function HowItWorksPage() {
   const { language } = useLanguage();
   const content = pageContent[language];
+  const seo = getSeoMeta('howItWorks', language);
+  const hreflang = getHreflangAlternates('howItWorks');
   const [audience, setAudience] = useState<Audience>('client');
   const [openFaq, setOpenFaq] = useState(0);
   const [activeShowcaseIndex, setActiveShowcaseIndex] = useState(0);
@@ -627,8 +632,31 @@ export function HowItWorksPage() {
     return () => window.clearInterval(timer);
   }, [showcaseTotal]);
 
+  const faqStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: content.faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer
+      }
+    }))
+  };
+
   return (
-    <div className="bg-white">
+    <main className="bg-white">
+      <SEOHead
+        title={seo.title}
+        description={seo.description}
+        canonical={seo.canonical}
+        ogTitle={seo.ogTitle}
+        ogDescription={seo.ogDescription}
+        ogImage={seo.ogImage}
+        hreflang={hreflang}
+        structuredData={faqStructuredData}
+      />
       <section className="border-b border-[#E5E7EB] bg-[rgba(168,230,207,0.2)]">
         <div className="mx-auto max-w-5xl px-4 py-20 text-center sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold text-[#1A1A2E] md:text-5xl">{content.hero.title}</h1>
@@ -891,7 +919,7 @@ export function HowItWorksPage() {
           </div>
         </div>
       </section>
-    </div>
+    </main>
   );
 }
 

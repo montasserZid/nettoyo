@@ -121,7 +121,7 @@ export function Navbar() {
     : t.nav.bookNow;
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white">
+    <nav aria-label="Navigation principale" className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           <a href={homePath} className="flex items-center overflow-visible py-2" onClick={(event) => { event.preventDefault(); goTo('home'); }}>

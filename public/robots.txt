@@ -1,0 +1,13 @@
+﻿User-agent: *
+Allow: /
+
+# Block all dashboard and auth routes
+Disallow: /dashboard/
+Disallow: /auth/
+
+# Block locale-prefixed dashboard routes
+Disallow: /fr/dashboard/
+Disallow: /en/dashboard/
+Disallow: /es/dashboard/
+
+Sitemap: https://nettoyo.ca/sitemap.xml
